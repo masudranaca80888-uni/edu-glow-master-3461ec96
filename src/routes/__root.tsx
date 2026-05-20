@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
   Link,
+  Navigate,
   createRootRouteWithContext,
   useRouter,
   useLocation,
@@ -115,46 +116,43 @@ function RootShell({ children }: { children: React.ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const location = useLocation();
-  const { hydrate, hydrated, user } = useAppStore();
+  const { hydrate, hydrated, sessionReady, authLoading, user } = useAppStore();
 
   useEffect(() => {
     hydrate();
   }, [hydrate]);
 
-  const guard = useMemo(() => {
+  const redirectTo = useMemo(() => {
     const path = location.pathname;
-    const publicRoutes = ["/", "/login", "/register", "/admin-login", "/forgot-password", "/verify-otp", "/reset-password", "/email-verified"];
-    if (!hydrated || publicRoutes.includes(path)) return null;
-    if (path.startsWith("/admin") && user?.role !== "admin") return "admin";
-    if (!path.startsWith("/admin") && !user) return "student";
+    const authRoutes = ["/login", "/register", "/admin-login"];
+    const publicRoutes = ["/", ...authRoutes, "/forgot-password", "/verify-otp", "/reset-password", "/email-verified"];
+    const studentRoutes = ["/dashboard", "/mcq-practice", "/quiz", "/custom-exam", "/mock-test", "/flash-cards", "/short-notes", "/qns-bank", "/classes", "/notifications", "/profile"];
+    const isAdminRoute = path === "/admin" || path.startsWith("/admin/");
+    const isStudentRoute = studentRoutes.includes(path);
+
+    if (!hydrated || !sessionReady) return null;
+    if (user && authRoutes.includes(path)) return user.role === "admin" ? "/admin" : "/dashboard";
+    if (!user && (isAdminRoute || isStudentRoute)) return "/login";
+    if (user && isAdminRoute && user.role !== "admin") return "/dashboard";
+    if (!publicRoutes.includes(path) && !user && !isAdminRoute && !isStudentRoute) return null;
     return null;
-  }, [hydrated, location.pathname, user]);
+  }, [hydrated, location.pathname, sessionReady, user]);
 
   return (
     <QueryClientProvider client={queryClient}>
-      {guard ? <UnauthorizedPage mode={guard} /> : <Outlet />}
+      {!hydrated || !sessionReady || authLoading ? <AuthLoader /> : redirectTo ? <Navigate to={redirectTo as never} replace /> : <Outlet />}
       <Toaster position="top-right" richColors closeButton />
     </QueryClientProvider>
   );
 }
 
-function UnauthorizedPage({ mode }: { mode: "student" | "admin" }) {
+function AuthLoader() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-4 text-foreground">
       <section className="glass shadow-card-soft max-w-md rounded-3xl p-8 text-center">
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--neon-purple)]">Protected route</p>
-        <h1 className="mt-3 font-display text-3xl font-bold">Sign in required</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {mode === "admin" ? "Admin pages require an active admin session." : "Student pages require an active learning session."}
-        </p>
-        <div className="mt-6 flex justify-center gap-2">
-          <Link to={mode === "admin" ? "/admin-login" : "/login"} className="bg-cta-gradient rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-glow">
-            Login
-          </Link>
-          <Link to="/" className="rounded-xl border border-border px-4 py-2 text-sm font-semibold hover:bg-muted">
-            Home
-          </Link>
-        </div>
+        <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-[var(--neon-purple)] border-t-transparent" />
+        <h1 className="mt-4 font-display text-2xl font-bold">Restoring session</h1>
+        <p className="mt-2 text-sm text-muted-foreground">Preparing your EduMaster Pro workspace…</p>
       </section>
     </main>
   );
