@@ -150,18 +150,19 @@ function Header() {
 /* ---------------- Stat grid ---------------- */
 function StatGrid() {
   const stats = [
-    { l: "Total Students", v: "48,920", d: "+312 this week", up: true, i: Users, tint: "text-sky-300", spark: [12, 18, 14, 22, 19, 28, 24] },
-    { l: "Total MCQs", v: "126,408", d: "+1,284 new", up: true, i: ListChecks, tint: "text-fuchsia-300", spark: [10, 14, 20, 18, 26, 30, 34] },
-    { l: "Active Exams", v: "182", d: "+8 today", up: true, i: Trophy, tint: "text-amber-300", spark: [22, 20, 26, 18, 24, 28, 30] },
-    { l: "Revenue", v: "$184.2K", d: "−2.1% vs last", up: false, i: CreditCard, tint: "text-emerald-300", spark: [24, 28, 22, 30, 26, 20, 22] },
-    { l: "Daily Active", v: "12,402", d: "+4.8%", up: true, i: Activity, tint: "text-violet-300", spark: [16, 22, 18, 28, 24, 32, 30] },
-    { l: "Server Status", v: "99.98%", d: "All healthy", up: true, i: Server, tint: "text-teal-300", spark: [28, 30, 28, 30, 32, 30, 32] },
+    { l: "Total Students", v: "48,920", d: "+312 this week", up: true, i: Users, tint: "text-sky-300", to: "/admin/users", spark: [12, 18, 14, 22, 19, 28, 24] },
+    { l: "Total MCQs", v: "126,408", d: "+1,284 new", up: true, i: ListChecks, tint: "text-fuchsia-300", to: "/admin/mcq", spark: [10, 14, 20, 18, 26, 30, 34] },
+    { l: "Active Exams", v: "182", d: "+8 today", up: true, i: Trophy, tint: "text-amber-300", to: "/admin/mock-test", spark: [22, 20, 26, 18, 24, 28, 30] },
+    { l: "Revenue", v: "$184.2K", d: "−2.1% vs last", up: false, i: CreditCard, tint: "text-emerald-300", to: "/admin/settings", spark: [24, 28, 22, 30, 26, 20, 22] },
+    { l: "Daily Active", v: "12,402", d: "+4.8%", up: true, i: Activity, tint: "text-violet-300", to: "/admin/analytics", spark: [16, 22, 18, 28, 24, 32, 30] },
+    { l: "Server Status", v: "99.98%", d: "All healthy", up: true, i: Server, tint: "text-teal-300", to: "/admin/settings", spark: [28, 30, 28, 30, 32, 30, 32] },
   ];
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
       {stats.map((s) => (
-        <div
+        <Link
           key={s.l}
+          to={s.to as never}
           className="glass shadow-card-soft group relative overflow-hidden rounded-2xl p-4 transition-all hover:-translate-y-0.5 hover:shadow-glow"
         >
           <div className="pointer-events-none absolute -inset-px rounded-2xl bg-gradient-to-br from-[var(--neon-purple)]/0 to-[var(--neon-blue)]/0 opacity-0 transition-opacity group-hover:opacity-30 group-hover:from-[var(--neon-purple)]/40 group-hover:to-[var(--neon-blue)]/40" />
@@ -185,7 +186,7 @@ function StatGrid() {
             <p className="font-display text-2xl font-bold">{s.v}</p>
             <Spark data={s.spark} />
           </div>
-        </div>
+        </Link>
       ))}
     </div>
   );
@@ -377,7 +378,7 @@ function ExamParticipation() {
           <h3 className="font-display text-lg font-semibold">Exam Participation</h3>
           <p className="text-xs text-muted-foreground">Live & recently completed</p>
         </div>
-        <button className="text-xs text-muted-foreground hover:text-foreground">View all</button>
+        <Link to="/admin/mock-test" className="text-xs text-muted-foreground hover:text-foreground">View all</Link>
       </div>
       <div className="mt-4 space-y-3">
         {rows.map((r) => (
