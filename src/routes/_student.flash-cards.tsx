@@ -3,7 +3,7 @@ import { DashSidebar } from "@/components/dashboard/DashSidebar";
 import { DashTopbar } from "@/components/dashboard/DashTopbar";
 import { FlashCardsFlow } from "@/components/dashboard/FlashCardsFlow";
 
-export const Route = createFileRoute("/flash-cards")({
+export const Route = createFileRoute("/_student/flash-cards")({
   component: FlashCardsPage,
   head: () => ({
     meta: [
