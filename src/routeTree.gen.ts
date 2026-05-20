@@ -26,6 +26,7 @@ import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminShortNotesRouteImport } from './routes/admin.short-notes'
 import { Route as AdminQuizRouteImport } from './routes/admin.quiz'
 import { Route as AdminQuestionBankRouteImport } from './routes/admin.question-bank'
+import { Route as AdminNotificationsRouteImport } from './routes/admin.notifications'
 import { Route as AdminMockTestRouteImport } from './routes/admin.mock-test'
 import { Route as AdminMcqRouteImport } from './routes/admin.mcq'
 import { Route as AdminFlashCardsRouteImport } from './routes/admin.flash-cards'
@@ -116,6 +117,11 @@ const AdminQuestionBankRoute = AdminQuestionBankRouteImport.update({
   path: '/question-bank',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminNotificationsRoute = AdminNotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminMockTestRoute = AdminMockTestRouteImport.update({
   id: '/mock-test',
   path: '/mock-test',
@@ -155,6 +161,7 @@ export interface FileRoutesByFullPath {
   '/admin/flash-cards': typeof AdminFlashCardsRoute
   '/admin/mcq': typeof AdminMcqRoute
   '/admin/mock-test': typeof AdminMockTestRoute
+  '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/question-bank': typeof AdminQuestionBankRoute
   '/admin/quiz': typeof AdminQuizRoute
   '/admin/short-notes': typeof AdminShortNotesRoute
@@ -178,6 +185,7 @@ export interface FileRoutesByTo {
   '/admin/flash-cards': typeof AdminFlashCardsRoute
   '/admin/mcq': typeof AdminMcqRoute
   '/admin/mock-test': typeof AdminMockTestRoute
+  '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/question-bank': typeof AdminQuestionBankRoute
   '/admin/quiz': typeof AdminQuizRoute
   '/admin/short-notes': typeof AdminShortNotesRoute
@@ -202,6 +210,7 @@ export interface FileRoutesById {
   '/admin/flash-cards': typeof AdminFlashCardsRoute
   '/admin/mcq': typeof AdminMcqRoute
   '/admin/mock-test': typeof AdminMockTestRoute
+  '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/question-bank': typeof AdminQuestionBankRoute
   '/admin/quiz': typeof AdminQuizRoute
   '/admin/short-notes': typeof AdminShortNotesRoute
@@ -227,6 +236,7 @@ export interface FileRouteTypes {
     | '/admin/flash-cards'
     | '/admin/mcq'
     | '/admin/mock-test'
+    | '/admin/notifications'
     | '/admin/question-bank'
     | '/admin/quiz'
     | '/admin/short-notes'
@@ -250,6 +260,7 @@ export interface FileRouteTypes {
     | '/admin/flash-cards'
     | '/admin/mcq'
     | '/admin/mock-test'
+    | '/admin/notifications'
     | '/admin/question-bank'
     | '/admin/quiz'
     | '/admin/short-notes'
@@ -273,6 +284,7 @@ export interface FileRouteTypes {
     | '/admin/flash-cards'
     | '/admin/mcq'
     | '/admin/mock-test'
+    | '/admin/notifications'
     | '/admin/question-bank'
     | '/admin/quiz'
     | '/admin/short-notes'
@@ -416,6 +428,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminQuestionBankRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/notifications': {
+      id: '/admin/notifications'
+      path: '/notifications'
+      fullPath: '/admin/notifications'
+      preLoaderRoute: typeof AdminNotificationsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/mock-test': {
       id: '/admin/mock-test'
       path: '/mock-test'
@@ -452,6 +471,7 @@ interface AdminRouteChildren {
   AdminFlashCardsRoute: typeof AdminFlashCardsRoute
   AdminMcqRoute: typeof AdminMcqRoute
   AdminMockTestRoute: typeof AdminMockTestRoute
+  AdminNotificationsRoute: typeof AdminNotificationsRoute
   AdminQuestionBankRoute: typeof AdminQuestionBankRoute
   AdminQuizRoute: typeof AdminQuizRoute
   AdminShortNotesRoute: typeof AdminShortNotesRoute
@@ -463,6 +483,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminFlashCardsRoute: AdminFlashCardsRoute,
   AdminMcqRoute: AdminMcqRoute,
   AdminMockTestRoute: AdminMockTestRoute,
+  AdminNotificationsRoute: AdminNotificationsRoute,
   AdminQuestionBankRoute: AdminQuestionBankRoute,
   AdminQuizRoute: AdminQuizRoute,
   AdminShortNotesRoute: AdminShortNotesRoute,
@@ -489,3 +510,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
