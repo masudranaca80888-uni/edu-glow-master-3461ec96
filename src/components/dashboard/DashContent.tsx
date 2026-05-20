@@ -250,7 +250,7 @@ export function DashContent() {
         <div className="lg:col-span-2">
           <div className="flex items-center justify-between">
             <h3 className="font-display text-lg font-bold">Continue Learning</h3>
-            <a href="#" className="text-xs text-muted-foreground hover:text-foreground">View all</a>
+            <Link to="/classes" className="text-xs text-muted-foreground hover:text-foreground">View all</Link>
           </div>
           <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-3">
             {learning.map((l) => (
