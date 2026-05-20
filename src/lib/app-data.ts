@@ -59,7 +59,7 @@ export function getRouteTitle(pathname: string) {
   if (match) return match.title;
   if (pathname === "/") return "Home";
   if (pathname === "/login") return "Student Login";
-  if (pathname === "/register") return "Student Register";
+  if (pathname === "/signup" || pathname === "/register") return "Sign Up";
   if (pathname === "/admin-login") return "Admin Login";
   return pathname.split("/").filter(Boolean).map((p) => p.replace(/-/g, " ")).join(" / ") || "EduMaster Pro";
 }
@@ -72,7 +72,7 @@ export function routeForAction(label: string, role: AppRole = "student") {
   );
   if (direct) return direct.to;
   if (normalized.includes("login") || normalized.includes("sign in")) return role === "admin" ? "/admin-login" : "/login";
-  if (normalized.includes("register") || normalized.includes("sign up") || normalized.includes("create account")) return "/register";
+  if (normalized.includes("register") || normalized.includes("sign up") || normalized.includes("create account")) return "/signup";
   if (normalized.includes("start") || normalized.includes("continue") || normalized.includes("resume")) return "/dashboard";
   return null;
 }

@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VerifyOtpRouteImport } from './routes/verify-otp'
+import { Route as SignupRouteImport } from './routes/signup'
 import { Route as ShortNotesRouteImport } from './routes/short-notes'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as RegisterRouteImport } from './routes/register'
@@ -44,6 +45,11 @@ import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
 const VerifyOtpRoute = VerifyOtpRouteImport.update({
   id: '/verify-otp',
   path: '/verify-otp',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ShortNotesRoute = ShortNotesRouteImport.update({
@@ -217,6 +223,7 @@ export interface FileRoutesByFullPath {
   '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/short-notes': typeof ShortNotesRoute
+  '/signup': typeof SignupRoute
   '/verify-otp': typeof VerifyOtpRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/classes': typeof AdminClassesRoute
@@ -250,6 +257,7 @@ export interface FileRoutesByTo {
   '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/short-notes': typeof ShortNotesRoute
+  '/signup': typeof SignupRoute
   '/verify-otp': typeof VerifyOtpRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/classes': typeof AdminClassesRoute
@@ -284,6 +292,7 @@ export interface FileRoutesById {
   '/register': typeof RegisterRoute
   '/reset-password': typeof ResetPasswordRoute
   '/short-notes': typeof ShortNotesRoute
+  '/signup': typeof SignupRoute
   '/verify-otp': typeof VerifyOtpRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/classes': typeof AdminClassesRoute
@@ -319,6 +328,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/reset-password'
     | '/short-notes'
+    | '/signup'
     | '/verify-otp'
     | '/admin/analytics'
     | '/admin/classes'
@@ -352,6 +362,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/reset-password'
     | '/short-notes'
+    | '/signup'
     | '/verify-otp'
     | '/admin/analytics'
     | '/admin/classes'
@@ -385,6 +396,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/reset-password'
     | '/short-notes'
+    | '/signup'
     | '/verify-otp'
     | '/admin/analytics'
     | '/admin/classes'
@@ -419,6 +431,7 @@ export interface RootRouteChildren {
   RegisterRoute: typeof RegisterRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   ShortNotesRoute: typeof ShortNotesRoute
+  SignupRoute: typeof SignupRoute
   VerifyOtpRoute: typeof VerifyOtpRoute
 }
 
@@ -429,6 +442,13 @@ declare module '@tanstack/react-router' {
       path: '/verify-otp'
       fullPath: '/verify-otp'
       preLoaderRoute: typeof VerifyOtpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/short-notes': {
@@ -694,18 +714,9 @@ const rootRouteChildren: RootRouteChildren = {
   RegisterRoute: RegisterRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   ShortNotesRoute: ShortNotesRoute,
+  SignupRoute: SignupRoute,
   VerifyOtpRoute: VerifyOtpRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

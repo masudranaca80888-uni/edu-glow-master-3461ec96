@@ -64,7 +64,7 @@ function VerifyOtp() {
 
       <p className="mt-6 text-center text-[11px] text-muted-foreground">
         Wrong number?{" "}
-        <Link to="/register" className="font-semibold text-[var(--neon-blue)] hover:underline">
+        <Link to="/signup" className="font-semibold text-[var(--neon-blue)] hover:underline">
           Update profile
         </Link>
       </p>
