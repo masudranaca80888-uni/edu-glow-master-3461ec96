@@ -319,9 +319,10 @@ export function DashContent() {
         <h3 className="font-display text-lg font-bold">Quick Actions</h3>
         <div className="mt-3 grid grid-cols-2 gap-4 md:grid-cols-4">
           {actions.map((a) => (
-            <button
+            <Link
               key={a.t}
-              className="glass shadow-card-soft group relative overflow-hidden rounded-2xl p-4 text-left transition-transform hover:-translate-y-0.5"
+              to={a.to}
+              className="glass shadow-card-soft group relative block overflow-hidden rounded-2xl p-4 text-left transition-transform hover:-translate-y-0.5"
             >
               <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-[var(--neon-blue)]/20 blur-2xl transition-opacity group-hover:opacity-100" />
               <div className="bg-cta-gradient flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-glow">
@@ -331,7 +332,7 @@ export function DashContent() {
               <p className="mt-1 inline-flex items-center gap-1 text-[10px] text-muted-foreground group-hover:text-foreground">
                 Launch <ArrowRight className="h-3 w-3" />
               </p>
-            </button>
+            </Link>
           ))}
         </div>
       </section>
