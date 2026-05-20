@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import type { AppRole } from "@/lib/app-data";
+import { supabase } from "@/integrations/supabase/client";
+import { fetchSessionUser, signOut } from "@/lib/mock-backend";
 
 type UserSession = { name: string; email: string; role: AppRole } | null;
 
@@ -12,15 +14,15 @@ type AppState = {
   hydrated: boolean;
   hydrate: () => void;
   login: (user: NonNullable<UserSession>) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
   toggleTheme: () => void;
   setSidebarOpen: (open: boolean) => void;
   markNotificationsRead: () => void;
   setQuizRuntime: (quizRuntime: AppState["quizRuntime"]) => void;
 };
 
-const SESSION_KEY = "edumaster.session";
 const THEME_KEY = "edumaster.theme";
+let authSubscribed = false;
 
 export const useAppStore = create<AppState>((set, get) => ({
   user: null,
@@ -31,19 +33,33 @@ export const useAppStore = create<AppState>((set, get) => ({
   hydrated: false,
   hydrate: () => {
     if (typeof window === "undefined") return;
-    const rawSession = window.localStorage.getItem(SESSION_KEY);
     const rawTheme = window.localStorage.getItem(THEME_KEY) as "dark" | "light" | null;
-    const user = rawSession ? (JSON.parse(rawSession) as UserSession) : null;
     const theme = rawTheme ?? get().theme;
     document.documentElement.classList.toggle("dark", theme === "dark");
-    set({ user, theme, hydrated: true });
+    set({ theme });
+
+    // Resolve current Supabase session (if any)
+    fetchSessionUser()
+      .then((user) => set({ user, hydrated: true }))
+      .catch(() => set({ hydrated: true }));
+
+    if (!authSubscribed) {
+      authSubscribed = true;
+      supabase.auth.onAuthStateChange((_event, session) => {
+        if (!session) {
+          set({ user: null });
+          return;
+        }
+        // Defer Supabase calls to avoid deadlocks inside the callback
+        setTimeout(() => {
+          fetchSessionUser().then((u) => set({ user: u })).catch(() => {});
+        }, 0);
+      });
+    }
   },
-  login: (user) => {
-    if (typeof window !== "undefined") window.localStorage.setItem(SESSION_KEY, JSON.stringify(user));
-    set({ user });
-  },
-  logout: () => {
-    if (typeof window !== "undefined") window.localStorage.removeItem(SESSION_KEY);
+  login: (user) => set({ user }),
+  logout: async () => {
+    await signOut();
     set({ user: null });
   },
   toggleTheme: () => {
