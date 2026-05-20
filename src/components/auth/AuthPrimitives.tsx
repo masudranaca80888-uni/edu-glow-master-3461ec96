@@ -1,4 +1,4 @@
-import { type InputHTMLAttributes, type ReactNode, forwardRef, useEffect, useRef, useState } from "react";
+import { type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, forwardRef, useEffect, useRef, useState } from "react";
 import { Eye, EyeOff, Check, X } from "lucide-react";
 
 export function FieldLabel({ children }: { children: ReactNode }) {
@@ -69,15 +69,12 @@ export function NeonButton({
   variant = "primary",
   className = "",
   type = "button",
-  onClick,
   disabled = false,
-}: {
+  ...props
+}: Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className"> & {
   children: ReactNode;
   variant?: "primary" | "ghost" | "danger";
   className?: string;
-  type?: "button" | "submit";
-  onClick?: () => void;
-  disabled?: boolean;
 }) {
   const base =
     "relative inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold transition-all duration-300";
@@ -85,7 +82,8 @@ export function NeonButton({
     return (
       <button
         type={type}
-        onClick={onClick} disabled={disabled}
+        disabled={disabled}
+        {...props}
         className={`${base} text-white shadow-[0_10px_40px_-10px_var(--neon-purple)] hover:shadow-[0_15px_50px_-10px_var(--neon-blue)] hover:-translate-y-0.5 ${className}`}
         style={{ background: "var(--gradient-cta)" }}
       >
@@ -97,7 +95,8 @@ export function NeonButton({
     return (
       <button
         type={type}
-        onClick={onClick} disabled={disabled}
+        disabled={disabled}
+        {...props}
         className={`${base} bg-gradient-to-br from-rose-500 to-fuchsia-600 text-white shadow-[0_10px_30px_-10px_rgba(244,63,94,0.6)] hover:-translate-y-0.5 ${className}`}
       >
         {children}
@@ -107,7 +106,8 @@ export function NeonButton({
   return (
     <button
       type={type}
-      onClick={onClick} disabled={disabled}
+      disabled={disabled}
+      {...props}
       className={`${base} border border-border bg-card/60 text-foreground backdrop-blur-xl hover:border-[var(--neon-blue)] hover:shadow-[0_0_24px_-4px_var(--neon-blue)] ${className}`}
     >
       {children}
