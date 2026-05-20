@@ -33,7 +33,8 @@ import {
   UserPlus,
   ShieldCheck,
 } from "lucide-react";
-import { useState } from "react";
+import { Link } from "@tanstack/react-router";
+import { useAppStore } from "@/stores/app-store";
 
 export function AdminFlow() {
   return (
@@ -68,7 +69,9 @@ export function AdminFlow() {
 
 /* ---------------- Topbar ---------------- */
 function AdminTopbar() {
-  const [dark, setDark] = useState(true);
+  const theme = useAppStore((s) => s.theme);
+  const toggleTheme = useAppStore((s) => s.toggleTheme);
+  const unread = useAppStore((s) => s.notificationsUnread);
   return (
     <div className="glass shadow-card-soft flex items-center gap-3 rounded-2xl p-3">
       <div className="relative flex-1 max-w-md">
@@ -84,18 +87,22 @@ function AdminTopbar() {
           All systems operational
         </div>
         <button
-          onClick={() => setDark((v) => !v)}
+          type="button"
+          onClick={toggleTheme}
+          aria-label="Toggle theme"
           className="flex h-10 w-10 items-center justify-center rounded-xl border border-border/60 bg-background/40 hover:text-foreground"
         >
-          {dark ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+          {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </button>
-        <button className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-border/60 bg-background/40">
+        <Link to="/admin/notifications" aria-label="Notifications" className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-border/60 bg-background/40">
           <Bell className="h-4 w-4" />
-          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-cta-gradient px-1 text-[9px] font-bold text-white shadow-glow">
-            7
-          </span>
-        </button>
-        <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-background/40 p-1.5 pr-3">
+          {unread > 0 && (
+            <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-cta-gradient px-1 text-[9px] font-bold text-white shadow-glow">
+              {unread}
+            </span>
+          )}
+        </Link>
+        <Link to="/admin/settings" className="flex items-center gap-2 rounded-xl border border-border/60 bg-background/40 p-1.5 pr-3">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-cta-gradient text-[10px] font-bold text-white shadow-glow">
             AD
           </div>
@@ -103,7 +110,7 @@ function AdminTopbar() {
             <p className="text-xs font-semibold">Admin</p>
             <p className="text-[10px] text-muted-foreground">Super Admin</p>
           </div>
-        </div>
+        </Link>
       </div>
     </div>
   );
@@ -128,12 +135,12 @@ function Header() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="bg-cta-gradient flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-glow">
+          <Link to="/admin/mcq" className="bg-cta-gradient flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-glow">
             <PlusCircle className="h-4 w-4" /> New Resource
-          </button>
-          <button className="flex items-center gap-1.5 rounded-xl border border-border/60 bg-background/40 px-4 py-2.5 text-sm">
+          </Link>
+          <Link to="/admin/notifications" className="flex items-center gap-1.5 rounded-xl border border-border/60 bg-background/40 px-4 py-2.5 text-sm">
             <Send className="h-4 w-4" /> Broadcast
-          </button>
+          </Link>
         </div>
       </div>
     </div>
@@ -433,26 +440,27 @@ function RecentActivityFeed() {
 
 /* ---------------- Quick actions ---------------- */
 function QuickActions() {
-  const actions = [
-    { t: "Upload MCQ", i: Upload, c: "from-fuchsia-500/30 to-purple-500/10 text-fuchsia-300" },
-    { t: "Create Quiz", i: Timer, c: "from-sky-500/30 to-blue-500/10 text-sky-300" },
-    { t: "Publish Mock", i: Trophy, c: "from-amber-500/30 to-orange-500/10 text-amber-300" },
-    { t: "Add Video Class", i: PlayCircle, c: "from-violet-500/30 to-indigo-500/10 text-violet-300" },
-    { t: "Upload Notes", i: FileText, c: "from-cyan-500/30 to-teal-500/10 text-cyan-300" },
-    { t: "Send Notification", i: Send, c: "from-emerald-500/30 to-green-500/10 text-emerald-300" },
+  const actions: { t: string; i: typeof Upload; c: string; to: "/admin/mcq" | "/admin/quiz" | "/admin/mock-test" | "/admin/classes" | "/admin/short-notes" | "/admin/notifications" }[] = [
+    { t: "Upload MCQ", i: Upload, c: "from-fuchsia-500/30 to-purple-500/10 text-fuchsia-300", to: "/admin/mcq" },
+    { t: "Create Quiz", i: Timer, c: "from-sky-500/30 to-blue-500/10 text-sky-300", to: "/admin/quiz" },
+    { t: "Publish Mock", i: Trophy, c: "from-amber-500/30 to-orange-500/10 text-amber-300", to: "/admin/mock-test" },
+    { t: "Add Video Class", i: PlayCircle, c: "from-violet-500/30 to-indigo-500/10 text-violet-300", to: "/admin/classes" },
+    { t: "Upload Notes", i: FileText, c: "from-cyan-500/30 to-teal-500/10 text-cyan-300", to: "/admin/short-notes" },
+    { t: "Send Notification", i: Send, c: "from-emerald-500/30 to-green-500/10 text-emerald-300", to: "/admin/notifications" },
   ];
   return (
     <div className="glass shadow-card-soft rounded-2xl p-5">
       <h3 className="font-display text-lg font-semibold">Quick Actions</h3>
       <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
         {actions.map((a) => (
-          <button
+          <Link
             key={a.t}
+            to={a.to}
             className={`group flex flex-col items-start gap-2 rounded-xl border border-white/10 bg-gradient-to-br ${a.c} p-3 text-left transition-all hover:-translate-y-0.5 hover:shadow-glow`}
           >
             <a.i className="h-5 w-5" />
             <span className="text-xs font-semibold text-foreground">{a.t}</span>
-          </button>
+          </Link>
         ))}
       </div>
     </div>

@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import {
   ListChecks,
   Timer,
@@ -43,11 +44,11 @@ const notifications = [
   { t: "Weekly leaderboard updated", s: "System · 3h ago", c: "var(--neon-pink)" },
 ];
 
-const actions = [
-  { t: "Start MCQ Practice", i: ListChecks },
-  { t: "Start Quiz", i: Timer },
-  { t: "Create Custom Exam", i: SlidersHorizontal },
-  { t: "Open Flash Cards", i: Layers },
+const actions: { t: string; i: typeof ListChecks; to: "/mcq-practice" | "/quiz" | "/custom-exam" | "/flash-cards" }[] = [
+  { t: "Start MCQ Practice", i: ListChecks, to: "/mcq-practice" },
+  { t: "Start Quiz", i: Timer, to: "/quiz" },
+  { t: "Create Custom Exam", i: SlidersHorizontal, to: "/custom-exam" },
+  { t: "Open Flash Cards", i: Layers, to: "/flash-cards" },
 ];
 
 export function DashContent() {
@@ -69,12 +70,12 @@ export function DashContent() {
             </p>
           </div>
           <div className="relative flex gap-3">
-            <button className="rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-foreground shadow-card-soft transition-transform hover:scale-[1.03]">
+            <Link to="/mcq-practice" className="rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-foreground shadow-card-soft transition-transform hover:scale-[1.03]">
               Resume Learning
-            </button>
-            <button className="rounded-2xl border border-white/30 bg-white/10 px-5 py-3 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/20">
+            </Link>
+            <Link to="/profile" className="rounded-2xl border border-white/30 bg-white/10 px-5 py-3 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/20">
               View Goals
-            </button>
+            </Link>
           </div>
         </div>
       </section>
@@ -237,9 +238,9 @@ export function DashContent() {
               <p>· 4,820 students registered</p>
             </div>
 
-            <button className="bg-cta-gradient mt-auto inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-glow transition-transform hover:scale-[1.02]">
+            <Link to="/mock-test" className="bg-cta-gradient mt-auto inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-glow transition-transform hover:scale-[1.02]">
               Join Mock Test <ArrowRight className="h-4 w-4" />
-            </button>
+            </Link>
           </div>
         </div>
       </section>
@@ -249,7 +250,7 @@ export function DashContent() {
         <div className="lg:col-span-2">
           <div className="flex items-center justify-between">
             <h3 className="font-display text-lg font-bold">Continue Learning</h3>
-            <a href="#" className="text-xs text-muted-foreground hover:text-foreground">View all</a>
+            <Link to="/classes" className="text-xs text-muted-foreground hover:text-foreground">View all</Link>
           </div>
           <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-3">
             {learning.map((l) => (
@@ -279,9 +280,9 @@ export function DashContent() {
                     />
                   </div>
                 </div>
-                <button className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-border bg-background/40 py-2 text-xs font-semibold transition-colors hover:bg-muted">
+                <Link to="/classes" className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-border bg-background/40 py-2 text-xs font-semibold transition-colors hover:bg-muted">
                   Resume <ArrowRight className="h-3 w-3" />
-                </button>
+                </Link>
               </div>
             ))}
           </div>
@@ -307,9 +308,9 @@ export function DashContent() {
               </li>
             ))}
           </ul>
-          <button className="mt-3 w-full rounded-xl border border-border bg-background/40 py-2 text-xs font-semibold transition-colors hover:bg-muted">
+          <Link to="/notifications" className="mt-3 inline-flex w-full items-center justify-center rounded-xl border border-border bg-background/40 py-2 text-xs font-semibold transition-colors hover:bg-muted">
             View all notifications
-          </button>
+          </Link>
         </div>
       </section>
 
@@ -318,9 +319,10 @@ export function DashContent() {
         <h3 className="font-display text-lg font-bold">Quick Actions</h3>
         <div className="mt-3 grid grid-cols-2 gap-4 md:grid-cols-4">
           {actions.map((a) => (
-            <button
+            <Link
               key={a.t}
-              className="glass shadow-card-soft group relative overflow-hidden rounded-2xl p-4 text-left transition-transform hover:-translate-y-0.5"
+              to={a.to}
+              className="glass shadow-card-soft group relative block overflow-hidden rounded-2xl p-4 text-left transition-transform hover:-translate-y-0.5"
             >
               <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-[var(--neon-blue)]/20 blur-2xl transition-opacity group-hover:opacity-100" />
               <div className="bg-cta-gradient flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-glow">
@@ -330,7 +332,7 @@ export function DashContent() {
               <p className="mt-1 inline-flex items-center gap-1 text-[10px] text-muted-foreground group-hover:text-foreground">
                 Launch <ArrowRight className="h-3 w-3" />
               </p>
-            </button>
+            </Link>
           ))}
         </div>
       </section>
