@@ -5,15 +5,17 @@ import { useAppStore } from "@/stores/app-store";
 export function DashTopbar({ onMenu }: { onMenu?: () => void }) {
   const theme = useAppStore((s) => s.theme);
   const toggleTheme = useAppStore((s) => s.toggleTheme);
+  const setSidebarOpen = useAppStore((s) => s.setSidebarOpen);
   const unread = useAppStore((s) => s.notificationsUnread);
   const user = useAppStore((s) => s.user);
   const initial = (user?.name ?? "Learner").charAt(0).toUpperCase();
+  const openMenu = onMenu ?? (() => setSidebarOpen(true));
 
   return (
     <header className="glass shadow-card-soft sticky top-4 z-30 flex items-center gap-3 rounded-2xl px-3 py-2.5 sm:px-4">
       <button
         type="button"
-        onClick={onMenu}
+        onClick={openMenu}
         className="glass flex h-9 w-9 items-center justify-center rounded-xl lg:hidden"
         aria-label="Open menu"
       >
@@ -31,6 +33,7 @@ export function DashTopbar({ onMenu }: { onMenu?: () => void }) {
       <button
         type="button"
         onClick={toggleTheme}
+        data-store-theme-toggle="true"
         className="glass flex h-10 w-10 items-center justify-center rounded-xl transition-transform hover:scale-105"
         aria-label="Toggle theme"
       >
