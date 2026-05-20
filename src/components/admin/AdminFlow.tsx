@@ -150,18 +150,19 @@ function Header() {
 /* ---------------- Stat grid ---------------- */
 function StatGrid() {
   const stats = [
-    { l: "Total Students", v: "48,920", d: "+312 this week", up: true, i: Users, tint: "text-sky-300", spark: [12, 18, 14, 22, 19, 28, 24] },
-    { l: "Total MCQs", v: "126,408", d: "+1,284 new", up: true, i: ListChecks, tint: "text-fuchsia-300", spark: [10, 14, 20, 18, 26, 30, 34] },
-    { l: "Active Exams", v: "182", d: "+8 today", up: true, i: Trophy, tint: "text-amber-300", spark: [22, 20, 26, 18, 24, 28, 30] },
-    { l: "Revenue", v: "$184.2K", d: "−2.1% vs last", up: false, i: CreditCard, tint: "text-emerald-300", spark: [24, 28, 22, 30, 26, 20, 22] },
-    { l: "Daily Active", v: "12,402", d: "+4.8%", up: true, i: Activity, tint: "text-violet-300", spark: [16, 22, 18, 28, 24, 32, 30] },
-    { l: "Server Status", v: "99.98%", d: "All healthy", up: true, i: Server, tint: "text-teal-300", spark: [28, 30, 28, 30, 32, 30, 32] },
+    { l: "Total Students", v: "48,920", d: "+312 this week", up: true, i: Users, tint: "text-sky-300", to: "/admin/users", spark: [12, 18, 14, 22, 19, 28, 24] },
+    { l: "Total MCQs", v: "126,408", d: "+1,284 new", up: true, i: ListChecks, tint: "text-fuchsia-300", to: "/admin/mcq", spark: [10, 14, 20, 18, 26, 30, 34] },
+    { l: "Active Exams", v: "182", d: "+8 today", up: true, i: Trophy, tint: "text-amber-300", to: "/admin/mock-test", spark: [22, 20, 26, 18, 24, 28, 30] },
+    { l: "Revenue", v: "$184.2K", d: "−2.1% vs last", up: false, i: CreditCard, tint: "text-emerald-300", to: "/admin/settings", spark: [24, 28, 22, 30, 26, 20, 22] },
+    { l: "Daily Active", v: "12,402", d: "+4.8%", up: true, i: Activity, tint: "text-violet-300", to: "/admin/analytics", spark: [16, 22, 18, 28, 24, 32, 30] },
+    { l: "Server Status", v: "99.98%", d: "All healthy", up: true, i: Server, tint: "text-teal-300", to: "/admin/settings", spark: [28, 30, 28, 30, 32, 30, 32] },
   ];
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
       {stats.map((s) => (
-        <div
+        <Link
           key={s.l}
+          to={s.to as never}
           className="glass shadow-card-soft group relative overflow-hidden rounded-2xl p-4 transition-all hover:-translate-y-0.5 hover:shadow-glow"
         >
           <div className="pointer-events-none absolute -inset-px rounded-2xl bg-gradient-to-br from-[var(--neon-purple)]/0 to-[var(--neon-blue)]/0 opacity-0 transition-opacity group-hover:opacity-30 group-hover:from-[var(--neon-purple)]/40 group-hover:to-[var(--neon-blue)]/40" />
@@ -185,7 +186,7 @@ function StatGrid() {
             <p className="font-display text-2xl font-bold">{s.v}</p>
             <Spark data={s.spark} />
           </div>
-        </div>
+        </Link>
       ))}
     </div>
   );
@@ -377,7 +378,7 @@ function ExamParticipation() {
           <h3 className="font-display text-lg font-semibold">Exam Participation</h3>
           <p className="text-xs text-muted-foreground">Live & recently completed</p>
         </div>
-        <button className="text-xs text-muted-foreground hover:text-foreground">View all</button>
+        <Link to="/admin/mock-test" className="text-xs text-muted-foreground hover:text-foreground">View all</Link>
       </div>
       <div className="mt-4 space-y-3">
         {rows.map((r) => (
@@ -548,10 +549,10 @@ function TopStudents() {
 /* ---------------- Pending tasks ---------------- */
 function PendingTasks() {
   const tasks = [
-    { i: CheckCircle2, t: "Approve 12 instructor MCQ batches", c: "text-amber-300" },
-    { i: Clock, t: "Schedule NEET full-length test", c: "text-sky-300" },
-    { i: PenSquare, t: "Finalize draft notification (#48)", c: "text-fuchsia-300" },
-    { i: AlertCircle, t: "Review 3 flagged reports", c: "text-rose-300" },
+    { i: CheckCircle2, t: "Approve 12 instructor MCQ batches", c: "text-amber-300", to: "/admin/mcq" },
+    { i: Clock, t: "Schedule NEET full-length test", c: "text-sky-300", to: "/admin/mock-test" },
+    { i: PenSquare, t: "Finalize draft notification (#48)", c: "text-fuchsia-300", to: "/admin/notifications" },
+    { i: AlertCircle, t: "Review 3 flagged reports", c: "text-rose-300", to: "/admin/users" },
   ];
   return (
     <div className="glass shadow-card-soft rounded-2xl p-4">
@@ -566,7 +567,7 @@ function PendingTasks() {
           <li key={i} className="flex items-center gap-3 rounded-xl border border-border/60 bg-background/40 p-2.5">
             <t.i className={`h-4 w-4 ${t.c}`} />
             <span className="flex-1 text-xs">{t.t}</span>
-            <button className="text-[10px] text-muted-foreground hover:text-foreground">Open</button>
+            <Link to={t.to as never} className="text-[10px] text-muted-foreground hover:text-foreground">Open</Link>
           </li>
         ))}
       </ul>
@@ -577,10 +578,10 @@ function PendingTasks() {
 /* ---------------- System overview ---------------- */
 function SystemOverview() {
   const items = [
-    { l: "Total downloads", v: "248,930", i: Download, tint: "text-sky-300" },
-    { l: "Video watch hours", v: "92,418 h", i: PlayCircle, tint: "text-fuchsia-300" },
-    { l: "Flash card usage", v: "1.2M flips", i: Layers, tint: "text-violet-300" },
-    { l: "Most active subject", v: "Mathematics", i: Sparkles, tint: "text-amber-300" },
+    { l: "Total downloads", v: "248,930", i: Download, tint: "text-sky-300", to: "/admin/question-bank" },
+    { l: "Video watch hours", v: "92,418 h", i: PlayCircle, tint: "text-fuchsia-300", to: "/admin/classes" },
+    { l: "Flash card usage", v: "1.2M flips", i: Layers, tint: "text-violet-300", to: "/admin/flash-cards" },
+    { l: "Most active subject", v: "Mathematics", i: Sparkles, tint: "text-amber-300", to: "/admin/analytics" },
   ];
   return (
     <div className="glass shadow-card-soft rounded-3xl p-5">
@@ -592,8 +593,9 @@ function SystemOverview() {
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {items.map((it) => (
-          <div
+          <Link
             key={it.l}
+            to={it.to as never}
             className="group relative overflow-hidden rounded-2xl border border-border/60 bg-background/40 p-4 transition-all hover:-translate-y-0.5 hover:shadow-glow"
           >
             <div className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-gradient-to-br from-[var(--neon-purple)]/20 to-[var(--neon-blue)]/10 blur-2xl" />
@@ -606,7 +608,7 @@ function SystemOverview() {
                 <it.i className="h-4 w-4" />
               </div>
             </div>
-          </div>
+          </Link>
         ))}
       </div>
     </div>

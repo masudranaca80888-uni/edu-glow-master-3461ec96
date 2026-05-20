@@ -1,4 +1,5 @@
 import { ArrowRight, Sparkles } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import { DashboardPreview } from "./DashboardPreview";
 
 export function Hero() {
@@ -29,19 +30,19 @@ export function Hero() {
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <a
-              href="#start"
+            <Link
+              to="/signup"
               className="bg-cta-gradient shadow-glow group inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-3.5 text-sm font-semibold text-white transition-transform hover:scale-[1.02]"
             >
               Start Learning
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-            </a>
-            <a
-              href="#features"
+            </Link>
+            <Link
+              to="/dashboard"
               className="glass inline-flex items-center justify-center gap-2 rounded-2xl px-6 py-3.5 text-sm font-semibold text-foreground transition-transform hover:scale-[1.02]"
             >
               Explore Features
-            </a>
+            </Link>
           </div>
 
           {/* Inline metrics */}
