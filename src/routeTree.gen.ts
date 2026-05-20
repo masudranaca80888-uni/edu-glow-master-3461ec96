@@ -24,6 +24,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminShortNotesRouteImport } from './routes/admin.short-notes'
+import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminQuizRouteImport } from './routes/admin.quiz'
 import { Route as AdminQuestionBankRouteImport } from './routes/admin.question-bank'
 import { Route as AdminNotificationsRouteImport } from './routes/admin.notifications'
@@ -108,6 +109,11 @@ const AdminShortNotesRoute = AdminShortNotesRouteImport.update({
   path: '/short-notes',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminSettingsRoute = AdminSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminQuizRoute = AdminQuizRouteImport.update({
   id: '/quiz',
   path: '/quiz',
@@ -171,6 +177,7 @@ export interface FileRoutesByFullPath {
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/question-bank': typeof AdminQuestionBankRoute
   '/admin/quiz': typeof AdminQuizRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/admin/short-notes': typeof AdminShortNotesRoute
   '/admin/users': typeof AdminUsersRoute
 }
@@ -196,6 +203,7 @@ export interface FileRoutesByTo {
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/question-bank': typeof AdminQuestionBankRoute
   '/admin/quiz': typeof AdminQuizRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/admin/short-notes': typeof AdminShortNotesRoute
   '/admin/users': typeof AdminUsersRoute
 }
@@ -222,6 +230,7 @@ export interface FileRoutesById {
   '/admin/notifications': typeof AdminNotificationsRoute
   '/admin/question-bank': typeof AdminQuestionBankRoute
   '/admin/quiz': typeof AdminQuizRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/admin/short-notes': typeof AdminShortNotesRoute
   '/admin/users': typeof AdminUsersRoute
 }
@@ -249,6 +258,7 @@ export interface FileRouteTypes {
     | '/admin/notifications'
     | '/admin/question-bank'
     | '/admin/quiz'
+    | '/admin/settings'
     | '/admin/short-notes'
     | '/admin/users'
   fileRoutesByTo: FileRoutesByTo
@@ -274,6 +284,7 @@ export interface FileRouteTypes {
     | '/admin/notifications'
     | '/admin/question-bank'
     | '/admin/quiz'
+    | '/admin/settings'
     | '/admin/short-notes'
     | '/admin/users'
   id:
@@ -299,6 +310,7 @@ export interface FileRouteTypes {
     | '/admin/notifications'
     | '/admin/question-bank'
     | '/admin/quiz'
+    | '/admin/settings'
     | '/admin/short-notes'
     | '/admin/users'
   fileRoutesById: FileRoutesById
@@ -426,6 +438,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminShortNotesRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/settings': {
+      id: '/admin/settings'
+      path: '/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminSettingsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/quiz': {
       id: '/admin/quiz'
       path: '/quiz'
@@ -494,6 +513,7 @@ interface AdminRouteChildren {
   AdminNotificationsRoute: typeof AdminNotificationsRoute
   AdminQuestionBankRoute: typeof AdminQuestionBankRoute
   AdminQuizRoute: typeof AdminQuizRoute
+  AdminSettingsRoute: typeof AdminSettingsRoute
   AdminShortNotesRoute: typeof AdminShortNotesRoute
   AdminUsersRoute: typeof AdminUsersRoute
 }
@@ -507,6 +527,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminNotificationsRoute: AdminNotificationsRoute,
   AdminQuestionBankRoute: AdminQuestionBankRoute,
   AdminQuizRoute: AdminQuizRoute,
+  AdminSettingsRoute: AdminSettingsRoute,
   AdminShortNotesRoute: AdminShortNotesRoute,
   AdminUsersRoute: AdminUsersRoute,
 }
