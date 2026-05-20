@@ -440,13 +440,13 @@ function RecentActivityFeed() {
 
 /* ---------------- Quick actions ---------------- */
 function QuickActions() {
-  const actions = [
-    { t: "Upload MCQ", i: Upload, c: "from-fuchsia-500/30 to-purple-500/10 text-fuchsia-300" },
-    { t: "Create Quiz", i: Timer, c: "from-sky-500/30 to-blue-500/10 text-sky-300" },
-    { t: "Publish Mock", i: Trophy, c: "from-amber-500/30 to-orange-500/10 text-amber-300" },
-    { t: "Add Video Class", i: PlayCircle, c: "from-violet-500/30 to-indigo-500/10 text-violet-300" },
-    { t: "Upload Notes", i: FileText, c: "from-cyan-500/30 to-teal-500/10 text-cyan-300" },
-    { t: "Send Notification", i: Send, c: "from-emerald-500/30 to-green-500/10 text-emerald-300" },
+  const actions: { t: string; i: typeof Upload; c: string; to: "/admin/mcq" | "/admin/quiz" | "/admin/mock-test" | "/admin/classes" | "/admin/short-notes" | "/admin/notifications" }[] = [
+    { t: "Upload MCQ", i: Upload, c: "from-fuchsia-500/30 to-purple-500/10 text-fuchsia-300", to: "/admin/mcq" },
+    { t: "Create Quiz", i: Timer, c: "from-sky-500/30 to-blue-500/10 text-sky-300", to: "/admin/quiz" },
+    { t: "Publish Mock", i: Trophy, c: "from-amber-500/30 to-orange-500/10 text-amber-300", to: "/admin/mock-test" },
+    { t: "Add Video Class", i: PlayCircle, c: "from-violet-500/30 to-indigo-500/10 text-violet-300", to: "/admin/classes" },
+    { t: "Upload Notes", i: FileText, c: "from-cyan-500/30 to-teal-500/10 text-cyan-300", to: "/admin/short-notes" },
+    { t: "Send Notification", i: Send, c: "from-emerald-500/30 to-green-500/10 text-emerald-300", to: "/admin/notifications" },
   ];
   return (
     <div className="glass shadow-card-soft rounded-2xl p-5">
