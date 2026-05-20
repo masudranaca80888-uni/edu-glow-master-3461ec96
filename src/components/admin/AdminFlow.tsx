@@ -69,7 +69,9 @@ export function AdminFlow() {
 
 /* ---------------- Topbar ---------------- */
 function AdminTopbar() {
-  const [dark, setDark] = useState(true);
+  const theme = useAppStore((s) => s.theme);
+  const toggleTheme = useAppStore((s) => s.toggleTheme);
+  const unread = useAppStore((s) => s.notificationsUnread);
   return (
     <div className="glass shadow-card-soft flex items-center gap-3 rounded-2xl p-3">
       <div className="relative flex-1 max-w-md">
@@ -85,18 +87,22 @@ function AdminTopbar() {
           All systems operational
         </div>
         <button
-          onClick={() => setDark((v) => !v)}
+          type="button"
+          onClick={toggleTheme}
+          aria-label="Toggle theme"
           className="flex h-10 w-10 items-center justify-center rounded-xl border border-border/60 bg-background/40 hover:text-foreground"
         >
-          {dark ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+          {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </button>
-        <button className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-border/60 bg-background/40">
+        <Link to="/admin/notifications" aria-label="Notifications" className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-border/60 bg-background/40">
           <Bell className="h-4 w-4" />
-          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-cta-gradient px-1 text-[9px] font-bold text-white shadow-glow">
-            7
-          </span>
-        </button>
-        <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-background/40 p-1.5 pr-3">
+          {unread > 0 && (
+            <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-cta-gradient px-1 text-[9px] font-bold text-white shadow-glow">
+              {unread}
+            </span>
+          )}
+        </Link>
+        <Link to="/admin/settings" className="flex items-center gap-2 rounded-xl border border-border/60 bg-background/40 p-1.5 pr-3">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-cta-gradient text-[10px] font-bold text-white shadow-glow">
             AD
           </div>
@@ -104,7 +110,7 @@ function AdminTopbar() {
             <p className="text-xs font-semibold">Admin</p>
             <p className="text-[10px] text-muted-foreground">Super Admin</p>
           </div>
-        </div>
+        </Link>
       </div>
     </div>
   );
