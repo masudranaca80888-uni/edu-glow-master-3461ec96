@@ -1,12 +1,15 @@
 import { create } from "zustand";
 import type { AppRole } from "@/lib/app-data";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchSessionUser, signOut } from "@/lib/mock-backend";
+import { fetchSessionUser, signOut, type AuthUser } from "@/lib/auth-client";
 
-type UserSession = { name: string; email: string; role: AppRole } | null;
+type UserSession = AuthUser | null;
 
 type AppState = {
   user: UserSession;
+  sessionReady: boolean;
+  authLoading: boolean;
+  authError: string | null;
   theme: "dark" | "light";
   sidebarOpen: boolean;
   notificationsUnread: number;
@@ -14,6 +17,7 @@ type AppState = {
   hydrated: boolean;
   hydrate: () => void;
   login: (user: NonNullable<UserSession>) => void;
+  refreshAuth: () => Promise<UserSession>;
   logout: () => Promise<void>;
   toggleTheme: () => void;
   setSidebarOpen: (open: boolean) => void;
@@ -26,6 +30,9 @@ let authSubscribed = false;
 
 export const useAppStore = create<AppState>((set, get) => ({
   user: null,
+  sessionReady: false,
+  authLoading: true,
+  authError: null,
   theme: "dark",
   sidebarOpen: false,
   notificationsUnread: 7,
@@ -38,29 +45,41 @@ export const useAppStore = create<AppState>((set, get) => ({
     document.documentElement.classList.toggle("dark", theme === "dark");
     set({ theme });
 
-    // Resolve current Supabase session (if any)
-    fetchSessionUser()
-      .then((user) => set({ user, hydrated: true }))
-      .catch(() => set({ hydrated: true }));
+    set({ hydrated: true });
+    void get().refreshAuth();
 
     if (!authSubscribed) {
       authSubscribed = true;
       supabase.auth.onAuthStateChange((_event, session) => {
         if (!session) {
-          set({ user: null });
+          set({ user: null, sessionReady: true, authLoading: false, authError: null });
           return;
         }
-        // Defer Supabase calls to avoid deadlocks inside the callback
         setTimeout(() => {
-          fetchSessionUser().then((u) => set({ user: u })).catch(() => {});
+          void get().refreshAuth();
         }, 0);
       });
     }
   },
-  login: (user) => set({ user }),
+  login: (user) => set({ user, sessionReady: true, authLoading: false, authError: null }),
+  refreshAuth: async () => {
+    set({ authLoading: true, authError: null });
+    try {
+      const { data, error } = await supabase.auth.getSession();
+      if (error) throw error;
+      const user = await fetchSessionUser(data.session);
+      set({ user, sessionReady: true, authLoading: false, authError: null });
+      return user;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not restore session";
+      set({ user: null, sessionReady: true, authLoading: false, authError: message });
+      return null;
+    }
+  },
   logout: async () => {
+    set({ authLoading: true });
     await signOut();
-    set({ user: null });
+    set({ user: null, sessionReady: true, authLoading: false, authError: null, quizRuntime: { active: false, score: 0, answered: 0 } });
   },
   toggleTheme: () => {
     const theme = get().theme === "dark" ? "light" : "dark";
