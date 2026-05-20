@@ -9,10 +9,16 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as QuizRouteImport } from './routes/quiz'
 import { Route as McqPracticeRouteImport } from './routes/mcq-practice'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
 
+const QuizRoute = QuizRouteImport.update({
+  id: '/quiz',
+  path: '/quiz',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const McqPracticeRoute = McqPracticeRouteImport.update({
   id: '/mcq-practice',
   path: '/mcq-practice',
@@ -33,34 +39,45 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/mcq-practice': typeof McqPracticeRoute
+  '/quiz': typeof QuizRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/mcq-practice': typeof McqPracticeRoute
+  '/quiz': typeof QuizRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/mcq-practice': typeof McqPracticeRoute
+  '/quiz': typeof QuizRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dashboard' | '/mcq-practice'
+  fullPaths: '/' | '/dashboard' | '/mcq-practice' | '/quiz'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dashboard' | '/mcq-practice'
-  id: '__root__' | '/' | '/dashboard' | '/mcq-practice'
+  to: '/' | '/dashboard' | '/mcq-practice' | '/quiz'
+  id: '__root__' | '/' | '/dashboard' | '/mcq-practice' | '/quiz'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRoute: typeof DashboardRoute
   McqPracticeRoute: typeof McqPracticeRoute
+  QuizRoute: typeof QuizRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/quiz': {
+      id: '/quiz'
+      path: '/quiz'
+      fullPath: '/quiz'
+      preLoaderRoute: typeof QuizRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/mcq-practice': {
       id: '/mcq-practice'
       path: '/mcq-practice'
@@ -89,6 +106,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRoute,
   McqPracticeRoute: McqPracticeRoute,
+  QuizRoute: QuizRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
