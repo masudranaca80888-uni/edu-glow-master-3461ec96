@@ -495,5 +495,3 @@ function EmptyState({ text }: { text: string }) {
   );
 }
 
-import { Clock as _C } from "lucide-react";
-void _C;
