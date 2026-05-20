@@ -321,6 +321,7 @@ export function McqAdminConsole() {
       {showBulk && chapterId && (
         <BulkImportDialog
           chapterId={chapterId}
+          existingQuestions={rows.map((r) => r.question)}
           onClose={() => setShowBulk(false)}
           onDone={() => { setShowBulk(false); invalidateAll(); }}
           run={bulkImportFn}
