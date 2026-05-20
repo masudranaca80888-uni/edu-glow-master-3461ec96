@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
-import { McqManagerFlow } from "@/components/admin/McqManagerFlow";
+import { McqAdminConsole } from "@/components/admin/McqAdminConsole";
 
 export const Route = createFileRoute("/admin/mcq")({
   component: AdminMcqPage,
