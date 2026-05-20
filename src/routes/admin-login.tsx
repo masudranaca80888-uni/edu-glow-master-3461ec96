@@ -11,7 +11,7 @@ import {
   OtpInput,
 } from "@/components/auth/AuthPrimitives";
 import { useAppStore } from "@/stores/app-store";
-import { signInWithEmail } from "@/lib/auth-client";
+import { signInWithEmail, signOut } from "@/lib/auth-client";
 
 export const Route = createFileRoute("/admin-login")({
   component: AdminLogin,
@@ -41,6 +41,8 @@ function AdminLogin() {
       const user = await refreshAuth();
       if (!user) throw new Error("Session not found");
       if (user.role !== "admin") {
+        await signOut();
+        await refreshAuth();
         throw new Error("This account does not have admin privileges.");
       }
       toast.success("Admin verified. Welcome.");
