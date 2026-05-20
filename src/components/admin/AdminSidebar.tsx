@@ -1,36 +1,13 @@
-import {
-  LayoutDashboard,
-  ListChecks,
-  Timer,
-  Trophy,
-  Layers,
-  FileText,
-  Database,
-  PlayCircle,
-  Users,
-  Bell,
-  BarChart3,
-  Settings,
-  LogOut,
-  ShieldCheck,
-} from "lucide-react";
-
-const items = [
-  { t: "Dashboard", i: LayoutDashboard },
-  { t: "MCQ Manager", i: ListChecks },
-  { t: "Quiz Manager", i: Timer },
-  { t: "Mock Test Manager", i: Trophy },
-  { t: "Flash Card Manager", i: Layers },
-  { t: "Short Notes Manager", i: FileText },
-  { t: "Qns Bank Manager", i: Database },
-  { t: "Classes Manager", i: PlayCircle },
-  { t: "User Management", i: Users },
-  { t: "Notification Manager", i: Bell },
-  { t: "Analytics", i: BarChart3 },
-  { t: "Settings", i: Settings },
-];
+import { LogOut, ShieldCheck } from "lucide-react";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { toast } from "sonner";
+import { adminNavItems } from "@/lib/app-data";
+import { useAppStore } from "@/stores/app-store";
 
 export function AdminSidebar({ active = "Dashboard" }: { active?: string }) {
+  const currentPath = useRouterState({ select: (s) => s.location.pathname });
+  const logout = useAppStore((s) => s.logout);
+  const navigate = useNavigate();
   return (
     <aside className="glass shadow-card-soft sticky top-4 hidden h-[calc(100vh-2rem)] w-64 shrink-0 flex-col rounded-3xl p-4 lg:flex">
       <div className="flex items-center gap-2 px-2 py-2">
@@ -50,31 +27,31 @@ export function AdminSidebar({ active = "Dashboard" }: { active?: string }) {
           Manage
         </p>
         <ul className="mt-2 space-y-1">
-          {items.map((m) => {
-            const isActive = m.t === active;
+          {adminNavItems.map((m) => {
+            const isActive = currentPath === m.to || m.title === active;
             return (
-              <li key={m.t}>
-                <a
-                  href="#"
+              <li key={m.title}>
+                <Link
+                  to={m.to as never}
                   className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all ${
                     isActive
                       ? "bg-cta-gradient text-white shadow-glow"
                       : "text-foreground/80 hover:bg-muted hover:text-foreground"
                   }`}
                 >
-                  <m.i className="h-4 w-4" />
-                  {m.t}
+                  <m.icon className="h-4 w-4" />
+                  {m.title}
                   {isActive && (
                     <span className="ml-auto h-1.5 w-1.5 rounded-full bg-white shadow-[0_0_8px_white]" />
                   )}
-                </a>
+                </Link>
               </li>
             );
           })}
         </ul>
       </nav>
 
-      <button className="mt-4 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive">
+      <button onClick={async () => { await logout(); toast.success("Logged out"); navigate({ to: "/login" }); }} className="mt-4 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive">
         <LogOut className="h-4 w-4" />
         Logout
       </button>

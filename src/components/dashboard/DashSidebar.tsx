@@ -1,4 +1,4 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   LogOut,
   GraduationCap,
@@ -10,6 +10,7 @@ import { useAppStore } from "@/stores/app-store";
 export function DashSidebar({ active = "Dashboard" }: { active?: string }) {
   const currentPath = useRouterState({ select: (s) => s.location.pathname });
   const logout = useAppStore((s) => s.logout);
+  const navigate = useNavigate();
   return (
     <aside className="glass shadow-card-soft sticky top-4 hidden h-[calc(100vh-2rem)] w-64 shrink-0 flex-col rounded-3xl p-4 lg:flex">
       <Link to="/" className="flex items-center gap-2 px-2 py-2">
@@ -64,7 +65,7 @@ export function DashSidebar({ active = "Dashboard" }: { active?: string }) {
         </ul>
       </nav>
 
-      <button onClick={() => { logout(); toast.success("Logged out"); }} className="mt-4 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive">
+      <button onClick={async () => { await logout(); toast.success("Logged out"); navigate({ to: "/login" }); }} className="mt-4 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive">
         <LogOut className="h-4 w-4" />
         Logout
       </button>
