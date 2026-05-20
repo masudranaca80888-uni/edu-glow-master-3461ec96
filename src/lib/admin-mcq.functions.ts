@@ -23,10 +23,8 @@ const mcqInputSchema = z.object({
 });
 
 // ---------- Helpers ----------
-async function assertAdmin(supabase: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: any; error: any }>;
-}, userId: string) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function assertAdmin(supabase: any, userId: string) {
   const { data, error } = await supabase.rpc("has_role", {
     _user_id: userId,
     _role: "admin",
