@@ -318,8 +318,8 @@ function SubjectChapterBar(props: {
   onChapter: (id: string) => void;
   onSubjectCreated: () => void;
   onChapterCreated: () => void;
-  createSubject: ReturnType<typeof useServerFn<typeof adminCreateSubject>>;
-  createChapter: ReturnType<typeof useServerFn<typeof adminCreateChapter>>;
+  createSubject: typeof adminCreateSubject;
+  createChapter: typeof adminCreateChapter;
 }) {
   const [showSub, setShowSub] = useState(false);
   const [showCh, setShowCh] = useState(false);
@@ -498,7 +498,7 @@ function BulkImportDialog({ chapterId, onClose, onDone, run }: {
   chapterId: string;
   onClose: () => void;
   onDone: () => void;
-  run: ReturnType<typeof useServerFn<typeof adminBulkImportMcqs>>;
+  run: typeof adminBulkImportMcqs;
 }) {
   const [text, setText] = useState(SAMPLE_JSON);
   const [busy, setBusy] = useState(false);
