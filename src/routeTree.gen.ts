@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ShortNotesRouteImport } from './routes/short-notes'
 import { Route as QuizRouteImport } from './routes/quiz'
 import { Route as MockTestRouteImport } from './routes/mock-test'
 import { Route as McqPracticeRouteImport } from './routes/mcq-practice'
@@ -17,6 +18,11 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CustomExamRouteImport } from './routes/custom-exam'
 import { Route as IndexRouteImport } from './routes/index'
 
+const ShortNotesRoute = ShortNotesRouteImport.update({
+  id: '/short-notes',
+  path: '/short-notes',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const QuizRoute = QuizRouteImport.update({
   id: '/quiz',
   path: '/quiz',
@@ -61,6 +67,7 @@ export interface FileRoutesByFullPath {
   '/mcq-practice': typeof McqPracticeRoute
   '/mock-test': typeof MockTestRoute
   '/quiz': typeof QuizRoute
+  '/short-notes': typeof ShortNotesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -70,6 +77,7 @@ export interface FileRoutesByTo {
   '/mcq-practice': typeof McqPracticeRoute
   '/mock-test': typeof MockTestRoute
   '/quiz': typeof QuizRoute
+  '/short-notes': typeof ShortNotesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -80,6 +88,7 @@ export interface FileRoutesById {
   '/mcq-practice': typeof McqPracticeRoute
   '/mock-test': typeof MockTestRoute
   '/quiz': typeof QuizRoute
+  '/short-notes': typeof ShortNotesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -91,6 +100,7 @@ export interface FileRouteTypes {
     | '/mcq-practice'
     | '/mock-test'
     | '/quiz'
+    | '/short-notes'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -100,6 +110,7 @@ export interface FileRouteTypes {
     | '/mcq-practice'
     | '/mock-test'
     | '/quiz'
+    | '/short-notes'
   id:
     | '__root__'
     | '/'
@@ -109,6 +120,7 @@ export interface FileRouteTypes {
     | '/mcq-practice'
     | '/mock-test'
     | '/quiz'
+    | '/short-notes'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -119,10 +131,18 @@ export interface RootRouteChildren {
   McqPracticeRoute: typeof McqPracticeRoute
   MockTestRoute: typeof MockTestRoute
   QuizRoute: typeof QuizRoute
+  ShortNotesRoute: typeof ShortNotesRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/short-notes': {
+      id: '/short-notes'
+      path: '/short-notes'
+      fullPath: '/short-notes'
+      preLoaderRoute: typeof ShortNotesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/quiz': {
       id: '/quiz'
       path: '/quiz'
@@ -183,6 +203,7 @@ const rootRouteChildren: RootRouteChildren = {
   McqPracticeRoute: McqPracticeRoute,
   MockTestRoute: MockTestRoute,
   QuizRoute: QuizRoute,
+  ShortNotesRoute: ShortNotesRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
