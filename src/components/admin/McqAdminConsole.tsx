@@ -402,10 +402,10 @@ function QuickCreateDialog({ title, onClose, onSubmit }: { title: string; onClos
     <Modal onClose={onClose} title={title}>
       <div className="space-y-3">
         <Field label="Name">
-          <input value={name} onChange={(e) => { setName(e.target.value); if (!slug) setSlug(""); }} className="input" />
+          <input value={name} onChange={(e) => { setName(e.target.value); if (!slug) setSlug(""); }} className="h-10 w-full rounded-xl border border-border/60 bg-background/40 px-3 text-sm outline-none focus:border-[var(--neon-blue)]/60" />
         </Field>
         <Field label="Slug (a-z, 0-9, dashes)">
-          <input value={slug || autoSlug} onChange={(e) => setSlug(e.target.value)} className="input" />
+          <input value={slug || autoSlug} onChange={(e) => setSlug(e.target.value)} className="h-10 w-full rounded-xl border border-border/60 bg-background/40 px-3 text-sm outline-none focus:border-[var(--neon-blue)]/60" />
         </Field>
         {err && <p className="text-xs text-red-400">{err}</p>}
         <div className="flex justify-end gap-2">
@@ -441,7 +441,7 @@ function EditDialog({ draft, onChange, onClose, onSave, saving, error }: {
     <Modal onClose={onClose} title={draft.id ? "Edit MCQ" : "New MCQ"} wide>
       <div className="grid gap-3">
         <Field label="Question">
-          <textarea value={draft.question} onChange={(e) => onChange({ ...draft, question: e.target.value })} className="input min-h-[80px]" />
+          <textarea value={draft.question} onChange={(e) => onChange({ ...draft, question: e.target.value })} className="w-full rounded-xl border border-border/60 bg-background/40 p-3 text-sm outline-none focus:border-[var(--neon-blue)]/60 min-h-[80px]" />
         </Field>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {(["A", "B", "C", "D"] as const).map((k) => (
@@ -449,26 +449,26 @@ function EditDialog({ draft, onChange, onClose, onSave, saving, error }: {
               <input
                 value={(draft as unknown as Record<string, string>)[`option_${k.toLowerCase()}`]}
                 onChange={(e) => onChange({ ...draft, [`option_${k.toLowerCase()}`]: e.target.value })}
-                className="input"
+                className="h-10 w-full rounded-xl border border-border/60 bg-background/40 px-3 text-sm outline-none focus:border-[var(--neon-blue)]/60"
               />
             </Field>
           ))}
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Field label="Correct">
-            <select value={draft.correct_option} onChange={(e) => onChange({ ...draft, correct_option: e.target.value as Draft["correct_option"] })} className="input">
+            <select value={draft.correct_option} onChange={(e) => onChange({ ...draft, correct_option: e.target.value as Draft["correct_option"] })} className="h-10 w-full rounded-xl border border-border/60 bg-background/40 px-3 text-sm outline-none focus:border-[var(--neon-blue)]/60">
               <option>A</option><option>B</option><option>C</option><option>D</option>
             </select>
           </Field>
           <Field label="Difficulty">
-            <select value={draft.difficulty} onChange={(e) => onChange({ ...draft, difficulty: e.target.value as Draft["difficulty"] })} className="input">
+            <select value={draft.difficulty} onChange={(e) => onChange({ ...draft, difficulty: e.target.value as Draft["difficulty"] })} className="h-10 w-full rounded-xl border border-border/60 bg-background/40 px-3 text-sm outline-none focus:border-[var(--neon-blue)]/60">
               <option value="easy">Easy</option>
               <option value="medium">Medium</option>
               <option value="hard">Hard</option>
             </select>
           </Field>
           <Field label="Status">
-            <select value={draft.status} onChange={(e) => onChange({ ...draft, status: e.target.value as Draft["status"] })} className="input">
+            <select value={draft.status} onChange={(e) => onChange({ ...draft, status: e.target.value as Draft["status"] })} className="h-10 w-full rounded-xl border border-border/60 bg-background/40 px-3 text-sm outline-none focus:border-[var(--neon-blue)]/60">
               <option value="published">Published</option>
               <option value="draft">Draft</option>
               <option value="archived">Archived</option>
@@ -476,10 +476,10 @@ function EditDialog({ draft, onChange, onClose, onSave, saving, error }: {
           </Field>
         </div>
         <Field label="Explanation (optional)">
-          <textarea value={draft.explanation} onChange={(e) => onChange({ ...draft, explanation: e.target.value })} className="input min-h-[60px]" />
+          <textarea value={draft.explanation} onChange={(e) => onChange({ ...draft, explanation: e.target.value })} className="w-full rounded-xl border border-border/60 bg-background/40 p-3 text-sm outline-none focus:border-[var(--neon-blue)]/60 min-h-[60px]" />
         </Field>
         <Field label="Tags (comma separated)">
-          <input value={draft.tags} onChange={(e) => onChange({ ...draft, tags: e.target.value })} className="input" />
+          <input value={draft.tags} onChange={(e) => onChange({ ...draft, tags: e.target.value })} className="h-10 w-full rounded-xl border border-border/60 bg-background/40 px-3 text-sm outline-none focus:border-[var(--neon-blue)]/60" />
         </Field>
         {error && <p className="flex items-center gap-2 text-xs text-red-400"><AlertCircle className="h-3.5 w-3.5" />{error.message}</p>}
         <div className="flex justify-end gap-2">
@@ -525,7 +525,7 @@ function BulkImportDialog({ chapterId, onClose, onDone, run }: {
       <p className="text-xs text-muted-foreground">
         Paste a JSON array. Each item: <code>question, option_a..d, correct_option (A|B|C|D), explanation?, difficulty?, status?, tags?</code>
       </p>
-      <textarea value={text} onChange={(e) => setText(e.target.value)} className="input mt-3 min-h-[260px] font-mono text-xs" />
+      <textarea value={text} onChange={(e) => setText(e.target.value)} className="mt-3 w-full rounded-xl border border-border/60 bg-background/40 p-3 font-mono text-xs outline-none focus:border-[var(--neon-blue)]/60 min-h-[260px]" />
       {msg && (
         <p className={`mt-3 text-xs ${msg.kind === "ok" ? "text-emerald-400" : "text-red-400"}`}>{msg.text}</p>
       )}
