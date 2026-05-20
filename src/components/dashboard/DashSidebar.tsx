@@ -29,7 +29,7 @@ export function DashSidebar({ active = "Dashboard" }: { active?: string }) {
           {studentNavItems.slice(0, 9).map((m) => {
             const isActive = currentPath === m.to || m.title === active;
             return (
-              <li key={m.t}>
+              <li key={m.title}>
                 <Link
                   to={m.to as never}
                   className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all ${
