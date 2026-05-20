@@ -34,7 +34,28 @@ const LEVELS = [
 
 function StudentRegister() {
   const [pw, setPw] = useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
   const [level, setLevel] = useState("professional");
+  const login = useAppStore((s) => s.login);
+  const navigate = useNavigate();
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const user = await fakeLogin({ email: email || "new@edumaster.pro", password: pw || "demo123", role: "student" });
+      login({ ...user, name: name || user.name });
+      toast.success("Account created. Welcome aboard!");
+      navigate({ to: "/dashboard" });
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <AuthShell variant="student">
       <h2 className="font-display text-3xl font-bold tracking-tight">Create student account</h2>
@@ -42,11 +63,11 @@ function StudentRegister() {
         Join the future of smart education.
       </p>
 
-      <form className="mt-6 space-y-4" onSubmit={(e) => e.preventDefault()}>
+      <form className="mt-6 space-y-4" onSubmit={onSubmit}>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <FieldLabel>Full name</FieldLabel>
-            <NeoInput placeholder="Aarav Sharma" icon={<User className="h-4 w-4" />} />
+            <NeoInput value={name} onChange={(e) => setName(e.target.value)} placeholder="Aarav Sharma" icon={<User className="h-4 w-4" />} />
           </div>
           <div>
             <FieldLabel>Email</FieldLabel>
