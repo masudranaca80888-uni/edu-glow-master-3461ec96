@@ -27,6 +27,27 @@ export const Route = createFileRoute("/admin-login")({
 
 function AdminLogin() {
   const [otp, setOtp] = useState("");
+  const [email, setEmail] = useState("");
+  const [pw, setPw] = useState("");
+  const [loading, setLoading] = useState(false);
+  const login = useAppStore((s) => s.login);
+  const navigate = useNavigate();
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const user = await fakeLogin({ email: email || "admin@edumaster.pro", password: pw || "admin123", role: "admin" });
+      login(user);
+      toast.success("Admin verified. Welcome.");
+      navigate({ to: "/admin" });
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <AuthShell variant="admin">
       <div className="flex items-center gap-2">
@@ -42,29 +63,30 @@ function AdminLogin() {
       <h2 className="mt-3 font-display text-3xl font-bold tracking-tight">Admin secure access</h2>
       <p className="mt-1.5 text-sm text-muted-foreground">Authorized personnel only.</p>
 
-      <form className="mt-6 space-y-4" onSubmit={(e) => e.preventDefault()}>
+      <form className="mt-6 space-y-4" onSubmit={onSubmit}>
         <div>
           <FieldLabel>Admin email</FieldLabel>
-          <NeoInput type="email" placeholder="admin@edumaster.pro" icon={<Mail className="h-4 w-4" />} />
+          <NeoInput type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@edumaster.pro" icon={<Mail className="h-4 w-4" />} />
         </div>
         <div>
           <FieldLabel>Password</FieldLabel>
-          <PasswordInput />
+          <PasswordInput value={pw} onChange={setPw} />
         </div>
         <div>
           <FieldLabel>2FA verification code</FieldLabel>
           <OtpInput value={otp} onChange={setOtp} />
         </div>
 
-        <NeonButton type="submit">
-          <Lock className="h-4 w-4" /> Secure login
+        <NeonButton type="submit" disabled={loading}>
+          <Lock className="h-4 w-4" /> {loading ? "Verifying…" : "Secure login"}
         </NeonButton>
-        <NeonButton variant="ghost">
+        <NeonButton type="button" variant="ghost" onClick={() => toast.info("Biometric WebAuthn not configured in demo")}>
           <Fingerprint className="h-4 w-4 text-[var(--neon-blue)]" /> Use biometric · WebAuthn
         </NeonButton>
       </form>
 
       <div className="mt-5 grid grid-cols-3 gap-2 rounded-2xl border border-border bg-muted/30 p-3 text-[11px]">
+
         <div>
           <p className="uppercase tracking-wider text-muted-foreground">Server</p>
           <p className="flex items-center gap-1.5 font-semibold text-emerald-400">
