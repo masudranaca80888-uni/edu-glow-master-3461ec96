@@ -1,6 +1,7 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Mail, ArrowRight, Facebook } from "lucide-react";
+import { toast } from "sonner";
 import { AuthShell } from "@/components/auth/AuthShell";
 import {
   NeoInput,
@@ -9,6 +10,8 @@ import {
   Divider,
   FieldLabel,
 } from "@/components/auth/AuthPrimitives";
+import { useAppStore } from "@/stores/app-store";
+import { fakeLogin } from "@/lib/mock-backend";
 
 export const Route = createFileRoute("/login")({
   component: StudentLogin,
