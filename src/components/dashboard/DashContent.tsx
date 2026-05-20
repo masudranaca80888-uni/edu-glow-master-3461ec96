@@ -70,12 +70,12 @@ export function DashContent() {
             </p>
           </div>
           <div className="relative flex gap-3">
-            <button className="rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-foreground shadow-card-soft transition-transform hover:scale-[1.03]">
+            <Link to="/mcq-practice" className="rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-foreground shadow-card-soft transition-transform hover:scale-[1.03]">
               Resume Learning
-            </button>
-            <button className="rounded-2xl border border-white/30 bg-white/10 px-5 py-3 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/20">
+            </Link>
+            <Link to="/profile" className="rounded-2xl border border-white/30 bg-white/10 px-5 py-3 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/20">
               View Goals
-            </button>
+            </Link>
           </div>
         </div>
       </section>
