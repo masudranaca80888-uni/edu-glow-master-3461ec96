@@ -1,6 +1,7 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Mail, ShieldCheck, Fingerprint, Lock, Activity } from "lucide-react";
+import { toast } from "sonner";
 import { AuthShell } from "@/components/auth/AuthShell";
 import {
   NeoInput,
@@ -9,6 +10,8 @@ import {
   FieldLabel,
   OtpInput,
 } from "@/components/auth/AuthPrimitives";
+import { useAppStore } from "@/stores/app-store";
+import { fakeLogin } from "@/lib/mock-backend";
 
 export const Route = createFileRoute("/admin-login")({
   component: AdminLogin,
