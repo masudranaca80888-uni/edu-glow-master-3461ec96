@@ -308,9 +308,9 @@ export function DashContent() {
               </li>
             ))}
           </ul>
-          <button className="mt-3 w-full rounded-xl border border-border bg-background/40 py-2 text-xs font-semibold transition-colors hover:bg-muted">
+          <Link to="/notifications" className="mt-3 inline-flex w-full items-center justify-center rounded-xl border border-border bg-background/40 py-2 text-xs font-semibold transition-colors hover:bg-muted">
             View all notifications
-          </button>
+          </Link>
         </div>
       </section>
 
