@@ -23,6 +23,7 @@ import { Route as ClassesRouteImport } from './routes/classes'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminQuizRouteImport } from './routes/admin.quiz'
+import { Route as AdminMockTestRouteImport } from './routes/admin.mock-test'
 import { Route as AdminMcqRouteImport } from './routes/admin.mcq'
 
 const ShortNotesRoute = ShortNotesRouteImport.update({
@@ -95,6 +96,11 @@ const AdminQuizRoute = AdminQuizRouteImport.update({
   path: '/quiz',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminMockTestRoute = AdminMockTestRouteImport.update({
+  id: '/mock-test',
+  path: '/mock-test',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminMcqRoute = AdminMcqRouteImport.update({
   id: '/mcq',
   path: '/mcq',
@@ -116,6 +122,7 @@ export interface FileRoutesByFullPath {
   '/quiz': typeof QuizRoute
   '/short-notes': typeof ShortNotesRoute
   '/admin/mcq': typeof AdminMcqRoute
+  '/admin/mock-test': typeof AdminMockTestRoute
   '/admin/quiz': typeof AdminQuizRoute
 }
 export interface FileRoutesByTo {
@@ -133,6 +140,7 @@ export interface FileRoutesByTo {
   '/quiz': typeof QuizRoute
   '/short-notes': typeof ShortNotesRoute
   '/admin/mcq': typeof AdminMcqRoute
+  '/admin/mock-test': typeof AdminMockTestRoute
   '/admin/quiz': typeof AdminQuizRoute
 }
 export interface FileRoutesById {
@@ -151,6 +159,7 @@ export interface FileRoutesById {
   '/quiz': typeof QuizRoute
   '/short-notes': typeof ShortNotesRoute
   '/admin/mcq': typeof AdminMcqRoute
+  '/admin/mock-test': typeof AdminMockTestRoute
   '/admin/quiz': typeof AdminQuizRoute
 }
 export interface FileRouteTypes {
@@ -170,6 +179,7 @@ export interface FileRouteTypes {
     | '/quiz'
     | '/short-notes'
     | '/admin/mcq'
+    | '/admin/mock-test'
     | '/admin/quiz'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -187,6 +197,7 @@ export interface FileRouteTypes {
     | '/quiz'
     | '/short-notes'
     | '/admin/mcq'
+    | '/admin/mock-test'
     | '/admin/quiz'
   id:
     | '__root__'
@@ -204,6 +215,7 @@ export interface FileRouteTypes {
     | '/quiz'
     | '/short-notes'
     | '/admin/mcq'
+    | '/admin/mock-test'
     | '/admin/quiz'
   fileRoutesById: FileRoutesById
 }
@@ -323,6 +335,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminQuizRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/mock-test': {
+      id: '/admin/mock-test'
+      path: '/mock-test'
+      fullPath: '/admin/mock-test'
+      preLoaderRoute: typeof AdminMockTestRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/mcq': {
       id: '/admin/mcq'
       path: '/mcq'
@@ -335,11 +354,13 @@ declare module '@tanstack/react-router' {
 
 interface AdminRouteChildren {
   AdminMcqRoute: typeof AdminMcqRoute
+  AdminMockTestRoute: typeof AdminMockTestRoute
   AdminQuizRoute: typeof AdminQuizRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminMcqRoute: AdminMcqRoute,
+  AdminMockTestRoute: AdminMockTestRoute,
   AdminQuizRoute: AdminQuizRoute,
 }
 
