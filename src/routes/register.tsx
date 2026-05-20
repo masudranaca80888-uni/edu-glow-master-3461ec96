@@ -71,7 +71,7 @@ function StudentRegister() {
           </div>
           <div>
             <FieldLabel>Email</FieldLabel>
-            <NeoInput type="email" placeholder="you@school.edu" icon={<Mail className="h-4 w-4" />} />
+            <NeoInput type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@school.edu" icon={<Mail className="h-4 w-4" />} />
           </div>
           <div>
             <FieldLabel>Phone</FieldLabel>
