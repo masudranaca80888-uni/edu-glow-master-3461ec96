@@ -22,6 +22,7 @@ import { Route as CustomExamRouteImport } from './routes/custom-exam'
 import { Route as ClassesRouteImport } from './routes/classes'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminQuizRouteImport } from './routes/admin.quiz'
 import { Route as AdminMcqRouteImport } from './routes/admin.mcq'
 
 const ShortNotesRoute = ShortNotesRouteImport.update({
@@ -89,6 +90,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminQuizRoute = AdminQuizRouteImport.update({
+  id: '/quiz',
+  path: '/quiz',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminMcqRoute = AdminMcqRouteImport.update({
   id: '/mcq',
   path: '/mcq',
@@ -110,6 +116,7 @@ export interface FileRoutesByFullPath {
   '/quiz': typeof QuizRoute
   '/short-notes': typeof ShortNotesRoute
   '/admin/mcq': typeof AdminMcqRoute
+  '/admin/quiz': typeof AdminQuizRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -126,6 +133,7 @@ export interface FileRoutesByTo {
   '/quiz': typeof QuizRoute
   '/short-notes': typeof ShortNotesRoute
   '/admin/mcq': typeof AdminMcqRoute
+  '/admin/quiz': typeof AdminQuizRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -143,6 +151,7 @@ export interface FileRoutesById {
   '/quiz': typeof QuizRoute
   '/short-notes': typeof ShortNotesRoute
   '/admin/mcq': typeof AdminMcqRoute
+  '/admin/quiz': typeof AdminQuizRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -161,6 +170,7 @@ export interface FileRouteTypes {
     | '/quiz'
     | '/short-notes'
     | '/admin/mcq'
+    | '/admin/quiz'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -177,6 +187,7 @@ export interface FileRouteTypes {
     | '/quiz'
     | '/short-notes'
     | '/admin/mcq'
+    | '/admin/quiz'
   id:
     | '__root__'
     | '/'
@@ -193,6 +204,7 @@ export interface FileRouteTypes {
     | '/quiz'
     | '/short-notes'
     | '/admin/mcq'
+    | '/admin/quiz'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -304,6 +316,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/quiz': {
+      id: '/admin/quiz'
+      path: '/quiz'
+      fullPath: '/admin/quiz'
+      preLoaderRoute: typeof AdminQuizRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/mcq': {
       id: '/admin/mcq'
       path: '/mcq'
@@ -316,10 +335,12 @@ declare module '@tanstack/react-router' {
 
 interface AdminRouteChildren {
   AdminMcqRoute: typeof AdminMcqRoute
+  AdminQuizRoute: typeof AdminQuizRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminMcqRoute: AdminMcqRoute,
+  AdminQuizRoute: AdminQuizRoute,
 }
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
