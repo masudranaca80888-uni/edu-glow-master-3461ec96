@@ -18,9 +18,9 @@ function StudentLayout() {
 
       <div className="mx-auto flex max-w-[1500px] gap-4 px-4 py-4 sm:px-6">
         <DashSidebar />
-        <div key={location.pathname} className="pointer-events-auto min-w-0 flex-1 space-y-4">
+        <div className="pointer-events-auto min-w-0 flex-1 space-y-4">
           <DashTopbar />
-          <Outlet />
+          <Outlet key={location.pathname} />
         </div>
       </div>
     </div>
