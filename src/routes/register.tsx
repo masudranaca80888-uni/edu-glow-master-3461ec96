@@ -117,12 +117,12 @@ function StudentRegister() {
           </div>
         </div>
 
-        <NeonButton type="submit">
-          <Sparkles className="h-4 w-4" /> Create account
+        <NeonButton type="submit" disabled={loading}>
+          <Sparkles className="h-4 w-4" /> {loading ? "Creating account…" : "Create account"}
         </NeonButton>
 
         <Divider>Or</Divider>
-        <NeonButton variant="ghost">Continue with Google</NeonButton>
+        <NeonButton type="button" variant="ghost" onClick={() => toast.info("Google sign-up coming soon")}>Continue with Google</NeonButton>
       </form>
 
       <div className="mt-5 flex gap-2">
