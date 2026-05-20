@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as QuizRouteImport } from './routes/quiz'
 import { Route as McqPracticeRouteImport } from './routes/mcq-practice'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as CustomExamRouteImport } from './routes/custom-exam'
 import { Route as IndexRouteImport } from './routes/index'
 
 const QuizRoute = QuizRouteImport.update({
@@ -29,6 +30,11 @@ const DashboardRoute = DashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CustomExamRoute = CustomExamRouteImport.update({
+  id: '/custom-exam',
+  path: '/custom-exam',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -37,12 +43,14 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/custom-exam': typeof CustomExamRoute
   '/dashboard': typeof DashboardRoute
   '/mcq-practice': typeof McqPracticeRoute
   '/quiz': typeof QuizRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/custom-exam': typeof CustomExamRoute
   '/dashboard': typeof DashboardRoute
   '/mcq-practice': typeof McqPracticeRoute
   '/quiz': typeof QuizRoute
@@ -50,20 +58,28 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/custom-exam': typeof CustomExamRoute
   '/dashboard': typeof DashboardRoute
   '/mcq-practice': typeof McqPracticeRoute
   '/quiz': typeof QuizRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dashboard' | '/mcq-practice' | '/quiz'
+  fullPaths: '/' | '/custom-exam' | '/dashboard' | '/mcq-practice' | '/quiz'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dashboard' | '/mcq-practice' | '/quiz'
-  id: '__root__' | '/' | '/dashboard' | '/mcq-practice' | '/quiz'
+  to: '/' | '/custom-exam' | '/dashboard' | '/mcq-practice' | '/quiz'
+  id:
+    | '__root__'
+    | '/'
+    | '/custom-exam'
+    | '/dashboard'
+    | '/mcq-practice'
+    | '/quiz'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CustomExamRoute: typeof CustomExamRoute
   DashboardRoute: typeof DashboardRoute
   McqPracticeRoute: typeof McqPracticeRoute
   QuizRoute: typeof QuizRoute
@@ -92,6 +108,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/custom-exam': {
+      id: '/custom-exam'
+      path: '/custom-exam'
+      fullPath: '/custom-exam'
+      preLoaderRoute: typeof CustomExamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -104,6 +127,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CustomExamRoute: CustomExamRoute,
   DashboardRoute: DashboardRoute,
   McqPracticeRoute: McqPracticeRoute,
   QuizRoute: QuizRoute,
