@@ -12,7 +12,7 @@ import {
   StrengthMeter,
 } from "@/components/auth/AuthPrimitives";
 import { useAppStore } from "@/stores/app-store";
-import { fakeLogin } from "@/lib/mock-backend";
+import { signUpWithEmail, fetchSessionUser } from "@/lib/mock-backend";
 
 export const Route = createFileRoute("/register")({
   component: StudentRegister,
@@ -45,12 +45,18 @@ function StudentRegister() {
     e.preventDefault();
     setLoading(true);
     try {
-      const user = await fakeLogin({ email: email || "new@edumaster.pro", password: pw || "demo123", role: "student" });
-      login({ ...user, name: name || user.name });
-      toast.success("Account created. Welcome aboard!");
-      navigate({ to: "/dashboard" });
+      await signUpWithEmail({ email, password: pw, displayName: name });
+      const user = await fetchSessionUser();
+      if (user) {
+        login(user);
+        toast.success("Account created. Welcome aboard!");
+        navigate({ to: "/dashboard" });
+      } else {
+        toast.success("Check your email to verify your account.");
+        navigate({ to: "/login" });
+      }
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error((err as Error).message ?? "Sign-up failed");
     } finally {
       setLoading(false);
     }
