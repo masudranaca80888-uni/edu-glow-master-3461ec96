@@ -9,17 +9,24 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as VerifyOtpRouteImport } from './routes/verify-otp'
 import { Route as ShortNotesRouteImport } from './routes/short-notes'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as RegisterRouteImport } from './routes/register'
 import { Route as QuizRouteImport } from './routes/quiz'
 import { Route as QnsBankRouteImport } from './routes/qns-bank'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as MockTestRouteImport } from './routes/mock-test'
 import { Route as McqPracticeRouteImport } from './routes/mcq-practice'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as FlashCardsRouteImport } from './routes/flash-cards'
+import { Route as EmailVerifiedRouteImport } from './routes/email-verified'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CustomExamRouteImport } from './routes/custom-exam'
 import { Route as ClassesRouteImport } from './routes/classes'
+import { Route as AdminLoginRouteImport } from './routes/admin-login'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
@@ -34,9 +41,24 @@ import { Route as AdminFlashCardsRouteImport } from './routes/admin.flash-cards'
 import { Route as AdminClassesRouteImport } from './routes/admin.classes'
 import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
 
+const VerifyOtpRoute = VerifyOtpRouteImport.update({
+  id: '/verify-otp',
+  path: '/verify-otp',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ShortNotesRoute = ShortNotesRouteImport.update({
   id: '/short-notes',
   path: '/short-notes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
   getParentRoute: () => rootRouteImport,
 } as any)
 const QuizRoute = QuizRouteImport.update({
@@ -69,9 +91,24 @@ const McqPracticeRoute = McqPracticeRouteImport.update({
   path: '/mcq-practice',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FlashCardsRoute = FlashCardsRouteImport.update({
   id: '/flash-cards',
   path: '/flash-cards',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EmailVerifiedRoute = EmailVerifiedRouteImport.update({
+  id: '/email-verified',
+  path: '/email-verified',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -87,6 +124,11 @@ const CustomExamRoute = CustomExamRouteImport.update({
 const ClassesRoute = ClassesRouteImport.update({
   id: '/classes',
   path: '/classes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminLoginRoute = AdminLoginRouteImport.update({
+  id: '/admin-login',
+  path: '/admin-login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -158,17 +200,24 @@ const AdminAnalyticsRoute = AdminAnalyticsRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
+  '/admin-login': typeof AdminLoginRoute
   '/classes': typeof ClassesRoute
   '/custom-exam': typeof CustomExamRoute
   '/dashboard': typeof DashboardRoute
+  '/email-verified': typeof EmailVerifiedRoute
   '/flash-cards': typeof FlashCardsRoute
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/login': typeof LoginRoute
   '/mcq-practice': typeof McqPracticeRoute
   '/mock-test': typeof MockTestRoute
   '/notifications': typeof NotificationsRoute
   '/profile': typeof ProfileRoute
   '/qns-bank': typeof QnsBankRoute
   '/quiz': typeof QuizRoute
+  '/register': typeof RegisterRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/short-notes': typeof ShortNotesRoute
+  '/verify-otp': typeof VerifyOtpRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/classes': typeof AdminClassesRoute
   '/admin/flash-cards': typeof AdminFlashCardsRoute
@@ -184,17 +233,24 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
+  '/admin-login': typeof AdminLoginRoute
   '/classes': typeof ClassesRoute
   '/custom-exam': typeof CustomExamRoute
   '/dashboard': typeof DashboardRoute
+  '/email-verified': typeof EmailVerifiedRoute
   '/flash-cards': typeof FlashCardsRoute
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/login': typeof LoginRoute
   '/mcq-practice': typeof McqPracticeRoute
   '/mock-test': typeof MockTestRoute
   '/notifications': typeof NotificationsRoute
   '/profile': typeof ProfileRoute
   '/qns-bank': typeof QnsBankRoute
   '/quiz': typeof QuizRoute
+  '/register': typeof RegisterRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/short-notes': typeof ShortNotesRoute
+  '/verify-otp': typeof VerifyOtpRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/classes': typeof AdminClassesRoute
   '/admin/flash-cards': typeof AdminFlashCardsRoute
@@ -211,17 +267,24 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
+  '/admin-login': typeof AdminLoginRoute
   '/classes': typeof ClassesRoute
   '/custom-exam': typeof CustomExamRoute
   '/dashboard': typeof DashboardRoute
+  '/email-verified': typeof EmailVerifiedRoute
   '/flash-cards': typeof FlashCardsRoute
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/login': typeof LoginRoute
   '/mcq-practice': typeof McqPracticeRoute
   '/mock-test': typeof MockTestRoute
   '/notifications': typeof NotificationsRoute
   '/profile': typeof ProfileRoute
   '/qns-bank': typeof QnsBankRoute
   '/quiz': typeof QuizRoute
+  '/register': typeof RegisterRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/short-notes': typeof ShortNotesRoute
+  '/verify-otp': typeof VerifyOtpRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/classes': typeof AdminClassesRoute
   '/admin/flash-cards': typeof AdminFlashCardsRoute
@@ -239,17 +302,24 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/admin'
+    | '/admin-login'
     | '/classes'
     | '/custom-exam'
     | '/dashboard'
+    | '/email-verified'
     | '/flash-cards'
+    | '/forgot-password'
+    | '/login'
     | '/mcq-practice'
     | '/mock-test'
     | '/notifications'
     | '/profile'
     | '/qns-bank'
     | '/quiz'
+    | '/register'
+    | '/reset-password'
     | '/short-notes'
+    | '/verify-otp'
     | '/admin/analytics'
     | '/admin/classes'
     | '/admin/flash-cards'
@@ -265,17 +335,24 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/admin'
+    | '/admin-login'
     | '/classes'
     | '/custom-exam'
     | '/dashboard'
+    | '/email-verified'
     | '/flash-cards'
+    | '/forgot-password'
+    | '/login'
     | '/mcq-practice'
     | '/mock-test'
     | '/notifications'
     | '/profile'
     | '/qns-bank'
     | '/quiz'
+    | '/register'
+    | '/reset-password'
     | '/short-notes'
+    | '/verify-otp'
     | '/admin/analytics'
     | '/admin/classes'
     | '/admin/flash-cards'
@@ -291,17 +368,24 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/admin'
+    | '/admin-login'
     | '/classes'
     | '/custom-exam'
     | '/dashboard'
+    | '/email-verified'
     | '/flash-cards'
+    | '/forgot-password'
+    | '/login'
     | '/mcq-practice'
     | '/mock-test'
     | '/notifications'
     | '/profile'
     | '/qns-bank'
     | '/quiz'
+    | '/register'
+    | '/reset-password'
     | '/short-notes'
+    | '/verify-otp'
     | '/admin/analytics'
     | '/admin/classes'
     | '/admin/flash-cards'
@@ -318,26 +402,54 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRouteWithChildren
+  AdminLoginRoute: typeof AdminLoginRoute
   ClassesRoute: typeof ClassesRoute
   CustomExamRoute: typeof CustomExamRoute
   DashboardRoute: typeof DashboardRoute
+  EmailVerifiedRoute: typeof EmailVerifiedRoute
   FlashCardsRoute: typeof FlashCardsRoute
+  ForgotPasswordRoute: typeof ForgotPasswordRoute
+  LoginRoute: typeof LoginRoute
   McqPracticeRoute: typeof McqPracticeRoute
   MockTestRoute: typeof MockTestRoute
   NotificationsRoute: typeof NotificationsRoute
   ProfileRoute: typeof ProfileRoute
   QnsBankRoute: typeof QnsBankRoute
   QuizRoute: typeof QuizRoute
+  RegisterRoute: typeof RegisterRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   ShortNotesRoute: typeof ShortNotesRoute
+  VerifyOtpRoute: typeof VerifyOtpRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/verify-otp': {
+      id: '/verify-otp'
+      path: '/verify-otp'
+      fullPath: '/verify-otp'
+      preLoaderRoute: typeof VerifyOtpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/short-notes': {
       id: '/short-notes'
       path: '/short-notes'
       fullPath: '/short-notes'
       preLoaderRoute: typeof ShortNotesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/quiz': {
@@ -382,11 +494,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof McqPracticeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/flash-cards': {
       id: '/flash-cards'
       path: '/flash-cards'
       fullPath: '/flash-cards'
       preLoaderRoute: typeof FlashCardsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/email-verified': {
+      id: '/email-verified'
+      path: '/email-verified'
+      fullPath: '/email-verified'
+      preLoaderRoute: typeof EmailVerifiedRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -408,6 +541,13 @@ declare module '@tanstack/react-router' {
       path: '/classes'
       fullPath: '/classes'
       preLoaderRoute: typeof ClassesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin-login': {
+      id: '/admin-login'
+      path: '/admin-login'
+      fullPath: '/admin-login'
+      preLoaderRoute: typeof AdminLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -537,17 +677,24 @@ const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
+  AdminLoginRoute: AdminLoginRoute,
   ClassesRoute: ClassesRoute,
   CustomExamRoute: CustomExamRoute,
   DashboardRoute: DashboardRoute,
+  EmailVerifiedRoute: EmailVerifiedRoute,
   FlashCardsRoute: FlashCardsRoute,
+  ForgotPasswordRoute: ForgotPasswordRoute,
+  LoginRoute: LoginRoute,
   McqPracticeRoute: McqPracticeRoute,
   MockTestRoute: MockTestRoute,
   NotificationsRoute: NotificationsRoute,
   ProfileRoute: ProfileRoute,
   QnsBankRoute: QnsBankRoute,
   QuizRoute: QuizRoute,
+  RegisterRoute: RegisterRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   ShortNotesRoute: ShortNotesRoute,
+  VerifyOtpRoute: VerifyOtpRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
