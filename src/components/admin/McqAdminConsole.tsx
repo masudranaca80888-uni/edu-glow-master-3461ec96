@@ -318,8 +318,8 @@ function SubjectChapterBar(props: {
   onChapter: (id: string) => void;
   onSubjectCreated: () => void;
   onChapterCreated: () => void;
-  createSubject: typeof adminCreateSubject;
-  createChapter: typeof adminCreateChapter;
+  createSubject: (opts: { data: { name: string; slug: string; sort_order: number; status: "published" } }) => Promise<unknown>;
+  createChapter: (opts: { data: { name: string; slug: string; subject_id: string; sort_order: number; status: "published" } }) => Promise<unknown>;
 }) {
   const [showSub, setShowSub] = useState(false);
   const [showCh, setShowCh] = useState(false);
@@ -498,7 +498,7 @@ function BulkImportDialog({ chapterId, onClose, onDone, run }: {
   chapterId: string;
   onClose: () => void;
   onDone: () => void;
-  run: typeof adminBulkImportMcqs;
+  run: (opts: { data: { chapter_id: string; items: unknown[] } }) => Promise<{ inserted: number }>;
 }) {
   const [text, setText] = useState(SAMPLE_JSON);
   const [busy, setBusy] = useState(false);
