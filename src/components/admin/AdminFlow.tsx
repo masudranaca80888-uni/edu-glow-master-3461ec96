@@ -549,10 +549,10 @@ function TopStudents() {
 /* ---------------- Pending tasks ---------------- */
 function PendingTasks() {
   const tasks = [
-    { i: CheckCircle2, t: "Approve 12 instructor MCQ batches", c: "text-amber-300" },
-    { i: Clock, t: "Schedule NEET full-length test", c: "text-sky-300" },
-    { i: PenSquare, t: "Finalize draft notification (#48)", c: "text-fuchsia-300" },
-    { i: AlertCircle, t: "Review 3 flagged reports", c: "text-rose-300" },
+    { i: CheckCircle2, t: "Approve 12 instructor MCQ batches", c: "text-amber-300", to: "/admin/mcq" },
+    { i: Clock, t: "Schedule NEET full-length test", c: "text-sky-300", to: "/admin/mock-test" },
+    { i: PenSquare, t: "Finalize draft notification (#48)", c: "text-fuchsia-300", to: "/admin/notifications" },
+    { i: AlertCircle, t: "Review 3 flagged reports", c: "text-rose-300", to: "/admin/users" },
   ];
   return (
     <div className="glass shadow-card-soft rounded-2xl p-4">
@@ -567,7 +567,7 @@ function PendingTasks() {
           <li key={i} className="flex items-center gap-3 rounded-xl border border-border/60 bg-background/40 p-2.5">
             <t.i className={`h-4 w-4 ${t.c}`} />
             <span className="flex-1 text-xs">{t.t}</span>
-            <button className="text-[10px] text-muted-foreground hover:text-foreground">Open</button>
+            <Link to={t.to as never} className="text-[10px] text-muted-foreground hover:text-foreground">Open</Link>
           </li>
         ))}
       </ul>
@@ -578,10 +578,10 @@ function PendingTasks() {
 /* ---------------- System overview ---------------- */
 function SystemOverview() {
   const items = [
-    { l: "Total downloads", v: "248,930", i: Download, tint: "text-sky-300" },
-    { l: "Video watch hours", v: "92,418 h", i: PlayCircle, tint: "text-fuchsia-300" },
-    { l: "Flash card usage", v: "1.2M flips", i: Layers, tint: "text-violet-300" },
-    { l: "Most active subject", v: "Mathematics", i: Sparkles, tint: "text-amber-300" },
+    { l: "Total downloads", v: "248,930", i: Download, tint: "text-sky-300", to: "/admin/question-bank" },
+    { l: "Video watch hours", v: "92,418 h", i: PlayCircle, tint: "text-fuchsia-300", to: "/admin/classes" },
+    { l: "Flash card usage", v: "1.2M flips", i: Layers, tint: "text-violet-300", to: "/admin/flash-cards" },
+    { l: "Most active subject", v: "Mathematics", i: Sparkles, tint: "text-amber-300", to: "/admin/analytics" },
   ];
   return (
     <div className="glass shadow-card-soft rounded-3xl p-5">
@@ -593,8 +593,9 @@ function SystemOverview() {
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {items.map((it) => (
-          <div
+          <Link
             key={it.l}
+            to={it.to as never}
             className="group relative overflow-hidden rounded-2xl border border-border/60 bg-background/40 p-4 transition-all hover:-translate-y-0.5 hover:shadow-glow"
           >
             <div className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-gradient-to-br from-[var(--neon-purple)]/20 to-[var(--neon-blue)]/10 blur-2xl" />
@@ -607,7 +608,7 @@ function SystemOverview() {
                 <it.i className="h-4 w-4" />
               </div>
             </div>
-          </div>
+          </Link>
         ))}
       </div>
     </div>
