@@ -1,6 +1,7 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Mail, User, Phone, Building2, Sparkles, GraduationCap, Trophy } from "lucide-react";
+import { toast } from "sonner";
 import { AuthShell } from "@/components/auth/AuthShell";
 import {
   NeoInput,
@@ -10,6 +11,8 @@ import {
   FieldLabel,
   StrengthMeter,
 } from "@/components/auth/AuthPrimitives";
+import { useAppStore } from "@/stores/app-store";
+import { fakeLogin } from "@/lib/mock-backend";
 
 export const Route = createFileRoute("/register")({
   component: StudentRegister,
@@ -31,7 +34,28 @@ const LEVELS = [
 
 function StudentRegister() {
   const [pw, setPw] = useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
   const [level, setLevel] = useState("professional");
+  const login = useAppStore((s) => s.login);
+  const navigate = useNavigate();
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const user = await fakeLogin({ email: email || "new@edumaster.pro", password: pw || "demo123", role: "student" });
+      login({ ...user, name: name || user.name });
+      toast.success("Account created. Welcome aboard!");
+      navigate({ to: "/dashboard" });
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <AuthShell variant="student">
       <h2 className="font-display text-3xl font-bold tracking-tight">Create student account</h2>
@@ -39,15 +63,15 @@ function StudentRegister() {
         Join the future of smart education.
       </p>
 
-      <form className="mt-6 space-y-4" onSubmit={(e) => e.preventDefault()}>
+      <form className="mt-6 space-y-4" onSubmit={onSubmit}>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <FieldLabel>Full name</FieldLabel>
-            <NeoInput placeholder="Aarav Sharma" icon={<User className="h-4 w-4" />} />
+            <NeoInput value={name} onChange={(e) => setName(e.target.value)} placeholder="Aarav Sharma" icon={<User className="h-4 w-4" />} />
           </div>
           <div>
             <FieldLabel>Email</FieldLabel>
-            <NeoInput type="email" placeholder="you@school.edu" icon={<Mail className="h-4 w-4" />} />
+            <NeoInput type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@school.edu" icon={<Mail className="h-4 w-4" />} />
           </div>
           <div>
             <FieldLabel>Phone</FieldLabel>
@@ -93,12 +117,12 @@ function StudentRegister() {
           </div>
         </div>
 
-        <NeonButton type="submit">
-          <Sparkles className="h-4 w-4" /> Create account
+        <NeonButton type="submit" disabled={loading}>
+          <Sparkles className="h-4 w-4" /> {loading ? "Creating account…" : "Create account"}
         </NeonButton>
 
         <Divider>Or</Divider>
-        <NeonButton variant="ghost">Continue with Google</NeonButton>
+        <NeonButton type="button" variant="ghost" onClick={() => toast.info("Google sign-up coming soon")}>Continue with Google</NeonButton>
       </form>
 
       <div className="mt-5 flex gap-2">

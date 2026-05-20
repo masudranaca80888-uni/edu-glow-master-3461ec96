@@ -1,6 +1,7 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Mail, ArrowRight, Facebook } from "lucide-react";
+import { toast } from "sonner";
 import { AuthShell } from "@/components/auth/AuthShell";
 import {
   NeoInput,
@@ -9,6 +10,8 @@ import {
   Divider,
   FieldLabel,
 } from "@/components/auth/AuthPrimitives";
+import { useAppStore } from "@/stores/app-store";
+import { fakeLogin } from "@/lib/mock-backend";
 
 export const Route = createFileRoute("/login")({
   component: StudentLogin,
@@ -35,6 +38,26 @@ function GoogleIcon() {
 
 function StudentLogin() {
   const [pw, setPw] = useState("");
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const login = useAppStore((s) => s.login);
+  const navigate = useNavigate();
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const user = await fakeLogin({ email: email || "demo@edumaster.pro", password: pw || "demo123", role: "student" });
+      login(user);
+      toast.success(`Welcome back, ${user.name}!`);
+      navigate({ to: "/dashboard" });
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <AuthShell variant="student">
       <h2 className="font-display text-3xl font-bold tracking-tight">Welcome back</h2>
@@ -42,13 +65,15 @@ function StudentLogin() {
         Continue your smart learning journey.
       </p>
 
-      <form className="mt-7 space-y-4" onSubmit={(e) => e.preventDefault()}>
+      <form className="mt-7 space-y-4" onSubmit={onSubmit}>
         <div>
           <FieldLabel>Email or username</FieldLabel>
           <NeoInput
             type="email"
             placeholder="you@university.edu"
             icon={<Mail className="h-4 w-4" />}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
           />
         </div>
         <div>
@@ -66,17 +91,17 @@ function StudentLogin() {
           Remember this device for 30 days
         </label>
 
-        <NeonButton type="submit">
-          Sign in <ArrowRight className="h-4 w-4" />
+        <NeonButton type="submit" disabled={loading}>
+          {loading ? "Signing in…" : <>Sign in <ArrowRight className="h-4 w-4" /></>}
         </NeonButton>
 
         <Divider>Or continue with</Divider>
 
         <div className="grid grid-cols-2 gap-3">
-          <NeonButton variant="ghost">
+          <NeonButton type="button" variant="ghost" onClick={() => toast.info("Google sign-in coming soon")}>
             <GoogleIcon /> Google
           </NeonButton>
-          <NeonButton variant="ghost">
+          <NeonButton type="button" variant="ghost" onClick={() => toast.info("Facebook sign-in coming soon")}>
             <Facebook className="h-4 w-4 text-[#1877F2]" /> Facebook
           </NeonButton>
         </div>
