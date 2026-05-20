@@ -12,7 +12,7 @@ import {
   StrengthMeter,
 } from "@/components/auth/AuthPrimitives";
 import { useAppStore } from "@/stores/app-store";
-import { signUpWithEmail, fetchSessionUser } from "@/lib/mock-backend";
+import { signUpWithEmail } from "@/lib/auth-client";
 
 export const Route = createFileRoute("/register")({
   component: StudentRegister,
@@ -38,7 +38,7 @@ function StudentRegister() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [level, setLevel] = useState("professional");
-  const login = useAppStore((s) => s.login);
+  const refreshAuth = useAppStore((s) => s.refreshAuth);
   const navigate = useNavigate();
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -46,9 +46,8 @@ function StudentRegister() {
     setLoading(true);
     try {
       await signUpWithEmail({ email, password: pw, displayName: name });
-      const user = await fetchSessionUser();
+      const user = await refreshAuth();
       if (user) {
-        login(user);
         toast.success("Account created. Welcome aboard!");
         navigate({ to: "/dashboard" });
       } else {
