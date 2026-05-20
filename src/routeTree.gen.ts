@@ -17,6 +17,7 @@ import { Route as McqPracticeRouteImport } from './routes/mcq-practice'
 import { Route as FlashCardsRouteImport } from './routes/flash-cards'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CustomExamRouteImport } from './routes/custom-exam'
+import { Route as ClassesRouteImport } from './routes/classes'
 import { Route as IndexRouteImport } from './routes/index'
 
 const ShortNotesRoute = ShortNotesRouteImport.update({
@@ -59,6 +60,11 @@ const CustomExamRoute = CustomExamRouteImport.update({
   path: '/custom-exam',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ClassesRoute = ClassesRouteImport.update({
+  id: '/classes',
+  path: '/classes',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -67,6 +73,7 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/classes': typeof ClassesRoute
   '/custom-exam': typeof CustomExamRoute
   '/dashboard': typeof DashboardRoute
   '/flash-cards': typeof FlashCardsRoute
@@ -78,6 +85,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/classes': typeof ClassesRoute
   '/custom-exam': typeof CustomExamRoute
   '/dashboard': typeof DashboardRoute
   '/flash-cards': typeof FlashCardsRoute
@@ -90,6 +98,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/classes': typeof ClassesRoute
   '/custom-exam': typeof CustomExamRoute
   '/dashboard': typeof DashboardRoute
   '/flash-cards': typeof FlashCardsRoute
@@ -103,6 +112,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/classes'
     | '/custom-exam'
     | '/dashboard'
     | '/flash-cards'
@@ -114,6 +124,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/classes'
     | '/custom-exam'
     | '/dashboard'
     | '/flash-cards'
@@ -125,6 +136,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/classes'
     | '/custom-exam'
     | '/dashboard'
     | '/flash-cards'
@@ -137,6 +149,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ClassesRoute: typeof ClassesRoute
   CustomExamRoute: typeof CustomExamRoute
   DashboardRoute: typeof DashboardRoute
   FlashCardsRoute: typeof FlashCardsRoute
@@ -205,6 +218,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CustomExamRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/classes': {
+      id: '/classes'
+      path: '/classes'
+      fullPath: '/classes'
+      preLoaderRoute: typeof ClassesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -217,6 +237,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ClassesRoute: ClassesRoute,
   CustomExamRoute: CustomExamRoute,
   DashboardRoute: DashboardRoute,
   FlashCardsRoute: FlashCardsRoute,
@@ -229,3 +250,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
