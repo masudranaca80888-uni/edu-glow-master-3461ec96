@@ -9,7 +9,7 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, useMemo } from "react";
+import { Suspense, useEffect, useMemo } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { useAppStore } from "@/stores/app-store";
 
@@ -116,11 +116,17 @@ function RootShell({ children }: { children: React.ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const location = useLocation();
+  const router = useRouter();
   const { hydrate, hydrated, sessionReady, user } = useAppStore();
 
   useEffect(() => {
     hydrate();
   }, [hydrate]);
+
+  useEffect(() => {
+    queryClient.invalidateQueries({ refetchType: "active" });
+    void router.invalidate();
+  }, [location.pathname, queryClient, router]);
 
   const redirectTo = useMemo(() => {
     const path = location.pathname;
@@ -143,9 +149,28 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {showInitialLoader ? <AuthLoader /> : redirectTo ? <Navigate to={redirectTo as never} replace /> : <Outlet />}
+      {showInitialLoader ? (
+        <AuthLoader />
+      ) : redirectTo ? (
+        <Navigate to={redirectTo as never} replace />
+      ) : (
+        <Suspense fallback={<RouteLoader />}>
+          <Outlet key={location.pathname} />
+        </Suspense>
+      )}
       <Toaster position="top-right" richColors closeButton />
     </QueryClientProvider>
+  );
+}
+
+function RouteLoader() {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-background px-4 text-foreground">
+      <div className="flex items-center gap-3 rounded-2xl border border-border/60 bg-card/60 px-4 py-3 text-sm text-muted-foreground shadow-card-soft">
+        <span className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--neon-blue)] border-t-transparent" />
+        Loading workspace…
+      </div>
+    </main>
   );
 }
 
