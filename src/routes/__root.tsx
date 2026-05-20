@@ -116,7 +116,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const location = useLocation();
-  const { hydrate, hydrated, sessionReady, authLoading, user } = useAppStore();
+  const { hydrate, hydrated, sessionReady, user } = useAppStore();
 
   useEffect(() => {
     hydrate();
@@ -125,7 +125,6 @@ function RootComponent() {
   const redirectTo = useMemo(() => {
     const path = location.pathname;
     const authRoutes = ["/login", "/signup", "/register", "/admin-login"];
-    const publicRoutes = ["/", ...authRoutes, "/forgot-password", "/verify-otp", "/reset-password", "/email-verified"];
     const studentRoutes = ["/dashboard", "/mcq-practice", "/quiz", "/custom-exam", "/mock-test", "/flash-cards", "/short-notes", "/qns-bank", "/classes", "/notifications", "/profile"];
     const isAdminRoute = path === "/admin" || path.startsWith("/admin/");
     const isStudentRoute = studentRoutes.includes(path);
@@ -134,13 +133,17 @@ function RootComponent() {
     if (user && authRoutes.includes(path)) return user.role === "admin" ? "/admin" : "/dashboard";
     if (!user && (isAdminRoute || isStudentRoute)) return "/login";
     if (user && isAdminRoute && user.role !== "admin") return "/dashboard";
-    if (!publicRoutes.includes(path) && !user && !isAdminRoute && !isStudentRoute) return null;
     return null;
   }, [hydrated, location.pathname, sessionReady, user]);
 
+  // Only show the full-screen loader during initial session hydration.
+  // Subsequent refreshes (after sign-in/sign-out) update `user` in place
+  // without flashing the loader, preventing redirect flicker on submit.
+  const showInitialLoader = !hydrated || !sessionReady;
+
   return (
     <QueryClientProvider client={queryClient}>
-      {!hydrated || !sessionReady || authLoading ? <AuthLoader /> : redirectTo ? <Navigate to={redirectTo as never} replace /> : <Outlet />}
+      {showInitialLoader ? <AuthLoader /> : redirectTo ? <Navigate to={redirectTo as never} replace /> : <Outlet />}
       <Toaster position="top-right" richColors closeButton />
     </QueryClientProvider>
   );
