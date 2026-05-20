@@ -280,9 +280,9 @@ export function DashContent() {
                     />
                   </div>
                 </div>
-                <button className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-border bg-background/40 py-2 text-xs font-semibold transition-colors hover:bg-muted">
+                <Link to="/classes" className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-border bg-background/40 py-2 text-xs font-semibold transition-colors hover:bg-muted">
                   Resume <ArrowRight className="h-3 w-3" />
-                </button>
+                </Link>
               </div>
             ))}
           </div>
