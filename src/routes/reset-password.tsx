@@ -1,6 +1,7 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { KeyRound, ShieldCheck } from "lucide-react";
+import { toast } from "sonner";
 import { AuthShell } from "@/components/auth/AuthShell";
 import {
   PasswordInput,
@@ -9,6 +10,7 @@ import {
   StrengthMeter,
   Requirements,
 } from "@/components/auth/AuthPrimitives";
+import { updatePassword } from "@/lib/auth-client";
 
 export const Route = createFileRoute("/reset-password")({
   component: ResetPassword,
@@ -25,7 +27,26 @@ export const Route = createFileRoute("/reset-password")({
 function ResetPassword() {
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
   const match = pw.length > 0 && pw === pw2;
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pw.length < 8) return toast.error("Password must be at least 8 characters");
+    if (!match) return toast.error("Passwords do not match");
+    setLoading(true);
+    try {
+      await updatePassword(pw);
+      toast.success("Password updated. Please sign in.");
+      navigate({ to: "/login" });
+    } catch (err) {
+      toast.error((err as Error).message ?? "Could not update password");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <AuthShell>
       <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-[var(--neon-purple)] to-[var(--neon-blue)] text-white shadow-[0_0_30px_var(--neon-purple)]">
@@ -36,7 +57,7 @@ function ResetPassword() {
         Choose a strong password to re-secure your account.
       </p>
 
-      <form className="mt-7 space-y-4" onSubmit={(e) => e.preventDefault()}>
+      <form className="mt-7 space-y-4" onSubmit={onSubmit}>
         <div>
           <FieldLabel>New password</FieldLabel>
           <PasswordInput value={pw} onChange={setPw} />
@@ -59,7 +80,9 @@ function ResetPassword() {
           <Requirements value={pw} />
         </div>
 
-        <NeonButton type="submit">Reset password</NeonButton>
+        <NeonButton type="submit" disabled={loading}>
+          {loading ? "Updating…" : "Reset password"}
+        </NeonButton>
       </form>
 
       <p className="mt-6 text-center text-xs text-muted-foreground">

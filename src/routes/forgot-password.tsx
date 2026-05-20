@@ -1,7 +1,10 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 import { Mail, Lock, Send, ArrowLeft } from "lucide-react";
+import { toast } from "sonner";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { NeoInput, NeonButton, FieldLabel } from "@/components/auth/AuthPrimitives";
+import { resetPasswordForEmail } from "@/lib/auth-client";
 
 export const Route = createFileRoute("/forgot-password")({
   component: ForgotPassword,
@@ -16,6 +19,26 @@ export const Route = createFileRoute("/forgot-password")({
 });
 
 function ForgotPassword() {
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
+  const navigate = useNavigate();
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim()) return toast.error("Please enter your email");
+    setLoading(true);
+    try {
+      await resetPasswordForEmail(email.trim());
+      setSent(true);
+      toast.success("Recovery link sent. Check your inbox.");
+    } catch (err) {
+      toast.error((err as Error).message ?? "Could not send recovery link");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <AuthShell>
       <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-[var(--neon-purple)] to-[var(--neon-blue)] text-white shadow-[0_0_30px_var(--neon-purple)]">
@@ -26,43 +49,42 @@ function ForgotPassword() {
         Recover your account securely — we'll email you a one-time link.
       </p>
 
-      <form className="mt-7 space-y-4" onSubmit={(e) => e.preventDefault()}>
+      <form className="mt-7 space-y-4" onSubmit={onSubmit}>
         <div>
           <FieldLabel>Account email</FieldLabel>
-          <NeoInput type="email" placeholder="you@school.edu" icon={<Mail className="h-4 w-4" />} />
+          <NeoInput
+            type="email"
+            placeholder="you@school.edu"
+            icon={<Mail className="h-4 w-4" />}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
         </div>
-        <NeonButton type="submit">
-          <Send className="h-4 w-4" /> Send recovery link
+        <NeonButton type="submit" disabled={loading}>
+          <Send className="h-4 w-4" /> {loading ? "Sending…" : sent ? "Resend recovery link" : "Send recovery link"}
         </NeonButton>
       </form>
 
-      <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-muted/30 p-4">
-        <div className="flex items-center gap-3">
-          <div className="relative grid h-11 w-11 place-items-center rounded-xl bg-background">
-            <Mail className="h-5 w-5 text-[var(--neon-purple)]" />
-            <span className="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full bg-emerald-500 text-[9px] font-bold text-white">
-              1
-            </span>
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold">Inbox preview</p>
-            <p className="truncate text-[11px] text-muted-foreground">
-              EduMaster Pro · Reset your password (expires in 15 min)
-            </p>
-          </div>
-          <span className="text-[10px] text-muted-foreground">now</span>
-        </div>
-        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-background">
-          <div className="h-full w-2/3 animate-pulse rounded-full bg-gradient-to-r from-[var(--neon-purple)] to-[var(--neon-blue)]" />
-        </div>
-      </div>
+      {sent && (
+        <p className="mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-center text-xs text-emerald-300">
+          If an account exists for <span className="font-semibold">{email}</span>, a reset link is on its way.
+        </p>
+      )}
 
-      <Link
-        to="/login"
-        className="mt-6 flex items-center justify-center gap-1.5 text-xs font-semibold text-[var(--neon-blue)] hover:underline"
+      <button
+        type="button"
+        onClick={() => navigate({ to: "/login" })}
+        className="mt-6 flex w-full items-center justify-center gap-1.5 text-xs font-semibold text-[var(--neon-blue)] hover:underline"
       >
         <ArrowLeft className="h-3.5 w-3.5" /> Back to sign in
-      </Link>
+      </button>
+
+      <p className="mt-3 text-center text-[11px] text-muted-foreground">
+        Don't have an account?{" "}
+        <Link to="/signup" className="font-semibold text-[var(--neon-blue)] hover:underline">
+          Sign up
+        </Link>
+      </p>
     </AuthShell>
   );
 }

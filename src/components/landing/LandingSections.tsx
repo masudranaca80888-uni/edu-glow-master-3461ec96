@@ -1028,7 +1028,7 @@ export function FinalCta() {
 
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Link
-                to="/register"
+                to="/signup"
                 className="group inline-flex items-center gap-2 rounded-2xl px-6 py-3.5 font-semibold text-white shadow-[0_20px_50px_-10px_var(--neon-purple)] transition hover:-translate-y-0.5 hover:shadow-[0_25px_60px_-10px_var(--neon-blue)]"
                 style={{ background: "var(--gradient-cta)" }}
               >

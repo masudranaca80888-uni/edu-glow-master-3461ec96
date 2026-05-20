@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { Mail, ArrowRight, Facebook } from "lucide-react";
+import { Mail, ArrowRight, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { AuthShell } from "@/components/auth/AuthShell";
 import {
@@ -12,14 +12,15 @@ import {
 } from "@/components/auth/AuthPrimitives";
 import { useAppStore } from "@/stores/app-store";
 import { signInWithEmail } from "@/lib/auth-client";
+import { lovable } from "@/integrations/lovable";
 
 export const Route = createFileRoute("/login")({
   component: StudentLogin,
   head: () => ({
     meta: [
-      { title: "Student Login · EduMaster Pro" },
+      { title: "Sign In · EduMaster Pro" },
       { name: "description", content: "Sign in to continue your smart learning journey on EduMaster Pro." },
-      { property: "og:title", content: "Student Login · EduMaster Pro" },
+      { property: "og:title", content: "Sign In · EduMaster Pro" },
       { property: "og:description", content: "Secure access to your AI-personalized study dashboard." },
     ],
   }),
@@ -47,13 +48,28 @@ function StudentLogin() {
     e.preventDefault();
     setLoading(true);
     try {
-      await signInWithEmail(email, pw);
+      await signInWithEmail(email.trim(), pw);
       const user = await refreshAuth();
       if (!user) throw new Error("Session not found");
       toast.success(`Welcome back, ${user.name}!`);
       navigate({ to: user.role === "admin" ? "/admin" : "/dashboard" });
     } catch (err) {
       toast.error((err as Error).message ?? "Sign-in failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onGoogle = async () => {
+    setLoading(true);
+    try {
+      const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
+      if (result.error) throw new Error(result.error.message ?? "Google sign-in failed");
+      if (result.redirected) return;
+      const user = await refreshAuth();
+      navigate({ to: user?.role === "admin" ? "/admin" : "/dashboard" });
+    } catch (err) {
+      toast.error((err as Error).message ?? "Google sign-in failed");
     } finally {
       setLoading(false);
     }
@@ -68,7 +84,7 @@ function StudentLogin() {
 
       <form className="mt-7 space-y-4" onSubmit={onSubmit}>
         <div>
-          <FieldLabel>Email or username</FieldLabel>
+          <FieldLabel>Email</FieldLabel>
           <NeoInput
             type="email"
             placeholder="you@university.edu"
@@ -87,46 +103,30 @@ function StudentLogin() {
           <PasswordInput value={pw} onChange={setPw} />
         </div>
 
-        <label className="flex items-center gap-2 text-xs text-muted-foreground">
-          <input type="checkbox" className="h-4 w-4 rounded border-border accent-[var(--neon-purple)]" defaultChecked />
-          Remember this device for 30 days
-        </label>
-
         <NeonButton type="submit" disabled={loading}>
           {loading ? "Signing in…" : <>Sign in <ArrowRight className="h-4 w-4" /></>}
         </NeonButton>
 
-        <Divider>Or continue with</Divider>
+        <Divider>Or</Divider>
 
-        <div className="grid grid-cols-2 gap-3">
-          <NeonButton type="button" variant="ghost" onClick={() => toast.info("Google sign-in coming soon")}>
-            <GoogleIcon /> Google
-          </NeonButton>
-          <NeonButton type="button" variant="ghost" onClick={() => toast.info("Facebook sign-in coming soon")}>
-            <Facebook className="h-4 w-4 text-[#1877F2]" /> Facebook
-          </NeonButton>
-        </div>
+        <NeonButton type="button" variant="ghost" disabled={loading} onClick={onGoogle}>
+          <GoogleIcon /> Continue with Google
+        </NeonButton>
       </form>
 
       <p className="mt-6 text-center text-xs text-muted-foreground">
         Don't have an account?{" "}
-        <Link to="/register" className="font-semibold text-[var(--neon-blue)] hover:underline">
-          Create one
+        <Link to="/signup" className="font-semibold text-[var(--neon-blue)] hover:underline">
+          Sign up
         </Link>
       </p>
 
-      <div className="mt-5 grid grid-cols-3 gap-2 border-t border-border pt-4 text-center">
-        {[
-          { v: "120k+", l: "Learners" },
-          { v: "98%", l: "Pass rate" },
-          { v: "24/7", l: "AI tutor" },
-        ].map((s) => (
-          <div key={s.l} className="rounded-xl bg-muted/40 p-2">
-            <p className="font-display text-sm font-semibold">{s.v}</p>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{s.l}</p>
-          </div>
-        ))}
-      </div>
+      <Link
+        to="/admin-login"
+        className="mt-4 flex items-center justify-center gap-1.5 text-[11px] font-semibold text-muted-foreground hover:text-[var(--neon-purple)]"
+      >
+        <ShieldCheck className="h-3.5 w-3.5" /> Admin login
+      </Link>
     </AuthShell>
   );
 }
