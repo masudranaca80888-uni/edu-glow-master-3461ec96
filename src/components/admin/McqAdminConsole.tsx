@@ -1,14 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
+import pdfWorkerUrl from "pdfjs-dist/legacy/build/pdf.worker.mjs?url";
+import * as mammoth from "mammoth";
+import { toast } from "sonner";
 import {
   Plus, Search, Trash2, Edit3, Eye, EyeOff, Loader2, Upload, X, Check, FolderPlus, BookPlus, AlertCircle,
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import {
   adminListSubjects, adminListChapters, adminListMcqs,
   adminCreateMcq, adminUpdateMcq, adminDeleteMcq, adminSetMcqStatus,
   adminCreateSubject, adminCreateChapter, adminBulkImportMcqs,
 } from "@/lib/admin-mcq.functions";
+
+pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 type Mcq = {
   id: string;
@@ -52,6 +59,8 @@ type BulkImportItem = {
   status: "draft" | "published" | "archived";
   tags: string[];
 };
+
+type ParsedImportRow = BulkImportItem & { source: string; duplicate?: boolean; error?: string };
 
 function emptyDraft(chapterId: string): Draft {
   return {
