@@ -135,12 +135,12 @@ function Header() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="bg-cta-gradient flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-glow">
+          <Link to="/admin/mcq" className="bg-cta-gradient flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-glow">
             <PlusCircle className="h-4 w-4" /> New Resource
-          </button>
-          <button className="flex items-center gap-1.5 rounded-xl border border-border/60 bg-background/40 px-4 py-2.5 text-sm">
+          </Link>
+          <Link to="/admin/notifications" className="flex items-center gap-1.5 rounded-xl border border-border/60 bg-background/40 px-4 py-2.5 text-sm">
             <Send className="h-4 w-4" /> Broadcast
-          </button>
+          </Link>
         </div>
       </div>
     </div>
