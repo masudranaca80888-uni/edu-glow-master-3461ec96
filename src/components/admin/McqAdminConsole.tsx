@@ -40,6 +40,19 @@ type Draft = {
   tags: string;
 };
 
+type BulkImportItem = {
+  question: string;
+  option_a: string;
+  option_b: string;
+  option_c: string;
+  option_d: string;
+  correct_option: "A" | "B" | "C" | "D";
+  explanation?: string | null;
+  difficulty: "easy" | "medium" | "hard";
+  status: "draft" | "published" | "archived";
+  tags: string[];
+};
+
 function emptyDraft(chapterId: string): Draft {
   return {
     chapter_id: chapterId,
@@ -498,7 +511,7 @@ function BulkImportDialog({ chapterId, onClose, onDone, run }: {
   chapterId: string;
   onClose: () => void;
   onDone: () => void;
-  run: (opts: { data: { chapter_id: string; items: unknown[] } }) => Promise<{ inserted: number }>;
+  run: (opts: { data: { chapter_id: string; items: BulkImportItem[] } }) => Promise<{ inserted: number }>;
 }) {
   const [text, setText] = useState(SAMPLE_JSON);
   const [busy, setBusy] = useState(false);
@@ -510,7 +523,7 @@ function BulkImportDialog({ chapterId, onClose, onDone, run }: {
       const parsed = JSON.parse(text);
       const items = Array.isArray(parsed) ? parsed : parsed.items;
       if (!Array.isArray(items)) throw new Error("JSON must be an array (or { items: [...] })");
-      const res = await run({ data: { chapter_id: chapterId, items } });
+      const res = await run({ data: { chapter_id: chapterId, items: items as BulkImportItem[] } });
       setMsg({ kind: "ok", text: `Inserted ${res.inserted} MCQs` });
       setTimeout(onDone, 600);
     } catch (e) {
