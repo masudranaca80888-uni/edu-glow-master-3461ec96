@@ -11,7 +11,7 @@ import {
   FieldLabel,
 } from "@/components/auth/AuthPrimitives";
 import { useAppStore } from "@/stores/app-store";
-import { fakeLogin } from "@/lib/mock-backend";
+import { signInWithEmail, fetchSessionUser } from "@/lib/mock-backend";
 
 export const Route = createFileRoute("/login")({
   component: StudentLogin,
@@ -47,12 +47,14 @@ function StudentLogin() {
     e.preventDefault();
     setLoading(true);
     try {
-      const user = await fakeLogin({ email: email || "demo@edumaster.pro", password: pw || "demo123", role: "student" });
+      await signInWithEmail(email, pw);
+      const user = await fetchSessionUser();
+      if (!user) throw new Error("Session not found");
       login(user);
       toast.success(`Welcome back, ${user.name}!`);
-      navigate({ to: "/dashboard" });
+      navigate({ to: user.role === "admin" ? "/admin" : "/dashboard" });
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error((err as Error).message ?? "Sign-in failed");
     } finally {
       setLoading(false);
     }

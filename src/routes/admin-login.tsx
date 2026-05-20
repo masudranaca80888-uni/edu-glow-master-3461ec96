@@ -11,7 +11,7 @@ import {
   OtpInput,
 } from "@/components/auth/AuthPrimitives";
 import { useAppStore } from "@/stores/app-store";
-import { fakeLogin } from "@/lib/mock-backend";
+import { signInWithEmail, fetchSessionUser } from "@/lib/mock-backend";
 
 export const Route = createFileRoute("/admin-login")({
   component: AdminLogin,
@@ -37,12 +37,17 @@ function AdminLogin() {
     e.preventDefault();
     setLoading(true);
     try {
-      const user = await fakeLogin({ email: email || "admin@edumaster.pro", password: pw || "admin123", role: "admin" });
+      await signInWithEmail(email, pw);
+      const user = await fetchSessionUser();
+      if (!user) throw new Error("Session not found");
+      if (user.role !== "admin") {
+        throw new Error("This account does not have admin privileges.");
+      }
       login(user);
       toast.success("Admin verified. Welcome.");
       navigate({ to: "/admin" });
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error((err as Error).message ?? "Sign-in failed");
     } finally {
       setLoading(false);
     }
