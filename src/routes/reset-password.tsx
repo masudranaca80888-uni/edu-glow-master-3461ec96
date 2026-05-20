@@ -1,0 +1,73 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
+import { KeyRound, ShieldCheck } from "lucide-react";
+import { AuthShell } from "@/components/auth/AuthShell";
+import {
+  PasswordInput,
+  NeonButton,
+  FieldLabel,
+  StrengthMeter,
+  Requirements,
+} from "@/components/auth/AuthPrimitives";
+
+export const Route = createFileRoute("/reset-password")({
+  component: ResetPassword,
+  head: () => ({
+    meta: [
+      { title: "Create New Password · EduMaster Pro" },
+      { name: "description", content: "Set a new password and secure your EduMaster Pro account." },
+      { property: "og:title", content: "Create New Password · EduMaster Pro" },
+      { property: "og:description", content: "Strong password requirements with real-time strength feedback." },
+    ],
+  }),
+});
+
+function ResetPassword() {
+  const [pw, setPw] = useState("");
+  const [pw2, setPw2] = useState("");
+  const match = pw.length > 0 && pw === pw2;
+  return (
+    <AuthShell>
+      <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-[var(--neon-purple)] to-[var(--neon-blue)] text-white shadow-[0_0_30px_var(--neon-purple)]">
+        <KeyRound className="h-6 w-6" />
+      </div>
+      <h2 className="text-center font-display text-3xl font-bold tracking-tight">Create new password</h2>
+      <p className="mt-1.5 text-center text-sm text-muted-foreground">
+        Choose a strong password to re-secure your account.
+      </p>
+
+      <form className="mt-7 space-y-4" onSubmit={(e) => e.preventDefault()}>
+        <div>
+          <FieldLabel>New password</FieldLabel>
+          <PasswordInput value={pw} onChange={setPw} />
+          <StrengthMeter value={pw} />
+        </div>
+        <div>
+          <FieldLabel>Confirm password</FieldLabel>
+          <PasswordInput value={pw2} onChange={setPw2} />
+          {pw2.length > 0 && (
+            <p className={`mt-1 text-[11px] ${match ? "text-emerald-400" : "text-rose-400"}`}>
+              {match ? "Passwords match." : "Passwords do not match."}
+            </p>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-border bg-muted/30 p-3">
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <ShieldCheck className="h-3 w-3 text-[var(--neon-purple)]" /> Security checklist
+          </div>
+          <Requirements value={pw} />
+        </div>
+
+        <NeonButton type="submit">Reset password</NeonButton>
+      </form>
+
+      <p className="mt-6 text-center text-xs text-muted-foreground">
+        Remembered it?{" "}
+        <Link to="/login" className="font-semibold text-[var(--neon-blue)] hover:underline">
+          Back to sign in
+        </Link>
+      </p>
+    </AuthShell>
+  );
+}
