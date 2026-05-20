@@ -44,11 +44,11 @@ const notifications = [
   { t: "Weekly leaderboard updated", s: "System · 3h ago", c: "var(--neon-pink)" },
 ];
 
-const actions = [
-  { t: "Start MCQ Practice", i: ListChecks },
-  { t: "Start Quiz", i: Timer },
-  { t: "Create Custom Exam", i: SlidersHorizontal },
-  { t: "Open Flash Cards", i: Layers },
+const actions: { t: string; i: typeof ListChecks; to: "/mcq-practice" | "/quiz" | "/custom-exam" | "/flash-cards" }[] = [
+  { t: "Start MCQ Practice", i: ListChecks, to: "/mcq-practice" },
+  { t: "Start Quiz", i: Timer, to: "/quiz" },
+  { t: "Create Custom Exam", i: SlidersHorizontal, to: "/custom-exam" },
+  { t: "Open Flash Cards", i: Layers, to: "/flash-cards" },
 ];
 
 export function DashContent() {
