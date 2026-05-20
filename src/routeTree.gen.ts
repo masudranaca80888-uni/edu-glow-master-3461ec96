@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as ShortNotesRouteImport } from './routes/short-notes'
 import { Route as QuizRouteImport } from './routes/quiz'
 import { Route as QnsBankRouteImport } from './routes/qns-bank'
+import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as MockTestRouteImport } from './routes/mock-test'
 import { Route as McqPracticeRouteImport } from './routes/mcq-practice'
@@ -34,6 +35,11 @@ const QuizRoute = QuizRouteImport.update({
 const QnsBankRoute = QnsBankRouteImport.update({
   id: '/qns-bank',
   path: '/qns-bank',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NotificationsRoute = NotificationsRouteImport.update({
@@ -86,6 +92,7 @@ export interface FileRoutesByFullPath {
   '/mcq-practice': typeof McqPracticeRoute
   '/mock-test': typeof MockTestRoute
   '/notifications': typeof NotificationsRoute
+  '/profile': typeof ProfileRoute
   '/qns-bank': typeof QnsBankRoute
   '/quiz': typeof QuizRoute
   '/short-notes': typeof ShortNotesRoute
@@ -99,6 +106,7 @@ export interface FileRoutesByTo {
   '/mcq-practice': typeof McqPracticeRoute
   '/mock-test': typeof MockTestRoute
   '/notifications': typeof NotificationsRoute
+  '/profile': typeof ProfileRoute
   '/qns-bank': typeof QnsBankRoute
   '/quiz': typeof QuizRoute
   '/short-notes': typeof ShortNotesRoute
@@ -113,6 +121,7 @@ export interface FileRoutesById {
   '/mcq-practice': typeof McqPracticeRoute
   '/mock-test': typeof MockTestRoute
   '/notifications': typeof NotificationsRoute
+  '/profile': typeof ProfileRoute
   '/qns-bank': typeof QnsBankRoute
   '/quiz': typeof QuizRoute
   '/short-notes': typeof ShortNotesRoute
@@ -128,6 +137,7 @@ export interface FileRouteTypes {
     | '/mcq-practice'
     | '/mock-test'
     | '/notifications'
+    | '/profile'
     | '/qns-bank'
     | '/quiz'
     | '/short-notes'
@@ -141,6 +151,7 @@ export interface FileRouteTypes {
     | '/mcq-practice'
     | '/mock-test'
     | '/notifications'
+    | '/profile'
     | '/qns-bank'
     | '/quiz'
     | '/short-notes'
@@ -154,6 +165,7 @@ export interface FileRouteTypes {
     | '/mcq-practice'
     | '/mock-test'
     | '/notifications'
+    | '/profile'
     | '/qns-bank'
     | '/quiz'
     | '/short-notes'
@@ -168,6 +180,7 @@ export interface RootRouteChildren {
   McqPracticeRoute: typeof McqPracticeRoute
   MockTestRoute: typeof MockTestRoute
   NotificationsRoute: typeof NotificationsRoute
+  ProfileRoute: typeof ProfileRoute
   QnsBankRoute: typeof QnsBankRoute
   QuizRoute: typeof QuizRoute
   ShortNotesRoute: typeof ShortNotesRoute
@@ -194,6 +207,13 @@ declare module '@tanstack/react-router' {
       path: '/qns-bank'
       fullPath: '/qns-bank'
       preLoaderRoute: typeof QnsBankRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/notifications': {
@@ -264,6 +284,7 @@ const rootRouteChildren: RootRouteChildren = {
   McqPracticeRoute: McqPracticeRoute,
   MockTestRoute: MockTestRoute,
   NotificationsRoute: NotificationsRoute,
+  ProfileRoute: ProfileRoute,
   QnsBankRoute: QnsBankRoute,
   QuizRoute: QuizRoute,
   ShortNotesRoute: ShortNotesRoute,
@@ -271,3 +292,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
