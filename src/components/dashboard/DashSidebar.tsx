@@ -2,6 +2,7 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   LogOut,
   GraduationCap,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { studentNavItems } from "@/lib/app-data";
@@ -10,10 +11,18 @@ import { useAppStore } from "@/stores/app-store";
 export function DashSidebar({ active = "Dashboard" }: { active?: string }) {
   const currentPath = useRouterState({ select: (s) => s.location.pathname });
   const logout = useAppStore((s) => s.logout);
+  const sidebarOpen = useAppStore((s) => s.sidebarOpen);
+  const setSidebarOpen = useAppStore((s) => s.setSidebarOpen);
   const navigate = useNavigate();
-  return (
-    <aside className="glass shadow-card-soft sticky top-4 hidden h-[calc(100vh-2rem)] w-64 shrink-0 flex-col rounded-3xl p-4 lg:flex">
-      <Link to="/" className="flex items-center gap-2 px-2 py-2">
+  const handleLogout = async () => {
+    await logout();
+    setSidebarOpen(false);
+    toast.success("Logged out");
+    navigate({ to: "/login" });
+  };
+  const SidebarContent = ({ mobile = false }: { mobile?: boolean }) => (
+    <>
+      <Link to="/" onClick={() => mobile && setSidebarOpen(false)} className="flex items-center gap-2 px-2 py-2">
         <div className="bg-cta-gradient flex h-9 w-9 items-center justify-center rounded-xl shadow-glow">
           <GraduationCap className="h-5 w-5 text-white" />
         </div>
@@ -33,6 +42,7 @@ export function DashSidebar({ active = "Dashboard" }: { active?: string }) {
               <li key={m.title}>
                 <Link
                   to={m.to as never}
+                  onClick={() => mobile && setSidebarOpen(false)}
                   className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all ${
                     isActive
                       ? "bg-cta-gradient text-white shadow-glow"
@@ -56,7 +66,7 @@ export function DashSidebar({ active = "Dashboard" }: { active?: string }) {
         <ul className="mt-2 space-y-1">
           {studentNavItems.slice(9).map((s) => (
             <li key={s.title}>
-              <Link to={s.to as never} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-foreground/80 transition-colors hover:bg-muted hover:text-foreground">
+              <Link to={s.to as never} onClick={() => mobile && setSidebarOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-foreground/80 transition-colors hover:bg-muted hover:text-foreground">
                 <s.icon className="h-4 w-4" />
                 {s.title}
               </Link>
@@ -65,10 +75,28 @@ export function DashSidebar({ active = "Dashboard" }: { active?: string }) {
         </ul>
       </nav>
 
-      <button onClick={async () => { await logout(); toast.success("Logged out"); navigate({ to: "/login" }); }} className="mt-4 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive">
+      <button onClick={handleLogout} className="mt-4 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive">
         <LogOut className="h-4 w-4" />
         Logout
       </button>
-    </aside>
+    </>
+  );
+  return (
+    <>
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <button aria-label="Close menu" className="absolute inset-0 bg-background/70 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
+          <aside className="glass shadow-card-soft pointer-events-auto relative z-10 flex h-full w-72 max-w-[85vw] flex-col p-4">
+            <button aria-label="Close menu" onClick={() => setSidebarOpen(false)} className="absolute right-3 top-3 rounded-xl p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
+              <X className="h-4 w-4" />
+            </button>
+            <SidebarContent mobile />
+          </aside>
+        </div>
+      )}
+      <aside className="glass shadow-card-soft sticky top-4 hidden h-[calc(100vh-2rem)] w-64 shrink-0 flex-col rounded-3xl p-4 lg:flex">
+        <SidebarContent />
+      </aside>
+    </>
   );
 }
