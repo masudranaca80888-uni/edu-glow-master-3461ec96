@@ -1,16 +1,14 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Moon, Sun, GraduationCap, Menu, X } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import { useAppStore } from "@/stores/app-store";
 
 const links = ["Home", "Features", "Mock Test", "Leaderboard", "Pricing", "Contact"];
 
 export function Navbar() {
-  const [dark, setDark] = useState(true);
   const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", dark);
-  }, [dark]);
+  const theme = useAppStore((s) => s.theme);
+  const toggleTheme = useAppStore((s) => s.toggleTheme);
 
   return (
     <header className="fixed top-4 left-1/2 z-50 w-[min(1200px,calc(100%-2rem))] -translate-x-1/2">
@@ -39,11 +37,12 @@ export function Navbar() {
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setDark((d) => !d)}
+            type="button"
+            onClick={toggleTheme}
             className="glass flex h-9 w-9 items-center justify-center rounded-xl text-foreground transition-transform hover:scale-105"
             aria-label="Toggle theme"
           >
-            {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
           <Link
             to="/login"
