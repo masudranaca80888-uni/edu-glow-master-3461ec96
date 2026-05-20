@@ -4,9 +4,13 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useLocation,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
+import { useEffect, useMemo } from "react";
+import { Toaster } from "@/components/ui/sonner";
+import { useAppStore } from "@/stores/app-store";
 
 import appCss from "../styles.css?url";
 
@@ -110,10 +114,48 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const location = useLocation();
+  const { hydrate, hydrated, user } = useAppStore();
+
+  useEffect(() => {
+    hydrate();
+  }, [hydrate]);
+
+  const guard = useMemo(() => {
+    const path = location.pathname;
+    const publicRoutes = ["/", "/login", "/register", "/admin-login", "/forgot-password", "/verify-otp", "/reset-password", "/email-verified"];
+    if (!hydrated || publicRoutes.includes(path)) return null;
+    if (path.startsWith("/admin") && user?.role !== "admin") return "admin";
+    if (!path.startsWith("/admin") && !user) return "student";
+    return null;
+  }, [hydrated, location.pathname, user]);
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
+      {guard ? <UnauthorizedPage mode={guard} /> : <Outlet />}
+      <Toaster position="top-right" richColors closeButton />
     </QueryClientProvider>
+  );
+}
+
+function UnauthorizedPage({ mode }: { mode: "student" | "admin" }) {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-background px-4 text-foreground">
+      <section className="glass shadow-card-soft max-w-md rounded-3xl p-8 text-center">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--neon-purple)]">Protected route</p>
+        <h1 className="mt-3 font-display text-3xl font-bold">Sign in required</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {mode === "admin" ? "Admin pages require an active admin session." : "Student pages require an active learning session."}
+        </p>
+        <div className="mt-6 flex justify-center gap-2">
+          <Link to={mode === "admin" ? "/admin-login" : "/login"} className="bg-cta-gradient rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-glow">
+            Login
+          </Link>
+          <Link to="/" className="rounded-xl border border-border px-4 py-2 text-sm font-semibold hover:bg-muted">
+            Home
+          </Link>
+        </div>
+      </section>
+    </main>
   );
 }
