@@ -631,6 +631,68 @@ function BulkImportDialog({ chapterId, existingQuestions, onClose, onDone, run }
   );
 }
 
+async function extractFileText(file: File) {
+  const ext = file.name.split(".").pop()?.toLowerCase();
+  if (ext === "txt" || file.type.startsWith("text/")) return file.text();
+  if (ext === "pdf" || file.type === "application/pdf") {
+    const pdf = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+    const pages = await Promise.all(Array.from({ length: pdf.numPages }, async (_, i) => {
+      const page = await pdf.getPage(i + 1);
+      const content = await page.getTextContent();
+      return content.items.map((item) => ("str" in item ? item.str : "")).join(" ");
+    }));
+    return pages.join("\n\n");
+  }
+  if (ext === "doc" || ext === "docx" || file.name.toLowerCase().endsWith(".docx")) {
+    const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+    return result.value;
+  }
+  throw new Error(`Unsupported file format: ${file.name}`);
+}
+
+function parseMcqText(raw: string, source: string): ParsedImportRow[] {
+  const normalized = raw.replace(/\r/g, "").replace(/[ \t]+/g, " ").trim();
+  const blocks = normalized
+    .split(/\n\s*\n|(?=\n?\s*(?:Q\.?\s*)?\d+[).]\s+)/gi)
+    .map((b) => b.trim())
+    .filter((b) => /(?:^|\n|\s)(?:A|B|C|D)[).:-]/i.test(b));
+
+  return blocks.map((block) => {
+    const clean = block.replace(/^\s*(?:Q\.?\s*)?\d+[).]\s*/i, "");
+    const answer = /(?:answer|correct(?:\s+answer)?)[\s:.-]*([ABCD])/i.exec(clean)?.[1]?.toUpperCase() as BulkImportItem["correct_option"] | undefined;
+    const explanation = /(?:explanation|reason)[\s:.-]*([\s\S]*)/i.exec(clean)?.[1]?.trim();
+    const option = (letter: "A" | "B" | "C" | "D") => {
+      const next = letter === "A" ? "B" : letter === "B" ? "C" : letter === "C" ? "D" : "Answer|Correct|Explanation|Reason|$";
+      return new RegExp(`${letter}[).:-]\\s*([\\s\\S]*?)(?=\\n?\\s*(?:${next})[).:-]?\\s*)`, "i").exec(clean)?.[1]?.trim() ?? "";
+    };
+    const question = clean.split(/\n?\s*A[).:-]\s*/i)[0]?.trim() ?? "";
+    return {
+      source,
+      question,
+      option_a: option("A"),
+      option_b: option("B"),
+      option_c: option("C"),
+      option_d: option("D"),
+      correct_option: answer ?? "A",
+      explanation: explanation || null,
+      difficulty: "medium",
+      status: "published",
+      tags: [source.split(".")[0].slice(0, 40)],
+    };
+  });
+}
+
+function normalizeQuestion(question: string) {
+  return question.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function validateImportRow(row: BulkImportItem) {
+  if (row.question.trim().length < 3) return "Question missing";
+  if (!row.option_a || !row.option_b || !row.option_c || !row.option_d) return "All 4 options required";
+  if (!["A", "B", "C", "D"].includes(row.correct_option)) return "Correct answer must be A-D";
+  return undefined;
+}
+
 const SAMPLE_JSON = JSON.stringify(
   [
     {
