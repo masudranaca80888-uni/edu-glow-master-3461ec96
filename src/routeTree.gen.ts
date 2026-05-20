@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as ShortNotesRouteImport } from './routes/short-notes'
 import { Route as QuizRouteImport } from './routes/quiz'
 import { Route as QnsBankRouteImport } from './routes/qns-bank'
+import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as MockTestRouteImport } from './routes/mock-test'
 import { Route as McqPracticeRouteImport } from './routes/mcq-practice'
 import { Route as FlashCardsRouteImport } from './routes/flash-cards'
@@ -33,6 +34,11 @@ const QuizRoute = QuizRouteImport.update({
 const QnsBankRoute = QnsBankRouteImport.update({
   id: '/qns-bank',
   path: '/qns-bank',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotificationsRoute = NotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MockTestRoute = MockTestRouteImport.update({
@@ -79,6 +85,7 @@ export interface FileRoutesByFullPath {
   '/flash-cards': typeof FlashCardsRoute
   '/mcq-practice': typeof McqPracticeRoute
   '/mock-test': typeof MockTestRoute
+  '/notifications': typeof NotificationsRoute
   '/qns-bank': typeof QnsBankRoute
   '/quiz': typeof QuizRoute
   '/short-notes': typeof ShortNotesRoute
@@ -91,6 +98,7 @@ export interface FileRoutesByTo {
   '/flash-cards': typeof FlashCardsRoute
   '/mcq-practice': typeof McqPracticeRoute
   '/mock-test': typeof MockTestRoute
+  '/notifications': typeof NotificationsRoute
   '/qns-bank': typeof QnsBankRoute
   '/quiz': typeof QuizRoute
   '/short-notes': typeof ShortNotesRoute
@@ -104,6 +112,7 @@ export interface FileRoutesById {
   '/flash-cards': typeof FlashCardsRoute
   '/mcq-practice': typeof McqPracticeRoute
   '/mock-test': typeof MockTestRoute
+  '/notifications': typeof NotificationsRoute
   '/qns-bank': typeof QnsBankRoute
   '/quiz': typeof QuizRoute
   '/short-notes': typeof ShortNotesRoute
@@ -118,6 +127,7 @@ export interface FileRouteTypes {
     | '/flash-cards'
     | '/mcq-practice'
     | '/mock-test'
+    | '/notifications'
     | '/qns-bank'
     | '/quiz'
     | '/short-notes'
@@ -130,6 +140,7 @@ export interface FileRouteTypes {
     | '/flash-cards'
     | '/mcq-practice'
     | '/mock-test'
+    | '/notifications'
     | '/qns-bank'
     | '/quiz'
     | '/short-notes'
@@ -142,6 +153,7 @@ export interface FileRouteTypes {
     | '/flash-cards'
     | '/mcq-practice'
     | '/mock-test'
+    | '/notifications'
     | '/qns-bank'
     | '/quiz'
     | '/short-notes'
@@ -155,6 +167,7 @@ export interface RootRouteChildren {
   FlashCardsRoute: typeof FlashCardsRoute
   McqPracticeRoute: typeof McqPracticeRoute
   MockTestRoute: typeof MockTestRoute
+  NotificationsRoute: typeof NotificationsRoute
   QnsBankRoute: typeof QnsBankRoute
   QuizRoute: typeof QuizRoute
   ShortNotesRoute: typeof ShortNotesRoute
@@ -181,6 +194,13 @@ declare module '@tanstack/react-router' {
       path: '/qns-bank'
       fullPath: '/qns-bank'
       preLoaderRoute: typeof QnsBankRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notifications': {
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/mock-test': {
@@ -243,6 +263,7 @@ const rootRouteChildren: RootRouteChildren = {
   FlashCardsRoute: FlashCardsRoute,
   McqPracticeRoute: McqPracticeRoute,
   MockTestRoute: MockTestRoute,
+  NotificationsRoute: NotificationsRoute,
   QnsBankRoute: QnsBankRoute,
   QuizRoute: QuizRoute,
   ShortNotesRoute: ShortNotesRoute,
@@ -250,3 +271,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
