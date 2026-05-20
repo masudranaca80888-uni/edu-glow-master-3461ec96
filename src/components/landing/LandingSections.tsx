@@ -1081,6 +1081,14 @@ const FOOTER_COLS = [
   },
 ];
 
+const SOCIAL_LINKS = [
+  { icon: Twitter, href: "https://x.com" },
+  { icon: Github, href: "https://github.com" },
+  { icon: Youtube, href: "https://youtube.com" },
+  { icon: Instagram, href: "https://instagram.com" },
+  { icon: Linkedin, href: "https://linkedin.com" },
+];
+
 export function Footer() {
   return (
     <footer className="relative pt-16">
@@ -1133,10 +1141,12 @@ export function Footer() {
               </form>
 
               <div className="mt-5 flex items-center gap-2">
-                {[Twitter, Github, Youtube, Instagram, Linkedin].map((Ic, i) => (
+                {SOCIAL_LINKS.map(({ icon: Ic, href }, i) => (
                   <a
                     key={i}
-                    href="#"
+                    href={href}
+                    target="_blank"
+                    rel="noreferrer"
                     className="group grid h-9 w-9 place-items-center rounded-xl border border-border bg-background/60 text-muted-foreground transition hover:-translate-y-0.5 hover:border-[var(--neon-purple)] hover:text-foreground hover:shadow-[0_0_18px_var(--neon-purple)]"
                     aria-label="Social"
                   >
