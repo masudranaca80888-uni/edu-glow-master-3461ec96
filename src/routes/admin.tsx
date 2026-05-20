@@ -1,9 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
-import { AdminFlow } from "@/components/admin/AdminFlow";
 
 export const Route = createFileRoute("/admin")({
-  component: AdminPage,
+  component: AdminLayout,
   head: () => ({
     meta: [
       { title: "Admin Control Center · EduMaster Pro" },
@@ -22,7 +21,9 @@ export const Route = createFileRoute("/admin")({
   }),
 });
 
-function AdminPage() {
+function AdminLayout() {
+  const location = useLocation();
+
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-background text-foreground">
       <div className="pointer-events-none fixed inset-0 -z-10 bg-hero-glow opacity-60" />
@@ -31,9 +32,9 @@ function AdminPage() {
       <div className="pointer-events-none fixed left-1/2 top-1/3 -z-10 h-64 w-64 rounded-full bg-fuchsia-500/10 blur-3xl animate-pulse-glow" />
 
       <div className="mx-auto flex max-w-[1600px] gap-4 px-4 py-4 sm:px-6">
-        <AdminSidebar active="Dashboard" />
-        <div className="min-w-0 flex-1 space-y-4">
-          <AdminFlow />
+        <AdminSidebar />
+        <div key={location.pathname} className="pointer-events-auto min-w-0 flex-1 space-y-4">
+          <Outlet />
         </div>
       </div>
     </div>

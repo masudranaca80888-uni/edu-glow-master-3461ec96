@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { adminNavItems } from "@/lib/app-data";
 import { useAppStore } from "@/stores/app-store";
 
-export function AdminSidebar({ active = "Dashboard" }: { active?: string }) {
+export function AdminSidebar() {
   const currentPath = useRouterState({ select: (s) => s.location.pathname });
   const logout = useAppStore((s) => s.logout);
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
@@ -36,12 +36,14 @@ export function AdminSidebar({ active = "Dashboard" }: { active?: string }) {
         </p>
         <ul className="mt-2 space-y-1">
           {adminNavItems.map((m) => {
-            const isActive = currentPath === m.to || m.title === active;
+            const isActive = m.to === "/admin" ? currentPath === "/admin" : currentPath === m.to;
             return (
               <li key={m.title}>
                 <Link
                   to={m.to as never}
+                  activeOptions={{ exact: true }}
                   onClick={() => mobile && setSidebarOpen(false)}
+                  aria-current={isActive ? "page" : undefined}
                   className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all ${
                     isActive
                       ? "bg-cta-gradient text-white shadow-glow"
