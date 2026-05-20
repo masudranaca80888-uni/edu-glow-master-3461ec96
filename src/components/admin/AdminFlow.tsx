@@ -453,13 +453,14 @@ function QuickActions() {
       <h3 className="font-display text-lg font-semibold">Quick Actions</h3>
       <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
         {actions.map((a) => (
-          <button
+          <Link
             key={a.t}
+            to={a.to}
             className={`group flex flex-col items-start gap-2 rounded-xl border border-white/10 bg-gradient-to-br ${a.c} p-3 text-left transition-all hover:-translate-y-0.5 hover:shadow-glow`}
           >
             <a.i className="h-5 w-5" />
             <span className="text-xs font-semibold text-foreground">{a.t}</span>
-          </button>
+          </Link>
         ))}
       </div>
     </div>
