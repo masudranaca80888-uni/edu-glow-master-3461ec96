@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { studentNavItems } from "@/lib/app-data";
 import { useAppStore } from "@/stores/app-store";
 
-export function DashSidebar({ active = "Dashboard" }: { active?: string }) {
+export function DashSidebar() {
   const currentPath = useRouterState({ select: (s) => s.location.pathname });
   const logout = useAppStore((s) => s.logout);
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
@@ -37,12 +37,14 @@ export function DashSidebar({ active = "Dashboard" }: { active?: string }) {
         </p>
         <ul className="mt-2 space-y-1">
           {studentNavItems.slice(0, 9).map((m) => {
-            const isActive = currentPath === m.to || m.title === active;
+            const isActive = currentPath === m.to;
             return (
               <li key={m.title}>
                 <Link
                   to={m.to as never}
+                  activeOptions={{ exact: true }}
                   onClick={() => mobile && setSidebarOpen(false)}
+                  aria-current={isActive ? "page" : undefined}
                   className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all ${
                     isActive
                       ? "bg-cta-gradient text-white shadow-glow"
@@ -64,14 +66,25 @@ export function DashSidebar({ active = "Dashboard" }: { active?: string }) {
           Account
         </p>
         <ul className="mt-2 space-y-1">
-          {studentNavItems.slice(9).map((s) => (
-            <li key={s.title}>
-              <Link to={s.to as never} onClick={() => mobile && setSidebarOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-foreground/80 transition-colors hover:bg-muted hover:text-foreground">
-                <s.icon className="h-4 w-4" />
-                {s.title}
-              </Link>
-            </li>
-          ))}
+          {studentNavItems.slice(9).map((s) => {
+            const isActive = currentPath === s.to;
+            return (
+              <li key={s.title}>
+                <Link
+                  to={s.to as never}
+                  activeOptions={{ exact: true }}
+                  onClick={() => mobile && setSidebarOpen(false)}
+                  aria-current={isActive ? "page" : undefined}
+                  className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors ${
+                    isActive ? "bg-cta-gradient text-white shadow-glow" : "text-foreground/80 hover:bg-muted hover:text-foreground"
+                  }`}
+                >
+                  <s.icon className="h-4 w-4" />
+                  {s.title}
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       </nav>
 
