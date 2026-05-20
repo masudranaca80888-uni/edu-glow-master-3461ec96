@@ -15,18 +15,33 @@ export async function signInWithEmail(email: string, password: string) {
   return data;
 }
 
-export async function signUpWithEmail(input: { email: string; password: string; displayName?: string }) {
+export async function signUpWithEmail(input: { email: string; password: string; displayName?: string; phone?: string; level?: string }) {
   const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/dashboard` : undefined;
   const { data, error } = await supabase.auth.signUp({
     email: input.email,
     password: input.password,
     options: {
       emailRedirectTo: redirectTo,
-      data: input.displayName ? { display_name: input.displayName } : undefined,
+      data: {
+        ...(input.displayName ? { display_name: input.displayName } : {}),
+        ...(input.phone ? { phone: input.phone } : {}),
+        ...(input.level ? { level: input.level } : {}),
+      },
     },
   });
   if (error) throw error;
   return data;
+}
+
+export async function resetPasswordForEmail(email: string) {
+  const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/reset-password` : undefined;
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+  if (error) throw error;
+}
+
+export async function updatePassword(newPassword: string) {
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) throw error;
 }
 
 export async function signOut() {

@@ -124,7 +124,7 @@ function RootComponent() {
 
   const redirectTo = useMemo(() => {
     const path = location.pathname;
-    const authRoutes = ["/login", "/register", "/admin-login"];
+    const authRoutes = ["/login", "/signup", "/register", "/admin-login"];
     const publicRoutes = ["/", ...authRoutes, "/forgot-password", "/verify-otp", "/reset-password", "/email-verified"];
     const studentRoutes = ["/dashboard", "/mcq-practice", "/quiz", "/custom-exam", "/mock-test", "/flash-cards", "/short-notes", "/qns-bank", "/classes", "/notifications", "/profile"];
     const isAdminRoute = path === "/admin" || path.startsWith("/admin/");
