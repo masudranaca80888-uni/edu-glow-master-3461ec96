@@ -1,4 +1,4 @@
-import { LogOut, ShieldCheck } from "lucide-react";
+import { LogOut, Menu, ShieldCheck, X } from "lucide-react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { adminNavItems } from "@/lib/app-data";
@@ -7,9 +7,17 @@ import { useAppStore } from "@/stores/app-store";
 export function AdminSidebar({ active = "Dashboard" }: { active?: string }) {
   const currentPath = useRouterState({ select: (s) => s.location.pathname });
   const logout = useAppStore((s) => s.logout);
+  const sidebarOpen = useAppStore((s) => s.sidebarOpen);
+  const setSidebarOpen = useAppStore((s) => s.setSidebarOpen);
   const navigate = useNavigate();
-  return (
-    <aside className="glass shadow-card-soft sticky top-4 hidden h-[calc(100vh-2rem)] w-64 shrink-0 flex-col rounded-3xl p-4 lg:flex">
+  const handleLogout = async () => {
+    await logout();
+    setSidebarOpen(false);
+    toast.success("Logged out");
+    navigate({ to: "/login" });
+  };
+  const SidebarContent = ({ mobile = false }: { mobile?: boolean }) => (
+    <>
       <div className="flex items-center gap-2 px-2 py-2">
         <div className="bg-cta-gradient flex h-9 w-9 items-center justify-center rounded-xl shadow-glow">
           <ShieldCheck className="h-5 w-5 text-white" />
@@ -33,6 +41,7 @@ export function AdminSidebar({ active = "Dashboard" }: { active?: string }) {
               <li key={m.title}>
                 <Link
                   to={m.to as never}
+                  onClick={() => mobile && setSidebarOpen(false)}
                   className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all ${
                     isActive
                       ? "bg-cta-gradient text-white shadow-glow"
@@ -51,10 +60,31 @@ export function AdminSidebar({ active = "Dashboard" }: { active?: string }) {
         </ul>
       </nav>
 
-      <button onClick={async () => { await logout(); toast.success("Logged out"); navigate({ to: "/login" }); }} className="mt-4 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive">
+      <button onClick={handleLogout} className="mt-4 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive">
         <LogOut className="h-4 w-4" />
         Logout
       </button>
-    </aside>
+    </>
+  );
+  return (
+    <>
+      <button type="button" onClick={() => setSidebarOpen(true)} className="glass fixed left-4 top-4 z-40 flex h-10 w-10 items-center justify-center rounded-xl lg:hidden" aria-label="Open admin menu">
+        <Menu className="h-4 w-4" />
+      </button>
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <button aria-label="Close menu" className="absolute inset-0 bg-background/70 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
+          <aside className="glass shadow-card-soft pointer-events-auto relative z-10 flex h-full w-72 max-w-[85vw] flex-col p-4">
+            <button aria-label="Close menu" onClick={() => setSidebarOpen(false)} className="absolute right-3 top-3 rounded-xl p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
+              <X className="h-4 w-4" />
+            </button>
+            <SidebarContent mobile />
+          </aside>
+        </div>
+      )}
+      <aside className="glass shadow-card-soft sticky top-4 hidden h-[calc(100vh-2rem)] w-64 shrink-0 flex-col rounded-3xl p-4 lg:flex">
+        <SidebarContent />
+      </aside>
+    </>
   );
 }
