@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { Mail, Lock, ArrowRight, Facebook } from "lucide-react";
+import { Mail, ArrowRight, Facebook } from "lucide-react";
 import { AuthShell } from "@/components/auth/AuthShell";
 import {
   NeoInput,
