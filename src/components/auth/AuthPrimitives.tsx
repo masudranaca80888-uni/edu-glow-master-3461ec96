@@ -70,12 +70,14 @@ export function NeonButton({
   className = "",
   type = "button",
   onClick,
+  disabled = false,
 }: {
   children: ReactNode;
   variant?: "primary" | "ghost" | "danger";
   className?: string;
   type?: "button" | "submit";
   onClick?: () => void;
+  disabled?: boolean;
 }) {
   const base =
     "relative inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold transition-all duration-300";
