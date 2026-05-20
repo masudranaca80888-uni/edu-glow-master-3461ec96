@@ -11,7 +11,7 @@ import {
   FieldLabel,
 } from "@/components/auth/AuthPrimitives";
 import { useAppStore } from "@/stores/app-store";
-import { signInWithEmail, fetchSessionUser } from "@/lib/mock-backend";
+import { signInWithEmail } from "@/lib/auth-client";
 
 export const Route = createFileRoute("/login")({
   component: StudentLogin,
@@ -40,7 +40,7 @@ function StudentLogin() {
   const [pw, setPw] = useState("");
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
-  const login = useAppStore((s) => s.login);
+  const refreshAuth = useAppStore((s) => s.refreshAuth);
   const navigate = useNavigate();
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -48,9 +48,8 @@ function StudentLogin() {
     setLoading(true);
     try {
       await signInWithEmail(email, pw);
-      const user = await fetchSessionUser();
+      const user = await refreshAuth();
       if (!user) throw new Error("Session not found");
-      login(user);
       toast.success(`Welcome back, ${user.name}!`);
       navigate({ to: user.role === "admin" ? "/admin" : "/dashboard" });
     } catch (err) {
