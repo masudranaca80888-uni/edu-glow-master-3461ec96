@@ -300,7 +300,7 @@ export function QuizFlow() {
 
                   <div className="relative mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {(["A", "B", "C", "D"] as const).map((k) => {
-                      const text = (q as Record<string, string>)[`option_${k.toLowerCase()}`];
+                      const text = (q as unknown as Record<string, string>)[`option_${k.toLowerCase()}`];
                       const isPicked = answers[current] === k;
                       return (
                         <button
