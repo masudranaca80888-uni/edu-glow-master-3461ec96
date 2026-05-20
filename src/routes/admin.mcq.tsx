@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
-import { McqManagerFlow } from "@/components/admin/McqManagerFlow";
+import { McqAdminConsole } from "@/components/admin/McqAdminConsole";
 
 export const Route = createFileRoute("/admin/mcq")({
   component: AdminMcqPage,
@@ -33,7 +33,7 @@ function AdminMcqPage() {
       <div className="mx-auto flex max-w-[1600px] gap-4 px-4 py-4 sm:px-6">
         <AdminSidebar active="MCQ Manager" />
         <div className="min-w-0 flex-1 space-y-4">
-          <McqManagerFlow />
+          <McqAdminConsole />
         </div>
       </div>
     </div>
