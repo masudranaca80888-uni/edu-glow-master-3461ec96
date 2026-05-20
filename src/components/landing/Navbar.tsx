@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Moon, Sun, GraduationCap, Menu, X } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 
 const links = ["Home", "Features", "Mock Test", "Leaderboard", "Pricing", "Contact"];
 
@@ -14,14 +15,14 @@ export function Navbar() {
   return (
     <header className="fixed top-4 left-1/2 z-50 w-[min(1200px,calc(100%-2rem))] -translate-x-1/2">
       <nav className="glass shadow-card-soft flex items-center justify-between rounded-2xl px-4 py-3 sm:px-6">
-        <a href="#" className="flex items-center gap-2">
+        <Link to="/" className="flex items-center gap-2">
           <div className="bg-cta-gradient flex h-9 w-9 items-center justify-center rounded-xl shadow-glow">
             <GraduationCap className="h-5 w-5 text-white" />
           </div>
           <span className="font-display text-lg font-bold tracking-tight">
             EduMaster<span className="text-gradient"> Pro</span>
           </span>
-        </a>
+        </Link>
 
         <ul className="hidden items-center gap-7 lg:flex">
           {links.map((l) => (
@@ -44,18 +45,18 @@ export function Navbar() {
           >
             {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
-          <a
-            href="#login"
+          <Link
+            to="/login"
             className="hidden rounded-xl px-4 py-2 text-sm font-medium text-foreground/80 transition-colors hover:text-foreground sm:inline-flex"
           >
             Login
-          </a>
-          <a
-            href="#signup"
+          </Link>
+          <Link
+            to="/signup"
             className="bg-cta-gradient hidden rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-glow transition-transform hover:scale-[1.03] sm:inline-flex"
           >
             Sign Up
-          </a>
+          </Link>
           <button
             className="glass flex h-9 w-9 items-center justify-center rounded-xl lg:hidden"
             onClick={() => setOpen((o) => !o)}
@@ -72,17 +73,26 @@ export function Navbar() {
             <a
               key={l}
               href={`#${l.toLowerCase().replace(/\s/g, "")}`}
+              onClick={() => setOpen(false)}
               className="rounded-lg px-3 py-2 text-sm text-foreground/80 hover:bg-muted"
             >
               {l}
             </a>
           ))}
-          <a href="#login" className="rounded-lg px-3 py-2 text-sm text-foreground/80 hover:bg-muted sm:hidden">
+          <Link
+            to="/login"
+            onClick={() => setOpen(false)}
+            className="rounded-lg px-3 py-2 text-sm text-foreground/80 hover:bg-muted sm:hidden"
+          >
             Login
-          </a>
-          <a href="#signup" className="bg-cta-gradient mt-1 rounded-lg px-3 py-2 text-center text-sm font-semibold text-white sm:hidden">
+          </Link>
+          <Link
+            to="/signup"
+            onClick={() => setOpen(false)}
+            className="bg-cta-gradient mt-1 rounded-lg px-3 py-2 text-center text-sm font-semibold text-white sm:hidden"
+          >
             Sign Up
-          </a>
+          </Link>
         </div>
       )}
     </header>
