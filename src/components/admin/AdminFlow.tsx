@@ -8,6 +8,7 @@ import {
   ListChecks,
   Trophy,
   CreditCard,
+  Timer,
   Activity,
   Server,
   Upload,
