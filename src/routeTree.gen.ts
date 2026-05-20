@@ -31,6 +31,7 @@ import { Route as AdminMockTestRouteImport } from './routes/admin.mock-test'
 import { Route as AdminMcqRouteImport } from './routes/admin.mcq'
 import { Route as AdminFlashCardsRouteImport } from './routes/admin.flash-cards'
 import { Route as AdminClassesRouteImport } from './routes/admin.classes'
+import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
 
 const ShortNotesRoute = ShortNotesRouteImport.update({
   id: '/short-notes',
@@ -142,6 +143,11 @@ const AdminClassesRoute = AdminClassesRouteImport.update({
   path: '/classes',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminAnalyticsRoute = AdminAnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
+  getParentRoute: () => AdminRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -157,6 +163,7 @@ export interface FileRoutesByFullPath {
   '/qns-bank': typeof QnsBankRoute
   '/quiz': typeof QuizRoute
   '/short-notes': typeof ShortNotesRoute
+  '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/classes': typeof AdminClassesRoute
   '/admin/flash-cards': typeof AdminFlashCardsRoute
   '/admin/mcq': typeof AdminMcqRoute
@@ -181,6 +188,7 @@ export interface FileRoutesByTo {
   '/qns-bank': typeof QnsBankRoute
   '/quiz': typeof QuizRoute
   '/short-notes': typeof ShortNotesRoute
+  '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/classes': typeof AdminClassesRoute
   '/admin/flash-cards': typeof AdminFlashCardsRoute
   '/admin/mcq': typeof AdminMcqRoute
@@ -206,6 +214,7 @@ export interface FileRoutesById {
   '/qns-bank': typeof QnsBankRoute
   '/quiz': typeof QuizRoute
   '/short-notes': typeof ShortNotesRoute
+  '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/classes': typeof AdminClassesRoute
   '/admin/flash-cards': typeof AdminFlashCardsRoute
   '/admin/mcq': typeof AdminMcqRoute
@@ -232,6 +241,7 @@ export interface FileRouteTypes {
     | '/qns-bank'
     | '/quiz'
     | '/short-notes'
+    | '/admin/analytics'
     | '/admin/classes'
     | '/admin/flash-cards'
     | '/admin/mcq'
@@ -256,6 +266,7 @@ export interface FileRouteTypes {
     | '/qns-bank'
     | '/quiz'
     | '/short-notes'
+    | '/admin/analytics'
     | '/admin/classes'
     | '/admin/flash-cards'
     | '/admin/mcq'
@@ -280,6 +291,7 @@ export interface FileRouteTypes {
     | '/qns-bank'
     | '/quiz'
     | '/short-notes'
+    | '/admin/analytics'
     | '/admin/classes'
     | '/admin/flash-cards'
     | '/admin/mcq'
@@ -463,10 +475,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminClassesRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/analytics': {
+      id: '/admin/analytics'
+      path: '/analytics'
+      fullPath: '/admin/analytics'
+      preLoaderRoute: typeof AdminAnalyticsRouteImport
+      parentRoute: typeof AdminRoute
+    }
   }
 }
 
 interface AdminRouteChildren {
+  AdminAnalyticsRoute: typeof AdminAnalyticsRoute
   AdminClassesRoute: typeof AdminClassesRoute
   AdminFlashCardsRoute: typeof AdminFlashCardsRoute
   AdminMcqRoute: typeof AdminMcqRoute
@@ -479,6 +499,7 @@ interface AdminRouteChildren {
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminAnalyticsRoute: AdminAnalyticsRoute,
   AdminClassesRoute: AdminClassesRoute,
   AdminFlashCardsRoute: AdminFlashCardsRoute,
   AdminMcqRoute: AdminMcqRoute,
