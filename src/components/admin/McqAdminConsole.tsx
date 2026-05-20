@@ -1,14 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
+import pdfWorkerUrl from "pdfjs-dist/legacy/build/pdf.worker.mjs?url";
+import * as mammoth from "mammoth";
+import { toast } from "sonner";
 import {
   Plus, Search, Trash2, Edit3, Eye, EyeOff, Loader2, Upload, X, Check, FolderPlus, BookPlus, AlertCircle,
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import {
   adminListSubjects, adminListChapters, adminListMcqs,
   adminCreateMcq, adminUpdateMcq, adminDeleteMcq, adminSetMcqStatus,
   adminCreateSubject, adminCreateChapter, adminBulkImportMcqs,
 } from "@/lib/admin-mcq.functions";
+
+pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 type Mcq = {
   id: string;
@@ -52,6 +59,8 @@ type BulkImportItem = {
   status: "draft" | "published" | "archived";
   tags: string[];
 };
+
+type ParsedImportRow = BulkImportItem & { source: string; duplicate?: boolean; error?: string };
 
 function emptyDraft(chapterId: string): Draft {
   return {
@@ -312,6 +321,7 @@ export function McqAdminConsole() {
       {showBulk && chapterId && (
         <BulkImportDialog
           chapterId={chapterId}
+          existingQuestions={rows.map((r) => r.question)}
           onClose={() => setShowBulk(false)}
           onDone={() => { setShowBulk(false); invalidateAll(); }}
           run={bulkImportFn}
@@ -507,27 +517,68 @@ function EditDialog({ draft, onChange, onClose, onSave, saving, error }: {
 }
 
 /* ---------------- Bulk import ---------------- */
-function BulkImportDialog({ chapterId, onClose, onDone, run }: {
+function BulkImportDialog({ chapterId, existingQuestions, onClose, onDone, run }: {
   chapterId: string;
+  existingQuestions: string[];
   onClose: () => void;
   onDone: () => void;
   run: (opts: { data: { chapter_id: string; items: BulkImportItem[] } }) => Promise<{ inserted: number }>;
 }) {
   const [text, setText] = useState(SAMPLE_JSON);
+  const [rows, setRows] = useState<ParsedImportRow[]>([]);
+  const [progress, setProgress] = useState(0);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+
+  const validRows = rows.filter((r) => !r.error && !r.duplicate);
+
+  async function handleFiles(files: FileList | File[]) {
+    const list = Array.from(files);
+    if (!list.length) return;
+    setBusy(true); setMsg(null); setProgress(3);
+    try {
+      const parsed: ParsedImportRow[] = [];
+      for (let i = 0; i < list.length; i++) {
+        const file = list[i];
+        const sourceText = await extractFileText(file);
+        const uploadedPath = `${chapterId}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "-")}`;
+        await supabase.storage.from("mcq-imports").upload(uploadedPath, file, { upsert: false }).catch(() => null);
+        parsed.push(...parseMcqText(sourceText, file.name));
+        setProgress(Math.round(((i + 1) / list.length) * 100));
+      }
+      const seen = new Set(existingQuestions.map(normalizeQuestion));
+      const withDuplicates = parsed.map((row) => {
+        const key = normalizeQuestion(row.question);
+        const duplicate = seen.has(key);
+        if (!duplicate) seen.add(key);
+        return { ...row, duplicate, error: row.error ?? validateImportRow(row) };
+      });
+      setRows(withDuplicates);
+      setText(JSON.stringify(withDuplicates.map(({ source, duplicate, error, ...item }) => item), null, 2));
+      toast.success(`Parsed ${withDuplicates.length} MCQs from ${list.length} file${list.length > 1 ? "s" : ""}`);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Could not parse upload";
+      setMsg({ kind: "err", text: message });
+      toast.error(message);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function go() {
     setBusy(true); setMsg(null);
     try {
-      const parsed = JSON.parse(text);
+      const parsed = rows.length ? validRows : JSON.parse(text);
       const items = Array.isArray(parsed) ? parsed : parsed.items;
       if (!Array.isArray(items)) throw new Error("JSON must be an array (or { items: [...] })");
       const res = await run({ data: { chapter_id: chapterId, items: items as BulkImportItem[] } });
       setMsg({ kind: "ok", text: `Inserted ${res.inserted} MCQs` });
+      toast.success(`Imported ${res.inserted} MCQs`);
       setTimeout(onDone, 600);
     } catch (e) {
-      setMsg({ kind: "err", text: e instanceof Error ? e.message : "Import failed" });
+      const message = e instanceof Error ? e.message : "Import failed";
+      setMsg({ kind: "err", text: message });
+      toast.error(message);
     } finally {
       setBusy(false);
     }
@@ -536,8 +587,36 @@ function BulkImportDialog({ chapterId, onClose, onDone, run }: {
   return (
     <Modal onClose={onClose} title="Bulk import MCQs" wide>
       <p className="text-xs text-muted-foreground">
-        Paste a JSON array. Each item: <code>question, option_a..d, correct_option (A|B|C|D), explanation?, difficulty?, status?, tags?</code>
+        Drop PDF, DOCX, DOC or TXT files, or paste JSON. Parsed rows are validated before import.
       </p>
+      <label
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => { e.preventDefault(); void handleFiles(e.dataTransfer.files); }}
+        className="mt-3 flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[var(--neon-blue)]/40 bg-background/30 p-6 text-center transition-colors hover:border-[var(--neon-purple)]/60"
+      >
+        <Upload className="h-6 w-6 text-[var(--neon-blue)]" />
+        <span className="mt-2 text-sm font-semibold">Choose or drag multiple files</span>
+        <span className="text-[11px] text-muted-foreground">PDF · DOCX · DOC · TXT</span>
+        <input type="file" multiple accept=".pdf,.doc,.docx,.txt,text/plain,application/pdf" className="sr-only" onChange={(e) => e.target.files && void handleFiles(e.target.files)} />
+      </label>
+      {progress > 0 && (
+        <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted/40">
+          <div className="h-full rounded-full bg-cta-gradient transition-all" style={{ width: `${progress}%` }} />
+        </div>
+      )}
+      {rows.length > 0 && (
+        <div className="mt-3 max-h-56 overflow-auto rounded-2xl border border-border/60 bg-background/30">
+          {rows.map((row, i) => (
+            <div key={`${row.source}-${i}`} className={`border-b border-border/40 p-3 text-xs last:border-b-0 ${row.error || row.duplicate ? "bg-destructive/10" : ""}`}>
+              <div className="flex items-start justify-between gap-3">
+                <p className="font-medium">{row.question || "Untitled question"}</p>
+                <span className={row.error || row.duplicate ? "text-destructive" : "text-emerald-400"}>{row.error ?? (row.duplicate ? "Duplicate" : "Valid")}</span>
+              </div>
+              <p className="mt-1 text-[10px] text-muted-foreground">{row.source} · Answer {row.correct_option}</p>
+            </div>
+          ))}
+        </div>
+      )}
       <textarea value={text} onChange={(e) => setText(e.target.value)} className="mt-3 w-full rounded-xl border border-border/60 bg-background/40 p-3 font-mono text-xs outline-none focus:border-[var(--neon-blue)]/60 min-h-[260px]" />
       {msg && (
         <p className={`mt-3 text-xs ${msg.kind === "ok" ? "text-emerald-400" : "text-red-400"}`}>{msg.text}</p>
@@ -545,11 +624,73 @@ function BulkImportDialog({ chapterId, onClose, onDone, run }: {
       <div className="mt-4 flex justify-end gap-2">
         <button onClick={onClose} className="rounded-xl border border-border bg-background/40 px-4 py-2 text-sm">Cancel</button>
         <button onClick={go} disabled={busy} className="bg-cta-gradient inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-glow disabled:opacity-50">
-          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Import
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Import {rows.length ? `${validRows.length} valid` : ""}
         </button>
       </div>
     </Modal>
   );
+}
+
+async function extractFileText(file: File) {
+  const ext = file.name.split(".").pop()?.toLowerCase();
+  if (ext === "txt" || file.type.startsWith("text/")) return file.text();
+  if (ext === "pdf" || file.type === "application/pdf") {
+    const pdf = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+    const pages = await Promise.all(Array.from({ length: pdf.numPages }, async (_, i) => {
+      const page = await pdf.getPage(i + 1);
+      const content = await page.getTextContent();
+      return content.items.map((item) => ("str" in item ? item.str : "")).join(" ");
+    }));
+    return pages.join("\n\n");
+  }
+  if (ext === "doc" || ext === "docx" || file.name.toLowerCase().endsWith(".docx")) {
+    const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+    return result.value;
+  }
+  throw new Error(`Unsupported file format: ${file.name}`);
+}
+
+function parseMcqText(raw: string, source: string): ParsedImportRow[] {
+  const normalized = raw.replace(/\r/g, "").replace(/[ \t]+/g, " ").trim();
+  const blocks = normalized
+    .split(/\n\s*\n|(?=\n?\s*(?:Q\.?\s*)?\d+[).]\s+)/gi)
+    .map((b) => b.trim())
+    .filter((b) => /(?:^|\n|\s)(?:A|B|C|D)[).:-]/i.test(b));
+
+  return blocks.map((block) => {
+    const clean = block.replace(/^\s*(?:Q\.?\s*)?\d+[).]\s*/i, "");
+    const answer = /(?:answer|correct(?:\s+answer)?)[\s:.-]*([ABCD])/i.exec(clean)?.[1]?.toUpperCase() as BulkImportItem["correct_option"] | undefined;
+    const explanation = /(?:explanation|reason)[\s:.-]*([\s\S]*)/i.exec(clean)?.[1]?.trim();
+    const option = (letter: "A" | "B" | "C" | "D") => {
+      const next = letter === "A" ? "B" : letter === "B" ? "C" : letter === "C" ? "D" : "Answer|Correct|Explanation|Reason|$";
+      return new RegExp(`${letter}[).:-]\\s*([\\s\\S]*?)(?=\\n?\\s*(?:${next})[).:-]?\\s*)`, "i").exec(clean)?.[1]?.trim() ?? "";
+    };
+    const question = clean.split(/\n?\s*A[).:-]\s*/i)[0]?.trim() ?? "";
+    return {
+      source,
+      question,
+      option_a: option("A"),
+      option_b: option("B"),
+      option_c: option("C"),
+      option_d: option("D"),
+      correct_option: answer ?? "A",
+      explanation: explanation || null,
+      difficulty: "medium",
+      status: "published",
+      tags: [source.split(".")[0].slice(0, 40)],
+    };
+  });
+}
+
+function normalizeQuestion(question: string) {
+  return question.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function validateImportRow(row: BulkImportItem) {
+  if (row.question.trim().length < 3) return "Question missing";
+  if (!row.option_a || !row.option_b || !row.option_c || !row.option_d) return "All 4 options required";
+  if (!["A", "B", "C", "D"].includes(row.correct_option)) return "Correct answer must be A-D";
+  return undefined;
 }
 
 const SAMPLE_JSON = JSON.stringify(
