@@ -1,25 +1,8 @@
-import {
-  LayoutDashboard,
-  ListChecks,
-  Timer,
-  Trophy,
-  Layers,
-  FileText,
-  Database,
-  PlayCircle,
-  Users,
-  Bell,
-  BarChart3,
-  Settings,
-  LogOut,
-  ShieldCheck,
-} from "lucide-react";
+import { LogOut, ShieldCheck } from "lucide-react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { adminNavItems } from "@/lib/app-data";
 import { useAppStore } from "@/stores/app-store";
-
-void LayoutDashboard; void ListChecks; void Timer; void Trophy; void Layers; void FileText; void Database; void PlayCircle; void Users; void Bell; void BarChart3; void Settings;
 
 export function AdminSidebar({ active = "Dashboard" }: { active?: string }) {
   const currentPath = useRouterState({ select: (s) => s.location.pathname });
