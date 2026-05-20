@@ -11,7 +11,7 @@ import {
   OtpInput,
 } from "@/components/auth/AuthPrimitives";
 import { useAppStore } from "@/stores/app-store";
-import { signInWithEmail, fetchSessionUser } from "@/lib/mock-backend";
+import { signInWithEmail } from "@/lib/auth-client";
 
 export const Route = createFileRoute("/admin-login")({
   component: AdminLogin,
@@ -30,7 +30,7 @@ function AdminLogin() {
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [loading, setLoading] = useState(false);
-  const login = useAppStore((s) => s.login);
+  const refreshAuth = useAppStore((s) => s.refreshAuth);
   const navigate = useNavigate();
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -38,12 +38,11 @@ function AdminLogin() {
     setLoading(true);
     try {
       await signInWithEmail(email, pw);
-      const user = await fetchSessionUser();
+      const user = await refreshAuth();
       if (!user) throw new Error("Session not found");
       if (user.role !== "admin") {
         throw new Error("This account does not have admin privileges.");
       }
-      login(user);
       toast.success("Admin verified. Welcome.");
       navigate({ to: "/admin" });
     } catch (err) {
