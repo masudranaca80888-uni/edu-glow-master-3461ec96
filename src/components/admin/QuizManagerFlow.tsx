@@ -876,8 +876,11 @@ function QuizPreviewDialog({ quiz, onClose }: { quiz: Quiz; onClose: () => void 
           {qq.isLoading || (ids.length > 0 && pool.isLoading) ? (
             <div className="flex h-32 items-center justify-center text-sm text-muted-foreground"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading…</div>
           ) : ordered.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
-              No questions assigned yet. Use <b>Manage MCQs</b> to attach questions from the chapter pool.
+            <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
+              <p>No questions assigned yet. Use <b>Manage MCQs</b> to auto-pick from the chapter pool.</p>
+              <Link to="/admin/mcq" className="inline-flex items-center gap-1 rounded-lg border border-[var(--neon-purple)]/40 bg-[var(--neon-purple)]/10 px-3 py-1.5 text-xs font-semibold text-[var(--neon-purple)]">
+                Open MCQ Manager <ExternalLink className="h-3 w-3" />
+              </Link>
             </div>
           ) : ordered.map((m, i) => (
             <div key={m.id} className="glass rounded-2xl p-4">
