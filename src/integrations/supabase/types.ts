@@ -289,7 +289,16 @@ export type Database = {
           description: string | null
           difficulty: Database["public"]["Enums"]["mcq_difficulty"]
           duration_seconds: number
+          ends_at: string | null
           id: string
+          is_public: boolean
+          kind: string
+          level: string
+          negative_marking: number
+          passing_marks: number
+          randomize_options: boolean
+          randomize_questions: boolean
+          starts_at: string | null
           status: Database["public"]["Enums"]["content_status"]
           subject_id: string | null
           title: string
@@ -303,7 +312,16 @@ export type Database = {
           description?: string | null
           difficulty?: Database["public"]["Enums"]["mcq_difficulty"]
           duration_seconds?: number
+          ends_at?: string | null
           id?: string
+          is_public?: boolean
+          kind?: string
+          level?: string
+          negative_marking?: number
+          passing_marks?: number
+          randomize_options?: boolean
+          randomize_questions?: boolean
+          starts_at?: string | null
           status?: Database["public"]["Enums"]["content_status"]
           subject_id?: string | null
           title: string
@@ -317,7 +335,16 @@ export type Database = {
           description?: string | null
           difficulty?: Database["public"]["Enums"]["mcq_difficulty"]
           duration_seconds?: number
+          ends_at?: string | null
           id?: string
+          is_public?: boolean
+          kind?: string
+          level?: string
+          negative_marking?: number
+          passing_marks?: number
+          randomize_options?: boolean
+          randomize_questions?: boolean
+          starts_at?: string | null
           status?: Database["public"]["Enums"]["content_status"]
           subject_id?: string | null
           title?: string
@@ -348,6 +375,7 @@ export type Database = {
           description: string | null
           icon: string | null
           id: string
+          level: string
           name: string
           slug: string
           sort_order: number
@@ -360,6 +388,7 @@ export type Database = {
           description?: string | null
           icon?: string | null
           id?: string
+          level?: string
           name: string
           slug: string
           sort_order?: number
@@ -372,6 +401,7 @@ export type Database = {
           description?: string | null
           icon?: string | null
           id?: string
+          level?: string
           name?: string
           slug?: string
           sort_order?: number
