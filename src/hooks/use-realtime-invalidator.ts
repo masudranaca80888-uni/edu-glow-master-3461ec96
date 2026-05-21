@@ -43,14 +43,12 @@ export function useRealtimeInvalidator(enabled = true) {
 
     for (const table of Object.keys(TABLE_QUERY_KEYS)) {
       channel.on(
-        // @ts-expect-error - realtime types
-        "postgres_changes",
+        "postgres_changes" as never,
         { event: "*", schema: "public", table },
         () => {
           const keys = TABLE_QUERY_KEYS[table];
           for (const key of keys) {
             qc.invalidateQueries({ queryKey: [key] });
-            // Also invalidate any compound keys starting with this prefix
             qc.invalidateQueries({
               predicate: (q) =>
                 Array.isArray(q.queryKey) && q.queryKey[0] === key,
