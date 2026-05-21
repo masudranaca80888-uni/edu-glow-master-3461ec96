@@ -96,6 +96,40 @@ export function FlashCardsFlow() {
   const [subject, setSubject] = useState<string>("");
   const [chapter, setChapter] = useState<string>("");
 
+  const qc = useQueryClient();
+  const visFn = useServerFn(getFlashCardVisibility);
+  const vis = useQuery({
+    queryKey: ["flash-card-visibility"],
+    queryFn: () => visFn(),
+    staleTime: 30_000,
+  });
+
+  useEffect(() => {
+    const ch = supabase
+      .channel("student-fcv-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "flash_card_visibility" }, () => {
+        qc.invalidateQueries({ queryKey: ["flash-card-visibility"] });
+        qc.invalidateQueries({ queryKey: ["public-flash-cards"] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [qc]);
+
+  if (vis.data?.section_hidden) {
+    return (
+      <div className="space-y-6">
+        <Header />
+        <div className="glass shadow-card-soft rounded-3xl p-12 text-center">
+          <Layers className="mx-auto h-10 w-10 text-muted-foreground" />
+          <h2 className="font-display mt-4 text-2xl font-bold">Flash cards are temporarily unavailable</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Your instructor has paused the flash card section. Please check back soon.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <Header />
