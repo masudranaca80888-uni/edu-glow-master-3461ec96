@@ -141,14 +141,39 @@ export function McqFlow() {
   }
 
   const subjectsQ = useQuery({
-    queryKey: ["subjects"],
-    queryFn: () => listSubjectsFn(),
+    queryKey: ["subjects", level],
+    queryFn: () => listSubjectsFn({ data: { level: level ?? undefined } }),
+    enabled: !!level,
   });
+  const subjectProgressQ = useQuery({
+    queryKey: ["subject-progress", level],
+    queryFn: () => listSubjectProgressFn({ data: { level: level ?? undefined } }),
+    enabled: !!level,
+    staleTime: 30_000,
+  });
+  const subjectProgressMap = useMemo(() => {
+    const m = new Map<string, { total: number; completed: number; percent: number }>();
+    (subjectProgressQ.data ?? []).forEach((r) => m.set(r.subject_id, r));
+    return m;
+  }, [subjectProgressQ.data]);
+
   const chaptersQ = useQuery({
     queryKey: ["chapters", subjectId],
     queryFn: () => listChaptersFn({ data: { subjectId: subjectId! } }),
     enabled: !!subjectId,
   });
+  const chapterProgressQ = useQuery({
+    queryKey: ["chapter-progress", subjectId],
+    queryFn: () => listChapterProgressFn({ data: { subjectId: subjectId! } }),
+    enabled: !!subjectId,
+    staleTime: 30_000,
+  });
+  const chapterProgressMap = useMemo(() => {
+    const m = new Map<string, { total: number; completed: number; percent: number; accuracy: number }>();
+    (chapterProgressQ.data ?? []).forEach((r) => m.set(r.chapter_id, r));
+    return m;
+  }, [chapterProgressQ.data]);
+
   const mcqsQ = useQuery({
     queryKey: ["mcqs", chapterId],
     queryFn: () => listMcqsFn({ data: { chapterId: chapterId!, limit: 25 } }),
