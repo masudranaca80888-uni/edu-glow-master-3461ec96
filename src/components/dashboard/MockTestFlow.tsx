@@ -129,7 +129,7 @@ const leaderboard = [
 export function MockTestFlow() {
   const [stage, setStage] = useState<Stage>("browse");
   const [filter, setFilter] = useState<string>("Certificate");
-  const [selected, setSelected] = useState<(typeof mocks)[number] | null>(null);
+  const [selected, setSelected] = useState<StudentMock | null>(null);
 
   return (
     <div className="space-y-6">
