@@ -13,6 +13,7 @@ import { Suspense, useEffect, useMemo } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { useAppStore } from "@/stores/app-store";
 import { useRealtimeInvalidator } from "@/hooks/use-realtime-invalidator";
+import { usePrefs } from "@/lib/profile-prefs";
 
 import appCss from "../styles.css?url";
 
