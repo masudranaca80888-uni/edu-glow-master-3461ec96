@@ -316,10 +316,35 @@ export function McqFlow() {
       toast.success(opts?.auto ? "Practice auto-submitted" : "Practice complete!", {
         description: `Score ${res.score}% · ${res.correct}/${res.total} correct`,
       });
+      // Record wrong/mastered outcomes for the Wrong Questions section
+      try {
+        const outcomes = mcqs.map((m, i) => {
+          const a = finalizedAnswers[i];
+          const correctOpt = normalizeChoice(m.correct_option);
+          return {
+            mcqId: m.id,
+            chosen: a?.chosen ?? null,
+            isCorrect: a?.chosen !== null && a?.chosen === correctOpt,
+            correctOption: correctOpt,
+          };
+        });
+        await recordOutcomesFn({
+          data: {
+            level: level ?? null,
+            subjectId: subjectId ?? null,
+            chapterId: chapterId ?? null,
+            outcomes,
+          },
+        });
+      } catch (e) {
+        debugMcq("record outcomes failed", e);
+      }
       // Refresh dashboard views immediately
       qc.invalidateQueries({ queryKey: ["student-performance-center"] });
       qc.invalidateQueries({ queryKey: ["student-completion-tracker"] });
       qc.invalidateQueries({ queryKey: ["exam-attempts"] });
+      qc.invalidateQueries({ queryKey: ["mcq-wrong"] });
+      qc.invalidateQueries({ queryKey: ["mcq-review-counts"] });
     } catch (e) {
       debugMcq("DB save failed", e);
       toast.error("Could not save attempt", {
