@@ -662,17 +662,27 @@ export function McqFlow() {
                       </button>
                       <div className="flex flex-wrap gap-3">
                         {!reviewMode && !submittedNow && (
-                          <button
-                            onClick={() => submitAnswer(null)}
-                            className="rounded-xl border border-border bg-background/40 px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
-                          >
-                            Skip
-                          </button>
+                          <>
+                            <button
+                              onClick={() => submitAnswer(null)}
+                              className="rounded-xl border border-border bg-background/40 px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
+                            >
+                              Skip
+                            </button>
+                            <button
+                              onClick={() => selectedOption && submitAnswer(selectedOption)}
+                              disabled={!selectedOption}
+                              className="bg-cta-gradient inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-glow transition-transform hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+                            >
+                              <Check className="h-4 w-4" /> Submit Answer
+                            </button>
+                          </>
                         )}
                         {current < total - 1 ? (
                           <button
                             onClick={nextQ}
-                            className="bg-cta-gradient inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-glow transition-transform hover:scale-[1.02]"
+                            disabled={!reviewMode && !submittedNow}
+                            className="bg-cta-gradient inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-glow transition-transform hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
                           >
                             Next <ArrowRight className="h-4 w-4" />
                           </button>
@@ -686,8 +696,8 @@ export function McqFlow() {
                         ) : (
                           <button
                             onClick={() => finishPractice()}
-                            disabled={saving}
-                            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-glow transition-transform hover:scale-[1.02] disabled:opacity-60"
+                            disabled={saving || !submittedNow}
+                            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-glow transition-transform hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trophy className="h-4 w-4" />}
                             {saving ? "Saving…" : allSubmitted ? "Finish Practice" : `Finish (${stats.submitted}/${total})`}
