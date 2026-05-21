@@ -467,6 +467,12 @@ export function AcademicStructureManager() {
 
       {/* Dialogs */}
       <EntityDialog state={dialog} onClose={() => setDialog({ kind: "none" })} onSaved={invalidate} levels={levels} subjects={subjects} />
+      {mcqChapter && (
+        <ChapterMcqsDialog
+          chapter={mcqChapter}
+          onClose={() => setMcqChapter(null)}
+        />
+      )}
     </div>
   );
 }
