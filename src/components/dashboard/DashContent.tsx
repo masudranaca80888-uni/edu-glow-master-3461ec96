@@ -55,6 +55,14 @@ const actions: { t: string; i: typeof ListChecks; to: "/mcq-practice" | "/quiz" 
 ];
 
 export function DashContent() {
+  const visFn = useServerFn(getFlashCardVisibility);
+  const vis = useQuery({
+    queryKey: ["flash-card-visibility"],
+    queryFn: () => visFn(),
+    staleTime: 30_000,
+  });
+  const visibleActions = actions.filter((a) => a.to !== "/flash-cards" || !vis.data?.section_hidden);
+
   return (
     <div className="space-y-6">
       {/* Welcome */}
