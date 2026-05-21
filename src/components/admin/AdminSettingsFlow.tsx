@@ -16,6 +16,11 @@ import { Progress } from "@/components/ui/progress";
 import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from "@/components/ui/table";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
+import { useModuleVisibility } from "@/hooks/use-module-visibility";
+import { adminSetModuleHidden } from "@/lib/module-visibility.functions";
 
 /* -------------------- top bar -------------------- */
 function Topbar() {
@@ -353,31 +358,51 @@ function SecurityPanel() {
 }
 
 /* -------------------- 4. module visibility -------------------- */
-const modules = [
-  { t: "MCQ Practice", on: true, m: false },
-  { t: "Quiz Section", on: true, m: false },
-  { t: "Mock Test", on: true, m: false },
-  { t: "Flash Cards", on: true, m: false },
-  { t: "Short Notes", on: true, m: false },
-  { t: "Question Bank", on: false, m: true },
-  { t: "Video Classes", on: true, m: false },
-  { t: "Notifications", on: true, m: false },
-];
-
 function ModulesPanel() {
+  const { rows } = useModuleVisibility();
+  const qc = useQueryClient();
+  const setFn = useServerFn(adminSetModuleHidden);
+  type Row = (typeof rows)[number];
+  type Vars = { key: Row["key"]; hidden: boolean };
+  const mut = useMutation<unknown, Error, Vars, { prev?: Row[] }>({
+    mutationFn: (v) => setFn({ data: { key: v.key, hidden: v.hidden } }),
+    onMutate: async (v) => {
+      await qc.cancelQueries({ queryKey: ["module-visibility"] });
+      const prev = qc.getQueryData<Row[]>(["module-visibility"]);
+      if (prev) {
+        qc.setQueryData<Row[]>(
+          ["module-visibility"],
+          prev.map((r) => (r.key === v.key ? { ...r, hidden: v.hidden } : r)),
+        );
+      }
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(["module-visibility"], ctx.prev);
+      toast.error("Could not update module");
+    },
+    onSuccess: (_d, v) => {
+      toast.success(`${v.hidden ? "Hidden" : "Visible"} for students`);
+      qc.invalidateQueries({ queryKey: ["module-visibility"] });
+    },
+  });
+  const liveCount = rows.filter((r) => !r.hidden).length;
   return (
-    <Panel icon={Eye} color="#a78bfa" title="Module Visibility" subtitle="Show/hide modules for students globally" badge={`${modules.filter(m=>m.on).length}/${modules.length} live`}>
+    <Panel icon={Eye} color="#a78bfa" title="Module Visibility" subtitle="Show/hide modules for students globally" badge={`${liveCount}/${rows.length} live`}>
       <div className="grid gap-2 sm:grid-cols-2">
-        {modules.map((m) => (
-          <div key={m.t} className="flex items-center justify-between rounded-xl border border-white/10 bg-background/30 px-3 py-2.5">
+        {rows.map((m) => (
+          <div key={m.key} className="flex items-center justify-between rounded-xl border border-white/10 bg-background/30 px-3 py-2.5">
             <div className="flex items-center gap-2">
-              <span className={`h-2 w-2 rounded-full ${m.on ? "animate-pulse bg-emerald-400 shadow-[0_0_8px_#10b981]" : "bg-zinc-500"}`} />
-              <p className="text-sm font-medium">{m.t}</p>
-              {m.m && <Badge variant="outline" className="border-amber-400/30 bg-amber-500/10 text-[10px] text-amber-300">maintenance</Badge>}
+              <span className={`h-2 w-2 rounded-full ${!m.hidden ? "animate-pulse bg-emerald-400 shadow-[0_0_8px_#10b981]" : "bg-zinc-500"}`} />
+              <p className="text-sm font-medium">{m.label}</p>
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="border-white/15 text-[10px] text-muted-foreground">students</Badge>
-              <Switch defaultChecked={m.on} />
+              <Switch
+                checked={!m.hidden}
+                disabled={mut.isPending}
+                onCheckedChange={(on) => mut.mutate({ key: m.key, hidden: !on })}
+              />
             </div>
           </div>
         ))}

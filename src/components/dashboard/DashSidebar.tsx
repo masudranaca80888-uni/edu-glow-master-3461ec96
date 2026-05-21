@@ -7,6 +7,7 @@ import {
 import { toast } from "sonner";
 import { studentNavItems } from "@/lib/app-data";
 import { useAppStore } from "@/stores/app-store";
+import { useModuleVisibility } from "@/hooks/use-module-visibility";
 
 export function DashSidebar() {
   const currentPath = useRouterState({ select: (s) => s.location.pathname });
@@ -14,6 +15,14 @@ export function DashSidebar() {
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
   const setSidebarOpen = useAppStore((s) => s.setSidebarOpen);
   const navigate = useNavigate();
+  const { isPathHidden } = useModuleVisibility();
+  const visibleItems = studentNavItems.filter((item) => !isPathHidden(item.to));
+  const learningItems = visibleItems.filter(
+    (i) => !["Notifications", "Profile"].includes(i.title),
+  );
+  const accountItems = visibleItems.filter((i) =>
+    ["Notifications", "Profile"].includes(i.title),
+  );
   const handleLogout = async () => {
     await logout();
     setSidebarOpen(false);
@@ -36,7 +45,7 @@ export function DashSidebar() {
           Learning
         </p>
         <ul className="mt-2 space-y-1">
-          {studentNavItems.slice(0, 9).map((m) => {
+          {learningItems.map((m) => {
             const isActive = currentPath === m.to;
             return (
               <li key={m.title}>
@@ -66,7 +75,7 @@ export function DashSidebar() {
           Account
         </p>
         <ul className="mt-2 space-y-1">
-          {studentNavItems.slice(9).map((s) => {
+          {accountItems.map((s) => {
             const isActive = currentPath === s.to;
             return (
               <li key={s.title}>

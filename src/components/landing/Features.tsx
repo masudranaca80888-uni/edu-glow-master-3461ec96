@@ -9,6 +9,7 @@ import {
   PlayCircle,
   type LucideIcon,
 } from "lucide-react";
+import { useModuleVisibility, MODULE_BY_FEATURE_TITLE } from "@/hooks/use-module-visibility";
 
 type Feature = {
   icon: LucideIcon;
@@ -92,6 +93,11 @@ const stats = [
 ];
 
 export function Features() {
+  const { isHidden } = useModuleVisibility();
+  const visibleFeatures = features.filter((f) => {
+    const k = MODULE_BY_FEATURE_TITLE[f.title];
+    return !k || !isHidden(k);
+  });
   return (
     <section id="features" className="relative py-24 sm:py-32">
       {/* floating shapes */}
@@ -118,7 +124,7 @@ export function Features() {
 
         {/* Grid */}
         <div className="mt-16 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {features.map((f, i) => {
+          {visibleFeatures.map((f, i) => {
             const t = toneMap[f.tone];
             const Icon = f.icon;
             return (

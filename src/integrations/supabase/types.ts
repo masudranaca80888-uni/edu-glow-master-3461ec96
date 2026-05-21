@@ -353,6 +353,27 @@ export type Database = {
           },
         ]
       }
+      module_visibility: {
+        Row: {
+          hidden: boolean
+          key: string
+          label: string
+          updated_at: string
+        }
+        Insert: {
+          hidden?: boolean
+          key: string
+          label: string
+          updated_at?: string
+        }
+        Update: {
+          hidden?: boolean
+          key?: string
+          label?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       notification_reads: {
         Row: {
           notification_id: string

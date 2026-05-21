@@ -1,7 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
-import { getFlashCardVisibility } from "@/lib/admin-flash-cards.functions";
+import { useModuleVisibility } from "@/hooks/use-module-visibility";
 import {
   ListChecks,
   Timer,
@@ -55,13 +53,10 @@ const actions: { t: string; i: typeof ListChecks; to: "/mcq-practice" | "/quiz" 
 ];
 
 export function DashContent() {
-  const visFn = useServerFn(getFlashCardVisibility);
-  const vis = useQuery({
-    queryKey: ["flash-card-visibility"],
-    queryFn: () => visFn(),
-    staleTime: 30_000,
-  });
-  const visibleActions = actions.filter((a) => a.to !== "/flash-cards" || !vis.data?.section_hidden);
+  const { isPathHidden } = useModuleVisibility();
+  const visibleActions = actions.filter((a) => !isPathHidden(a.to));
+  const mockTestHidden = isPathHidden("/mock-test");
+  const classesHidden = isPathHidden("/classes");
 
   return (
     <div className="space-y-6">
@@ -219,6 +214,7 @@ export function DashContent() {
         </div>
 
         {/* Mock test widget */}
+        {!mockTestHidden && (
         <div className="relative overflow-hidden rounded-3xl p-px">
           <div className="absolute inset-0 bg-gradient-to-br from-[var(--neon-purple)] via-[var(--neon-blue)] to-[var(--neon-pink)] opacity-90" />
           <div className="relative flex h-full flex-col rounded-[calc(theme(borderRadius.3xl)-1px)] bg-background/85 p-5 backdrop-blur">
@@ -254,10 +250,12 @@ export function DashContent() {
             </Link>
           </div>
         </div>
+        )}
       </section>
 
       {/* Continue learning + notifications */}
       <section className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+        {!classesHidden && (
         <div className="lg:col-span-2">
           <div className="flex items-center justify-between">
             <h3 className="font-display text-lg font-bold">Continue Learning</h3>
@@ -298,6 +296,7 @@ export function DashContent() {
             ))}
           </div>
         </div>
+        )}
 
         {/* Notifications */}
         <div className="glass shadow-card-soft rounded-3xl p-5">
