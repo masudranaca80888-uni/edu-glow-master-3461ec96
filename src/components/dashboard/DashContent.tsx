@@ -1,9 +1,10 @@
 import { Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useModuleVisibility } from "@/hooks/use-module-visibility";
 import { studentDashboardSnapshot } from "@/lib/student-dashboard.functions";
+import { useRealtimeActivity } from "@/hooks/use-realtime-invalidator";
 import { CountUp } from "@/components/realtime/CountUp";
 import {
   ListChecks,
