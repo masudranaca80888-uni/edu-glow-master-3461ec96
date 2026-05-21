@@ -124,7 +124,7 @@ export function Features() {
 
         {/* Grid */}
         <div className="mt-16 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {features.map((f, i) => {
+          {visibleFeatures.map((f, i) => {
             const t = toneMap[f.tone];
             const Icon = f.icon;
             return (
