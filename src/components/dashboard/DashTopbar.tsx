@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { Search, Bell, Sun, Moon, Sparkles, Menu } from "lucide-react";
 import { useAppStore } from "@/stores/app-store";
+import { LiveIndicator } from "@/components/realtime/LiveIndicator";
 
 export function DashTopbar({ onMenu }: { onMenu?: () => void }) {
   const theme = useAppStore((s) => s.theme);
