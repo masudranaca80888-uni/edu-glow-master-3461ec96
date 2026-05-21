@@ -422,6 +422,9 @@ export function DashContent() {
       {/* Performance Center */}
       <PerformanceCenter />
 
+      {/* Subject & Chapter Completion Tracker */}
+      <CompletionTracker />
+
       {/* Quick actions */}
       <section>
         <h3 className="font-display text-lg font-bold">Quick Actions</h3>
