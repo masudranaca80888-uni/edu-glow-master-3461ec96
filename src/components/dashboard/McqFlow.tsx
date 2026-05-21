@@ -90,6 +90,7 @@ export function McqFlow() {
   const [current, setCurrent] = useState(0);
   const [showExp, setShowExp] = useState(false);
   const [answers, setAnswers] = useState<AnswerRec[]>([]);
+  const [selectedOption, setSelectedOption] = useState<Choice | null>(null);
   const [sessionStart, setSessionStart] = useState<number>(0);
   const questionStartRef = useRef<number>(Date.now());
   const [finished, setFinished] = useState(false);
