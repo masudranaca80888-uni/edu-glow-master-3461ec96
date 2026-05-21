@@ -170,13 +170,16 @@ function BrowseStage({
 }: {
   filter: string;
   setFilter: (s: string) => void;
-  onStart: (m: (typeof mocks)[number]) => void;
+  onStart: (m: StudentMock) => void;
 }) {
+  const { data: mocks = [], isLoading } = useLiveMocks();
   const filtered = useMemo(() => {
     if (filter === "Full Subject Mock") return mocks.filter((m) => m.scope === "Full Subject");
     if (filter === "Chapter Wise Mock") return mocks.filter((m) => m.scope === "Chapter Wise");
+    if (filter === "Level Wide Mock") return mocks.filter((m) => m.scope === "Level Wide");
     return mocks.filter((m) => m.level === filter);
-  }, [filter]);
+  }, [filter, mocks]);
+
 
   return (
     <>
