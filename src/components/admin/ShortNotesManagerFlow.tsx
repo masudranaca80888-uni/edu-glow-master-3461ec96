@@ -1,587 +1,865 @@
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Search, Bell, Sun, Moon, Plus, Upload, FileText, FileType, CloudUpload,
-  Send, EyeOff, Download, Filter, ArrowUpDown, ChevronRight, BookOpen,
-  CheckCircle2, Eye, Flame, Activity, BarChart3, Edit3, Trash2, Copy,
-  Image as ImageIcon, Bold, Italic, List, Sigma, Smartphone, Monitor,
-  Save, Rocket, CalendarPlus, Sparkles, CircleDot, Star, ZoomIn,
-  FileSearch, NotebookPen,
+  Search,
+  Plus,
+  Send,
+  EyeOff,
+  Filter,
+  ArrowUpDown,
+  CheckCircle2,
+  Eye,
+  Flame,
+  Edit3,
+  Trash2,
+  Copy,
+  CircleDot,
+  CloudUpload,
+  Sparkles,
+  FileText,
+  FileType,
+  NotebookPen,
+  Upload,
+  Download,
 } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Progress } from "@/components/ui/progress";
 import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from "@/components/ui/table";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
-function Spark({ data, color = "var(--neon-purple)" }: { data: number[]; color?: string }) {
-  const max = Math.max(...data, 1);
-  const pts = data.map((v, i) => `${(i / (data.length - 1)) * 100},${30 - (v / max) * 26}`).join(" ");
-  const id = color.replace(/\W/g, "");
-  return (
-    <svg viewBox="0 0 100 30" className="h-8 w-full">
-      <defs>
-        <linearGradient id={`sn-${id}`} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.6" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.6" />
-      <polygon points={`0,30 ${pts} 100,30`} fill={`url(#sn-${id})`} />
-    </svg>
-  );
-}
+import { adminGetAcademicTree } from "@/lib/admin-academic.functions";
+import {
+  adminCreateShortNote,
+  adminDeleteShortNote,
+  adminDuplicateShortNote,
+  adminListShortNotes,
+  adminSetShortNoteHidden,
+  adminSetShortNoteStatus,
+  adminSetShortNotesVisibility,
+  adminUpdateShortNote,
+  getShortNotesVisibility,
+} from "@/lib/admin-short-notes.functions";
 
-function Topbar() {
-  return (
-    <header className="glass shadow-card-soft flex items-center gap-3 rounded-2xl p-3">
-      <div className="relative flex-1 max-w-xl">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input placeholder="Search notes, chapters, subjects…" className="h-10 rounded-xl border-white/10 bg-background/60 pl-9 backdrop-blur" />
-        <kbd className="absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-white/10 bg-muted/50 px-1.5 py-0.5 text-[10px] text-muted-foreground md:block">⌘K</kbd>
-      </div>
-      <div className="ml-auto flex items-center gap-2">
-        <div className="hidden items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-medium text-emerald-400 md:flex">
-          <CircleDot className="h-3 w-3 animate-pulse" /> System healthy · 99.99%
-        </div>
-        <Button size="icon" variant="ghost" className="rounded-xl">
-          <Sun className="h-4 w-4 dark:hidden" /><Moon className="hidden h-4 w-4 dark:block" />
-        </Button>
-        <Button size="icon" variant="ghost" className="relative rounded-xl">
-          <Bell className="h-4 w-4" />
-          <span className="absolute right-1.5 top-1.5 h-2 w-2 animate-pulse rounded-full bg-[var(--neon-purple)] shadow-[0_0_8px_var(--neon-purple)]" />
-        </Button>
-        <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-background/40 p-1 pl-3">
-          <div className="leading-tight text-right">
-            <p className="text-xs font-semibold">Asha Rahman</p>
-            <p className="text-[10px] text-muted-foreground">Super Admin</p>
-          </div>
-          <div className="bg-cta-gradient flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold text-white shadow-glow">AR</div>
-        </div>
-      </div>
-    </header>
-  );
-}
+type ShortNote = {
+  id: string;
+  title: string;
+  summary: string | null;
+  level: string;
+  subject_id: string | null;
+  chapter_id: string | null;
+  kind: "text" | "pdf" | "doc";
+  body: string | null;
+  file_url: string | null;
+  file_name: string | null;
+  file_size_bytes: number | null;
+  tags: string[];
+  status: "draft" | "published" | "archived";
+  is_hidden: boolean;
+  scheduled_at: string | null;
+  view_count: number;
+  download_count: number;
+  updated_at: string;
+};
 
-function HeaderBlock() {
-  return (
-    <div className="glass shadow-card-soft relative overflow-hidden rounded-3xl p-6">
-      <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-[var(--neon-purple)]/25 blur-3xl" />
-      <div className="pointer-events-none absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[var(--neon-blue)]/25 blur-3xl" />
-      <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2">
-            <Badge className="bg-cta-gradient border-0 text-white shadow-glow">
-              <NotebookPen className="mr-1 h-3 w-3" /> Short Notes
-            </Badge>
-            <span className="text-xs text-muted-foreground">/ Admin / Short Notes Manager</span>
-          </div>
-          <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">
-            Short Notes <span className="text-gradient">Management Center</span>
-          </h1>
-          <p className="max-w-2xl text-sm text-muted-foreground">
-            Upload, organize and manage chapter-wise smart revision notes — PDF, DOC and rich text in one place.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button className="bg-cta-gradient rounded-xl text-white shadow-glow hover:opacity-95">
-            <Plus className="h-4 w-4" /> Create Notes
-          </Button>
-          <Button variant="outline" className="rounded-xl border-white/15 bg-background/40">
-            <CloudUpload className="h-4 w-4" /> Bulk Import
-          </Button>
-        </div>
-      </div>
+type EditState = { open: boolean; note?: ShortNote | null };
 
-      <div className="relative mt-5 flex flex-wrap gap-2">
-        {[
-          { l: "Upload PDF", i: FileText },
-          { l: "Upload DOC/Text", i: FileType },
-          { l: "Publish Notes", i: Send },
-          { l: "Hide Notes", i: EyeOff },
-          { l: "Export Resources", i: Download },
-        ].map((a) => (
-          <button key={a.l} className="group flex items-center gap-2 rounded-xl border border-white/10 bg-background/50 px-3.5 py-2 text-xs font-medium backdrop-blur transition-all hover:border-[var(--neon-purple)]/40 hover:shadow-glow">
-            <a.i className="h-3.5 w-3.5 text-[var(--neon-purple)] group-hover:text-[var(--neon-blue)]" />
-            {a.l}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function FilterPanel() {
-  const pills = ["Level", "Subject", "Chapter", "File Type", "Status"];
-  return (
-    <div className="glass shadow-card-soft rounded-2xl p-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-[220px]">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search notes by title or ID…" className="h-9 rounded-xl border-white/10 bg-background/60 pl-9" />
-        </div>
-        {pills.map((p) => (
-          <button key={p} className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-background/50 px-3 py-1.5 text-xs hover:border-[var(--neon-blue)]/40">
-            <Filter className="h-3 w-3" /> {p} <ChevronRight className="h-3 w-3 rotate-90" />
-          </button>
-        ))}
-        <div className="ml-auto flex items-center gap-1.5 rounded-xl border border-white/10 bg-background/50 px-3 py-1.5 text-xs">
-          <ArrowUpDown className="h-3 w-3" /> Sort: Latest
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function StatGrid() {
-  const stats = [
-    { l: "Total Notes", v: "4,218", d: "+96 this week", i: NotebookPen, c: "var(--neon-purple)", s: [4, 6, 5, 8, 7, 10, 12] },
-    { l: "Published Notes", v: "3,612", d: "85.6% live", i: Send, c: "#22c55e", s: [40, 50, 55, 60, 65, 70, 78] },
-    { l: "Hidden Notes", v: "606", d: "Under review", i: EyeOff, c: "#f59e0b", s: [10, 9, 8, 11, 9, 7, 6] },
-    { l: "Total Downloads", v: "182.4k", d: "+12.4k this week", i: Download, c: "var(--neon-blue)", s: [60, 72, 80, 88, 95, 110, 132] },
-    { l: "Most Viewed Subject", v: "Physics", d: "48.2k reads", i: Flame, c: "#ef4444", s: [20, 24, 28, 30, 35, 40, 48] },
-    { l: "Completion Rate", v: "81.4%", d: "+2.7% vs last", i: CheckCircle2, c: "#06b6d4", s: [70, 72, 74, 76, 78, 80, 81] },
-  ];
-  return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-      {stats.map((s) => (
-        <div key={s.l} className="glass group relative overflow-hidden rounded-2xl p-4 transition-all hover:-translate-y-0.5 hover:shadow-glow">
-          <div className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full opacity-30 blur-2xl transition-opacity group-hover:opacity-60" style={{ background: s.c }} />
-          <div className="flex items-center justify-between">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10" style={{ background: `color-mix(in oklab, ${s.c} 15%, transparent)` }}>
-              <s.i className="h-4 w-4" style={{ color: s.c }} />
-            </div>
-            <span className="text-[10px] text-muted-foreground">7d</span>
-          </div>
-          <p className="mt-3 text-[11px] text-muted-foreground">{s.l}</p>
-          <p className="font-display text-2xl font-bold tracking-tight">{s.v}</p>
-          <Spark data={s.s} color={s.c} />
-          <p className="truncate text-[10px] text-muted-foreground">{s.d}</p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-const NOTES = [
-  { id: "SN-7841", t: "Laws of Motion — Quick Recap", sub: "Physics", ch: "Mechanics", ty: "PDF", v: 12_412, dl: 4_812, st: "Published", date: "May 18, 2026" },
-  { id: "SN-7840", t: "Periodic Trends Cheat Sheet", sub: "Chemistry", ch: "Periodic Table", ty: "PDF", v: 9_104, dl: 3_201, st: "Published", date: "May 17, 2026" },
-  { id: "SN-7839", t: "Cell Biology Summary", sub: "Biology", ch: "Cells", ty: "DOCX", v: 7_274, dl: 2_104, st: "Scheduled", date: "May 22, 2026" },
-  { id: "SN-7838", t: "Limits & Continuity", sub: "Math", ch: "Calculus", ty: "Rich Text", v: 5_976, dl: 1_543, st: "Draft", date: "—" },
-  { id: "SN-7837", t: "World Wars Timeline", sub: "History", ch: "Modern Era", ty: "PDF", v: 3_982, dl: 982, st: "Hidden", date: "May 14, 2026" },
-  { id: "SN-7836", t: "Demand Elasticity Notes", sub: "Economics", ch: "Micro", ty: "DOCX", v: 6_021, dl: 1_882, st: "Published", date: "May 12, 2026" },
-];
-
-function statusTone(s: string) {
+function statusTone(s: string, hidden: boolean) {
+  if (hidden) return "bg-zinc-500/15 text-zinc-400 border-zinc-500/30";
   switch (s) {
-    case "Published": return "bg-emerald-500/15 text-emerald-400 border-emerald-500/30";
-    case "Scheduled": return "bg-sky-500/15 text-sky-400 border-sky-500/30";
-    case "Draft": return "bg-amber-500/15 text-amber-400 border-amber-500/30";
-    case "Hidden": return "bg-zinc-500/15 text-zinc-400 border-zinc-500/30";
+    case "published": return "bg-emerald-500/15 text-emerald-400 border-emerald-500/30";
+    case "draft": return "bg-amber-500/15 text-amber-400 border-amber-500/30";
+    case "archived": return "bg-rose-500/15 text-rose-400 border-rose-500/30";
     default: return "bg-muted text-foreground";
   }
 }
 
-function NotesTable() {
+function kindIcon(k: ShortNote["kind"]) {
+  if (k === "pdf") return FileText;
+  if (k === "doc") return FileType;
+  return NotebookPen;
+}
+
+export function ShortNotesManagerFlow() {
+  const qc = useQueryClient();
+
+  const treeFn = useServerFn(adminGetAcademicTree);
+  const listFn = useServerFn(adminListShortNotes);
+
+  const [search, setSearch] = useState("");
+  const [level, setLevel] = useState<string>("all");
+  const [subjectId, setSubjectId] = useState<string>("all");
+  const [chapterId, setChapterId] = useState<string>("all");
+  const [kindFilter, setKindFilter] = useState<"all" | "text" | "pdf" | "doc">("all");
+  const [statusFilter, setStatusFilter] =
+    useState<"all" | "draft" | "published" | "archived" | "hidden">("all");
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
+
+  const [editor, setEditor] = useState<EditState>({ open: false });
+
+  const tree = useQuery({
+    queryKey: ["admin-academic-tree"],
+    queryFn: () => treeFn(),
+    staleTime: 60_000,
+  });
+
+  const levels = (tree.data?.levels ?? []) as { code: string; name: string }[];
+  const allSubjects = (tree.data?.subjects ?? []) as { id: string; name: string; level: string }[];
+  const allChapters = (tree.data?.chapters ?? []) as { id: string; name: string; subject_id: string }[];
+
+  const subjects = useMemo(
+    () => (level === "all" ? allSubjects : allSubjects.filter((s) => s.level === level)),
+    [allSubjects, level],
+  );
+  const chapters = useMemo(
+    () => (subjectId === "all" ? allChapters : allChapters.filter((c) => c.subject_id === subjectId)),
+    [allChapters, subjectId],
+  );
+
+  useEffect(() => { setSubjectId("all"); setChapterId("all"); setPage(1); }, [level]);
+  useEffect(() => { setChapterId("all"); setPage(1); }, [subjectId]);
+
+  const notesQuery = useQuery({
+    queryKey: ["short-notes", { search, level, subjectId, chapterId, kindFilter, statusFilter, page }],
+    queryFn: () =>
+      listFn({
+        data: {
+          search: search.trim() || undefined,
+          level: level === "all" ? undefined : level,
+          subjectId: subjectId === "all" ? undefined : subjectId,
+          chapterId: chapterId === "all" ? undefined : chapterId,
+          kind: kindFilter,
+          status: statusFilter,
+          page,
+          pageSize,
+        },
+      }),
+  });
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["short-notes"] });
+    qc.invalidateQueries({ queryKey: ["public-short-notes"] });
+  };
+
+  useEffect(() => {
+    const ch = supabase
+      .channel("short-notes-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "short_notes" }, invalidate)
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const delFn = useServerFn(adminDeleteShortNote);
+  const dupFn = useServerFn(adminDuplicateShortNote);
+  const statusFn = useServerFn(adminSetShortNoteStatus);
+  const hideFn = useServerFn(adminSetShortNoteHidden);
+
+  const remove = useMutation({
+    mutationFn: (id: string) => delFn({ data: { id } }),
+    onSuccess: () => { toast.success("Deleted"); invalidate(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const duplicate = useMutation({
+    mutationFn: (id: string) => dupFn({ data: { id } }),
+    onSuccess: () => { toast.success("Duplicated"); invalidate(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const setStatus = useMutation({
+    mutationFn: (p: { id: string; status: "draft" | "published" | "archived" }) => statusFn({ data: p }),
+    onSuccess: (_d, p) => { toast.success(`Marked ${p.status}`); invalidate(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const setHidden = useMutation({
+    mutationFn: (p: { id: string; is_hidden: boolean }) => hideFn({ data: p }),
+    onSuccess: (_d, p) => { toast.success(p.is_hidden ? "Hidden from students" : "Visible again"); invalidate(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const rows: ShortNote[] = (notesQuery.data?.rows ?? []) as ShortNote[];
+  const total = notesQuery.data?.count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const subjectName = (id: string | null) => allSubjects.find((s) => s.id === id)?.name ?? "—";
+  const chapterName = (id: string | null) => allChapters.find((c) => c.id === id)?.name ?? "—";
+
+  const stats = useMemo(() => {
+    const published = rows.filter((r) => r.status === "published" && !r.is_hidden).length;
+    const hidden = rows.filter((r) => r.is_hidden).length;
+    return { total, published, hidden };
+  }, [rows, total]);
+
   return (
-    <div className="glass shadow-card-soft overflow-hidden rounded-3xl">
-      <div className="flex items-center justify-between border-b border-white/10 p-4">
-        <div>
-          <h3 className="font-display text-lg font-bold">All Short Notes</h3>
-          <p className="text-xs text-muted-foreground">Showing 6 of 4,218 — live sync enabled</p>
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="glass shadow-card-soft relative overflow-hidden rounded-3xl p-6">
+        <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-[var(--neon-purple)]/25 blur-3xl" />
+        <div className="pointer-events-none absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[var(--neon-blue)]/25 blur-3xl" />
+        <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <Badge className="bg-cta-gradient border-0 text-white shadow-glow">
+                <NotebookPen className="mr-1 h-3 w-3" /> Short Notes
+              </Badge>
+              <span className="text-xs text-muted-foreground">/ Admin / Short Notes Manager</span>
+            </div>
+            <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">
+              Short Notes <span className="text-gradient">Management Center</span>
+            </h1>
+            <p className="max-w-2xl text-sm text-muted-foreground">
+              Upload, organize and manage chapter-wise smart revision notes — PDF, DOC and rich text in one place.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              onClick={() => setEditor({ open: true, note: null })}
+              className="bg-cta-gradient rounded-xl text-white shadow-glow hover:opacity-95"
+            >
+              <Plus className="h-4 w-4" /> Create Notes
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+      </div>
+
+      {/* Filters */}
+      <div className="glass shadow-card-soft rounded-2xl p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-[220px] flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              placeholder="Search notes by title or summary…"
+              className="h-9 rounded-xl border-white/10 bg-background/60 pl-9"
+            />
+          </div>
+          <SelectFilter icon={<Filter className="h-3 w-3" />} label="Level" value={level} onValueChange={setLevel}
+            options={[{ value: "all", label: "All levels" }, ...levels.map((l) => ({ value: l.code, label: l.name }))]} />
+          <SelectFilter icon={<Filter className="h-3 w-3" />} label="Subject" value={subjectId} onValueChange={setSubjectId}
+            options={[{ value: "all", label: "All subjects" }, ...subjects.map((s) => ({ value: s.id, label: s.name }))]} />
+          <SelectFilter icon={<Filter className="h-3 w-3" />} label="Chapter" value={chapterId} onValueChange={setChapterId}
+            options={[{ value: "all", label: "All chapters" }, ...chapters.map((c) => ({ value: c.id, label: c.name }))]} />
+          <SelectFilter icon={<Filter className="h-3 w-3" />} label="Type" value={kindFilter}
+            onValueChange={(v) => { setKindFilter(v as typeof kindFilter); setPage(1); }}
+            options={[
+              { value: "all", label: "All types" },
+              { value: "text", label: "Text" },
+              { value: "pdf", label: "PDF" },
+              { value: "doc", label: "DOC/DOCX" },
+            ]} />
+          <SelectFilter icon={<ArrowUpDown className="h-3 w-3" />} label="Status" value={statusFilter}
+            onValueChange={(v) => { setStatusFilter(v as typeof statusFilter); setPage(1); }}
+            options={[
+              { value: "all", label: "All" },
+              { value: "published", label: "Published" },
+              { value: "draft", label: "Draft" },
+              { value: "archived", label: "Archived" },
+              { value: "hidden", label: "Hidden" },
+            ]} />
+        </div>
+      </div>
+
+      <VisibilityPanel
+        levels={levels}
+        subjects={allSubjects}
+        chapters={allChapters}
+      />
+
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+        <StatTile label="Total Notes" value={stats.total} icon={NotebookPen} color="var(--neon-purple)" />
+        <StatTile label="Published & Visible" value={stats.published} icon={CheckCircle2} color="#22c55e" />
+        <StatTile label="Hidden in current page" value={stats.hidden} icon={EyeOff} color="#f59e0b" />
+      </div>
+
+      {/* Table */}
+      <div className="glass shadow-card-soft overflow-hidden rounded-3xl">
+        <div className="flex items-center justify-between border-b border-white/10 p-4">
+          <div>
+            <h3 className="font-display text-lg font-bold">All Short Notes</h3>
+            <p className="text-xs text-muted-foreground">
+              {notesQuery.isLoading ? "Loading…" : `Showing ${rows.length} of ${total}`} — live sync enabled
+            </p>
+          </div>
           <Badge variant="outline" className="border-white/10 bg-background/40">
             <CircleDot className="mr-1 h-2.5 w-2.5 animate-pulse text-emerald-400" /> Live
           </Badge>
-          <Button size="sm" variant="outline" className="rounded-xl border-white/10">
-            <Download className="h-3.5 w-3.5" /> Export CSV
-          </Button>
         </div>
-      </div>
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow className="border-white/10 hover:bg-transparent">
-              <TableHead className="pl-4">Note ID</TableHead>
-              <TableHead>Title</TableHead>
-              <TableHead>Subject</TableHead>
-              <TableHead>Chapter</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Views</TableHead>
-              <TableHead>Downloads</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Upload</TableHead>
-              <TableHead className="text-right pr-4">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {NOTES.map((n) => (
-              <TableRow key={n.id} className="border-white/5 hover:bg-white/[0.03]">
-                <TableCell className="pl-4 font-mono text-xs text-muted-foreground">{n.id}</TableCell>
-                <TableCell className="font-medium">{n.t}</TableCell>
-                <TableCell className="text-muted-foreground">{n.sub}</TableCell>
-                <TableCell className="text-muted-foreground">{n.ch}</TableCell>
-                <TableCell>
-                  <span className="rounded-md bg-[var(--neon-purple)]/10 px-2 py-0.5 text-[10px] text-[var(--neon-purple)]">{n.ty}</span>
-                </TableCell>
-                <TableCell>{n.v.toLocaleString()}</TableCell>
-                <TableCell>{n.dl.toLocaleString()}</TableCell>
-                <TableCell>
-                  <Badge variant="outline" className={`${statusTone(n.st)} border text-[10px]`}>{n.st}</Badge>
-                </TableCell>
-                <TableCell className="text-xs text-muted-foreground">{n.date}</TableCell>
-                <TableCell className="pr-4">
-                  <div className="flex items-center justify-end gap-0.5">
-                    {[Edit3, Eye, Copy, Send, EyeOff, Trash2].map((I, i) => (
-                      <button key={i} className="rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-white/5 hover:text-foreground">
-                        <I className="h-3.5 w-3.5" />
-                      </button>
-                    ))}
-                  </div>
-                </TableCell>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-white/10 hover:bg-transparent">
+                <TableHead className="pl-4">Title</TableHead>
+                <TableHead>Subject</TableHead>
+                <TableHead>Chapter</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Views</TableHead>
+                <TableHead>Downloads</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Updated</TableHead>
+                <TableHead className="pr-4 text-right">Actions</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-      <div className="flex items-center justify-between border-t border-white/10 px-4 py-3 text-xs text-muted-foreground">
-        <span>Page 1 of 704</span>
-        <div className="flex gap-1">
-          <Button size="sm" variant="outline" className="h-7 rounded-lg border-white/10">Prev</Button>
-          <Button size="sm" className="bg-cta-gradient h-7 rounded-lg text-white">1</Button>
-          <Button size="sm" variant="outline" className="h-7 rounded-lg border-white/10">2</Button>
-          <Button size="sm" variant="outline" className="h-7 rounded-lg border-white/10">3</Button>
-          <Button size="sm" variant="outline" className="h-7 rounded-lg border-white/10">Next</Button>
+            </TableHeader>
+            <TableBody>
+              {rows.map((n) => {
+                const I = kindIcon(n.kind);
+                return (
+                  <TableRow key={n.id} className="border-white/5 hover:bg-white/[0.03]">
+                    <TableCell className="max-w-[280px] truncate pl-4 font-medium">{n.title}</TableCell>
+                    <TableCell className="text-muted-foreground">{subjectName(n.subject_id)}</TableCell>
+                    <TableCell className="text-muted-foreground">{chapterName(n.chapter_id)}</TableCell>
+                    <TableCell>
+                      <span className="inline-flex items-center gap-1 rounded-md bg-[var(--neon-purple)]/10 px-2 py-0.5 text-[10px] text-[var(--neon-purple)]">
+                        <I className="h-3 w-3" /> {n.kind.toUpperCase()}
+                      </span>
+                    </TableCell>
+                    <TableCell>{n.view_count.toLocaleString()}</TableCell>
+                    <TableCell>{n.download_count.toLocaleString()}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={`${statusTone(n.status, n.is_hidden)} border text-[10px]`}>
+                        {n.is_hidden ? "Hidden" : n.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {new Date(n.updated_at).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="pr-4">
+                      <div className="flex items-center justify-end gap-0.5">
+                        <RowBtn title="Edit" onClick={() => setEditor({ open: true, note: n })}>
+                          <Edit3 className="h-3.5 w-3.5" />
+                        </RowBtn>
+                        {n.file_url && (
+                          <RowBtn title="Open file" onClick={() => window.open(n.file_url!, "_blank") }>
+                            <Eye className="h-3.5 w-3.5" />
+                          </RowBtn>
+                        )}
+                        <RowBtn title="Duplicate" onClick={() => duplicate.mutate(n.id)}>
+                          <Copy className="h-3.5 w-3.5" />
+                        </RowBtn>
+                        <RowBtn
+                          title={n.status === "published" ? "Unpublish" : "Publish"}
+                          onClick={() => setStatus.mutate({ id: n.id, status: n.status === "published" ? "draft" : "published" })}
+                        >
+                          <Send className={`h-3.5 w-3.5 ${n.status === "published" ? "text-emerald-400" : ""}`} />
+                        </RowBtn>
+                        <RowBtn
+                          title={n.is_hidden ? "Unhide" : "Hide from students"}
+                          onClick={() => setHidden.mutate({ id: n.id, is_hidden: !n.is_hidden })}
+                        >
+                          {n.is_hidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                        </RowBtn>
+                        <RowBtn
+                          title="Delete"
+                          onClick={() => {
+                            if (confirm(`Delete note "${n.title}"?`)) remove.mutate(n.id);
+                          }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                        </RowBtn>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              {!notesQuery.isLoading && rows.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={9} className="py-10 text-center text-sm text-muted-foreground">
+                    <Sparkles className="mx-auto mb-2 h-5 w-5" />
+                    No short notes match your filters. Create your first note.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+        <div className="flex items-center justify-between border-t border-white/10 px-4 py-3 text-xs text-muted-foreground">
+          <span>Page {page} of {totalPages}</span>
+          <div className="flex gap-1">
+            <Button size="sm" variant="outline" className="h-7 rounded-lg border-white/10"
+              disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Prev</Button>
+            <Button size="sm" variant="outline" className="h-7 rounded-lg border-white/10"
+              disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>Next</Button>
+          </div>
         </div>
       </div>
+
+      <EditorDialog
+        state={editor}
+        onClose={() => setEditor({ open: false })}
+        onSaved={invalidate}
+        levels={levels}
+        allSubjects={allSubjects}
+        allChapters={allChapters}
+      />
     </div>
   );
 }
 
-function Step({ n, title, active, children }: { n: number; title: string; active?: boolean; children: React.ReactNode }) {
+// ===============================================
+function StatTile({ label, value, icon: Icon, color }: { label: string; value: number; icon: React.ComponentType<{ className?: string }>; color: string }) {
   return (
-    <div className={`rounded-2xl border p-4 transition-all ${active ? "border-[var(--neon-purple)]/50 bg-[var(--neon-purple)]/5 shadow-glow" : "border-white/10 bg-background/30"}`}>
-      <div className="mb-3 flex items-center gap-2">
-        <div className={`flex h-7 w-7 items-center justify-center rounded-lg text-xs font-bold ${active ? "bg-cta-gradient text-white shadow-glow" : "bg-muted text-muted-foreground"}`}>{n}</div>
-        <h4 className="font-display text-sm font-semibold">{title}</h4>
+    <div className="glass relative overflow-hidden rounded-2xl p-4">
+      <div className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full opacity-30 blur-2xl" style={{ background: color }} />
+      <div className="flex items-center justify-between">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10" style={{ background: `color-mix(in oklab, ${color} 15%, transparent)` }}>
+          <Icon className="h-4 w-4" />
+        </div>
+        <Flame className="h-3.5 w-3.5 text-muted-foreground" />
       </div>
+      <p className="mt-3 text-[11px] text-muted-foreground">{label}</p>
+      <p className="font-display text-2xl font-bold tracking-tight">{value.toLocaleString()}</p>
+    </div>
+  );
+}
+
+function RowBtn({ title, onClick, children }: { title: string; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button type="button" title={title} onClick={onClick}
+      className="rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-white/5 hover:text-foreground">
+      {children}
+    </button>
+  );
+}
+
+function SelectFilter({
+  icon, label, value, onValueChange, options,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  onValueChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <div className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-background/50 px-2 py-1 text-xs">
+      {icon}
+      <span className="text-muted-foreground">{label}:</span>
+      <Select value={value} onValueChange={onValueChange}>
+        <SelectTrigger className="h-7 w-[140px] border-0 bg-transparent px-1 text-xs focus:ring-0">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+// ===============================================
+// Editor
+// ===============================================
+function EditorDialog({
+  state, onClose, onSaved, levels, allSubjects, allChapters,
+}: {
+  state: EditState;
+  onClose: () => void;
+  onSaved: () => void;
+  levels: { code: string; name: string }[];
+  allSubjects: { id: string; name: string; level: string }[];
+  allChapters: { id: string; name: string; subject_id: string }[];
+}) {
+  const createFn = useServerFn(adminCreateShortNote);
+  const updateFn = useServerFn(adminUpdateShortNote);
+  const isEdit = !!state.note;
+
+  const [form, setForm] = useState<Partial<ShortNote>>({});
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!state.open) return;
+    setForm(
+      state.note
+        ? { ...state.note }
+        : {
+            title: "",
+            summary: "",
+            level: "professional",
+            kind: "text",
+            body: "",
+            file_url: null,
+            file_name: null,
+            file_size_bytes: null,
+            tags: [],
+            status: "draft",
+            is_hidden: false,
+            subject_id: null,
+            chapter_id: null,
+          },
+    );
+  }, [state]);
+
+  const subjectsForLevel = useMemo(
+    () => (form.level ? allSubjects.filter((s) => s.level === form.level) : allSubjects),
+    [allSubjects, form.level],
+  );
+  const chaptersForSubject = useMemo(
+    () => (form.subject_id ? allChapters.filter((c) => c.subject_id === form.subject_id) : []),
+    [allChapters, form.subject_id],
+  );
+
+  const set = <K extends keyof ShortNote>(k: K, v: ShortNote[K] | null) =>
+    setForm((f) => ({ ...f, [k]: v as never }));
+
+  async function handleFileUpload(file: File) {
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+      const detectedKind: ShortNote["kind"] =
+        ext === "pdf" ? "pdf" : ext === "doc" || ext === "docx" ? "doc" : "text";
+      const path = `${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+      const { error } = await supabase.storage.from("short-notes").upload(path, file, {
+        upsert: false,
+        contentType: file.type || undefined,
+      });
+      if (error) throw error;
+      const { data: pub } = supabase.storage.from("short-notes").getPublicUrl(path);
+      setForm((f) => ({
+        ...f,
+        kind: detectedKind,
+        file_url: pub.publicUrl,
+        file_name: file.name,
+        file_size_bytes: file.size,
+      }));
+      toast.success("File uploaded");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  const save = useMutation({
+    mutationFn: async () => {
+      if (!form.title?.trim()) throw new Error("Title is required");
+      if (form.kind !== "text" && !form.file_url) throw new Error("Upload a file for PDF/DOC notes");
+      if (form.kind === "text" && !form.body?.trim()) throw new Error("Body is required for text notes");
+      const payload = {
+        title: form.title!,
+        summary: form.summary || null,
+        level: form.level ?? "professional",
+        subject_id: form.subject_id ?? null,
+        chapter_id: form.chapter_id ?? null,
+        kind: form.kind ?? "text",
+        body: form.body || null,
+        file_url: form.file_url || null,
+        file_name: form.file_name || null,
+        file_size_bytes: form.file_size_bytes ?? null,
+        tags: form.tags ?? [],
+        status: form.status ?? "draft",
+        is_hidden: form.is_hidden ?? false,
+        scheduled_at: form.scheduled_at ?? null,
+      };
+      if (isEdit && state.note) return updateFn({ data: { id: state.note.id, ...payload } });
+      return createFn({ data: payload });
+    },
+    onSuccess: () => { toast.success(isEdit ? "Note updated" : "Note created"); onSaved(); onClose(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Dialog open={state.open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{isEdit ? "Edit Short Note" : "Create Short Note"}</DialogTitle>
+          <DialogDescription>Notes sync to all students instantly once published.</DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          <Field label="Level">
+            <Select value={form.level ?? "professional"} onValueChange={(v) => { set("level", v); set("subject_id", null); set("chapter_id", null); }}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>{levels.map((l) => <SelectItem key={l.code} value={l.code}>{l.name}</SelectItem>)}</SelectContent>
+            </Select>
+          </Field>
+          <Field label="Type">
+            <Select value={form.kind ?? "text"} onValueChange={(v) => set("kind", v as ShortNote["kind"]) }>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="text">Text / Rich Notes</SelectItem>
+                <SelectItem value="pdf">PDF Upload</SelectItem>
+                <SelectItem value="doc">DOC / DOCX Upload</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Subject">
+            <Select value={form.subject_id ?? ""} onValueChange={(v) => { set("subject_id", v); set("chapter_id", null); }}>
+              <SelectTrigger><SelectValue placeholder="Select subject" /></SelectTrigger>
+              <SelectContent>
+                {subjectsForLevel.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Chapter">
+            <Select value={form.chapter_id ?? ""} onValueChange={(v) => set("chapter_id", v)} disabled={!form.subject_id}>
+              <SelectTrigger><SelectValue placeholder={form.subject_id ? "Select chapter" : "Pick subject first"} /></SelectTrigger>
+              <SelectContent>
+                {chaptersForSubject.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </Field>
+        </div>
+
+        <Field label="Title *">
+          <Input value={form.title ?? ""} onChange={(e) => set("title", e.target.value)} placeholder="Laws of Motion — Quick Recap" />
+        </Field>
+        <Field label="Summary">
+          <Input value={form.summary ?? ""} onChange={(e) => set("summary", e.target.value)} placeholder="One-line summary shown to students" />
+        </Field>
+
+        {form.kind === "text" ? (
+          <Field label="Body (rich text / markdown) *">
+            <Textarea
+              rows={10}
+              value={form.body ?? ""}
+              onChange={(e) => set("body", e.target.value)}
+              placeholder={"## Overview\nNewton's three laws…"}
+              className="font-mono text-xs"
+            />
+          </Field>
+        ) : (
+          <Field label={`Upload ${form.kind === "pdf" ? "PDF" : "DOC/DOCX"} *`}>
+            <div className="rounded-xl border border-dashed border-white/15 bg-background/40 p-4">
+              <input
+                ref={fileRef}
+                type="file"
+                accept={form.kind === "pdf" ? "application/pdf,.pdf" : ".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"}
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleFileUpload(f);
+                }}
+              />
+              {form.file_url ? (
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-medium">{form.file_name}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {form.file_size_bytes ? `${(form.file_size_bytes / 1024).toFixed(1)} KB` : ""}
+                    </p>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button size="sm" variant="outline" className="rounded-lg"
+                      onClick={() => window.open(form.file_url!, "_blank")}>
+                      <Eye className="h-3 w-3" /> Preview
+                    </Button>
+                    <Button size="sm" variant="outline" className="rounded-lg"
+                      onClick={() => fileRef.current?.click()} disabled={uploading}>
+                      <Upload className="h-3 w-3" /> Replace
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  disabled={uploading}
+                  className="flex w-full flex-col items-center gap-2 py-6 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <CloudUpload className="h-6 w-6 text-[var(--neon-purple)]" />
+                  {uploading ? "Uploading…" : `Click to upload ${form.kind === "pdf" ? "PDF" : "DOC/DOCX"}`}
+                </button>
+              )}
+            </div>
+          </Field>
+        )}
+
+        <div className="grid gap-3 md:grid-cols-3">
+          <Field label="Status">
+            <Select value={form.status ?? "draft"} onValueChange={(v) => set("status", v as ShortNote["status"])}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="published">Published</SelectItem>
+                <SelectItem value="archived">Archived</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+          <div className="flex items-center justify-between rounded-xl border border-white/10 bg-background/40 px-3 py-2 text-xs">
+            <span>Hide from students</span>
+            <Switch checked={!!form.is_hidden} onCheckedChange={(v) => set("is_hidden", v)} />
+          </div>
+          <Field label="Tags (comma-separated)">
+            <Input
+              value={(form.tags ?? []).join(", ")}
+              onChange={(e) => set("tags", e.target.value.split(",").map((t) => t.trim()).filter(Boolean) as never)}
+              placeholder="revision, exam"
+            />
+          </Field>
+        </div>
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button onClick={() => save.mutate()} disabled={save.isPending || uploading}>
+            {save.isPending ? "Saving…" : isEdit ? "Save changes" : "Create"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1">
+      <Label className="text-xs font-medium">{label}</Label>
       {children}
     </div>
   );
 }
 
-function NotesCreator() {
+// ===============================================
+// Visibility
+// ===============================================
+function VisibilityPanel({
+  levels, subjects, chapters,
+}: {
+  levels: { code: string; name: string }[];
+  subjects: { id: string; name: string; level: string }[];
+  chapters: { id: string; name: string; subject_id: string }[];
+}) {
+  const qc = useQueryClient();
+  const getFn = useServerFn(getShortNotesVisibility);
+  const setFn = useServerFn(adminSetShortNotesVisibility);
+
+  const vq = useQuery({
+    queryKey: ["short-notes-visibility"],
+    queryFn: () => getFn(),
+    staleTime: 30_000,
+  });
+
+  useEffect(() => {
+    const ch = supabase
+      .channel("snv-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "short_notes_visibility" }, () => {
+        qc.invalidateQueries({ queryKey: ["short-notes-visibility"] });
+        qc.invalidateQueries({ queryKey: ["public-short-notes"] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [qc]);
+
+  const [section, setSection] = useState(false);
+  const [hLevels, setHLevels] = useState<string[]>([]);
+  const [hSubjects, setHSubjects] = useState<string[]>([]);
+  const [hChapters, setHChapters] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!vq.data) return;
+    setSection(vq.data.section_hidden);
+    setHLevels(vq.data.hidden_levels ?? []);
+    setHSubjects(vq.data.hidden_subject_ids ?? []);
+    setHChapters(vq.data.hidden_chapter_ids ?? []);
+  }, [vq.data]);
+
+  const save = useMutation({
+    mutationFn: () =>
+      setFn({
+        data: {
+          section_hidden: section,
+          hidden_levels: hLevels,
+          hidden_subject_ids: hSubjects,
+          hidden_chapter_ids: hChapters,
+        },
+      }),
+    onSuccess: () => {
+      toast.success("Visibility updated — students sync instantly");
+      qc.invalidateQueries({ queryKey: ["short-notes-visibility"] });
+      qc.invalidateQueries({ queryKey: ["public-short-notes"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const toggle = (arr: string[], v: string, set: (n: string[]) => void) =>
+    set(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
+
   return (
     <div className="glass shadow-card-soft rounded-3xl p-5">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h3 className="font-display text-lg font-bold">Short Notes Creator</h3>
-          <p className="text-xs text-muted-foreground">Author beautifully formatted notes in four guided steps.</p>
+          <h3 className="font-display text-lg font-bold flex items-center gap-2">
+            <EyeOff className="h-4 w-4" /> Section Visibility
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            Hide the entire Short Notes section, or hide by level / subject / chapter — applies live to all students.
+          </p>
         </div>
-        <Badge className="bg-cta-gradient border-0 text-white shadow-glow">Step 2 of 4 in progress</Badge>
+        <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-background/40 px-3 py-2 text-xs">
+          <span className="font-medium">Hide entire section</span>
+          <Switch checked={section} onCheckedChange={setSection} />
+        </div>
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-2">
-        <Step n={1} title="Setup">
-          <div className="grid grid-cols-3 gap-2">
-            {["Certificate", "Professional", "Advanced"].map((l, i) => (
-              <button key={l} className={`rounded-xl border px-3 py-2 text-xs font-medium ${i === 1 ? "border-[var(--neon-blue)]/50 bg-[var(--neon-blue)]/10 text-[var(--neon-blue)]" : "border-white/10 bg-background/40"}`}>{l}</button>
-            ))}
-          </div>
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {["Physics", "Chemistry", "Biology", "Math", "History"].map((s, i) => (
-              <span key={s} className={`rounded-md border px-2 py-1 text-[11px] ${i === 0 ? "border-[var(--neon-purple)]/40 bg-[var(--neon-purple)]/10 text-[var(--neon-purple)]" : "border-white/10"}`}>{s}</span>
-            ))}
-          </div>
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {["Ch.1 Kinematics", "Ch.2 Newton's Laws", "Ch.3 Work & Energy"].map((c, i) => (
-              <span key={c} className={`rounded-md border px-2 py-1 text-[11px] ${i === 1 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400" : "border-white/10 text-muted-foreground"}`}>{c}</span>
-            ))}
-          </div>
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            {["Summary", "Cheat Sheet", "Deep Dive"].map((c, i) => (
-              <button key={c} className={`rounded-xl border px-3 py-1.5 text-[11px] ${i === 1 ? "border-[var(--neon-purple)]/40 bg-[var(--neon-purple)]/10 text-[var(--neon-purple)]" : "border-white/10 bg-background/40"}`}>{c}</button>
-            ))}
-          </div>
-        </Step>
-
-        <Step n={2} title="Content Upload" active>
-          <div className="grid grid-cols-2 gap-2">
-            <button className="flex flex-col items-center gap-1.5 rounded-xl border border-dashed border-white/15 bg-background/40 px-3 py-4 text-[11px] text-muted-foreground hover:border-[var(--neon-blue)]/40">
-              <FileText className="h-4 w-4 text-[var(--neon-blue)]" /> Upload PDF
-            </button>
-            <button className="flex flex-col items-center gap-1.5 rounded-xl border border-dashed border-white/15 bg-background/40 px-3 py-4 text-[11px] text-muted-foreground hover:border-[var(--neon-purple)]/40">
-              <FileType className="h-4 w-4 text-[var(--neon-purple)]" /> Upload DOC/Text
-            </button>
-          </div>
-          <div className="mt-2 mb-2 flex gap-1">
-            {[Bold, Italic, List, Sigma, ImageIcon].map((I, i) => (
-              <button key={i} className="rounded-md border border-white/10 bg-background/40 p-1.5 text-muted-foreground hover:text-foreground">
-                <I className="h-3 w-3" />
-              </button>
-            ))}
-          </div>
-          <div className="min-h-[110px] rounded-lg border border-white/10 bg-background/40 p-3 text-[11px] leading-relaxed text-muted-foreground">
-            <span className="font-semibold text-foreground">Newton's Second Law:</span> F = m·a — applies when net external force acts on a body of mass m, producing acceleration a in the direction of force.
-            <div className="mt-2 rounded-md border border-[var(--neon-blue)]/30 bg-[var(--neon-blue)]/5 px-2 py-1 font-mono text-[10px] text-[var(--neon-blue)]">
-              F = m × a   ·   p = m × v
-            </div>
-          </div>
-          <button className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-white/15 bg-background/30 py-2 text-[11px] text-muted-foreground hover:border-[var(--neon-purple)]/40">
-            <ImageIcon className="h-3.5 w-3.5" /> Drop image / diagram here
-          </button>
-        </Step>
-
-        <Step n={3} title="Reader Preview">
-          <div className="flex items-center justify-between text-[11px]">
-            <div className="flex gap-1">
-              <button className="flex items-center gap-1 rounded-lg border border-[var(--neon-blue)]/40 bg-[var(--neon-blue)]/10 px-2 py-1 text-[var(--neon-blue)]">
-                <FileText className="h-3 w-3" /> PDF
-              </button>
-              <button className="flex items-center gap-1 rounded-lg border border-white/10 bg-background/40 px-2 py-1">
-                <NotebookPen className="h-3 w-3" /> Text
-              </button>
-            </div>
-            <div className="flex gap-1">
-              <button className="flex items-center gap-1 rounded-lg border border-white/10 bg-background/40 px-2 py-1"><Monitor className="h-3 w-3" /></button>
-              <button className="flex items-center gap-1 rounded-lg border border-white/10 bg-background/40 px-2 py-1"><Smartphone className="h-3 w-3" /></button>
-              <button className="flex items-center gap-1 rounded-lg border border-white/10 bg-background/40 px-2 py-1"><ZoomIn className="h-3 w-3" /></button>
-              <button className="flex items-center gap-1 rounded-lg border border-white/10 bg-background/40 px-2 py-1"><FileSearch className="h-3 w-3" /></button>
-            </div>
-          </div>
-          <div className="mt-3 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-background/60 to-background/30 p-4 shadow-glow">
-            <div className="mb-2 flex items-center justify-between">
-              <p className="font-display text-xs font-bold">Laws of Motion — Quick Recap</p>
-              <span className="text-[10px] text-muted-foreground">Page 1 / 6</span>
-            </div>
-            <div className="space-y-1.5 text-[10.5px] leading-relaxed text-muted-foreground">
-              <p><span className="text-foreground">1.</span> Inertia keeps a body in its state of rest or motion.</p>
-              <p><span className="text-foreground">2.</span> F = m·a defines the relationship of mass and acceleration.</p>
-              <p><span className="text-foreground">3.</span> Every action has an equal and opposite reaction.</p>
-            </div>
-            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
-              <div className="h-full w-1/6 rounded-full bg-gradient-to-r from-[var(--neon-purple)] to-[var(--neon-blue)]" />
-            </div>
-          </div>
-        </Step>
-
-        <Step n={4} title="Publish">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between rounded-xl border border-white/10 bg-background/30 px-3 py-2 text-xs">
-              <span>Hide from students</span>
-              <Switch />
-            </div>
-            <div className="flex items-center justify-between rounded-xl border border-white/10 bg-background/30 px-3 py-2 text-xs">
-              <span className="flex items-center gap-2"><Star className="h-3.5 w-3.5 text-amber-400" /> Featured note</span>
-              <Switch defaultChecked />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-xl border border-white/10 bg-background/40 p-3">
-                <p className="text-[10px] text-muted-foreground">Schedule date</p>
-                <p className="font-display text-sm font-semibold">May 28, 2026</p>
-              </div>
-              <div className="rounded-xl border border-white/10 bg-background/40 p-3">
-                <p className="text-[10px] text-muted-foreground">Schedule time</p>
-                <p className="font-display text-sm font-semibold">08:00 AM</p>
-              </div>
-            </div>
-            <div className="mt-1 grid grid-cols-2 gap-2">
-              <Button variant="outline" className="rounded-xl border-white/10 bg-background/40"><Save className="h-3.5 w-3.5" /> Save Draft</Button>
-              <Button variant="outline" className="rounded-xl border-white/10 bg-background/40"><CalendarPlus className="h-3.5 w-3.5" /> Schedule</Button>
-              <Button variant="outline" className="rounded-xl border-white/10 bg-background/40"><Eye className="h-3.5 w-3.5" /> Preview</Button>
-              <Button className="bg-cta-gradient rounded-xl text-white shadow-glow"><Rocket className="h-3.5 w-3.5" /> Publish</Button>
-            </div>
-          </div>
-        </Step>
+      <div className="grid gap-3 md:grid-cols-3">
+        <VisGroup title="Hidden levels" empty="No levels"
+          items={levels.map((l) => ({ id: l.code, name: l.name }))}
+          selected={hLevels} onToggle={(v) => toggle(hLevels, v, setHLevels)} />
+        <VisGroup title="Hidden subjects" empty="No subjects"
+          items={subjects.map((s) => ({ id: s.id, name: s.name }))}
+          selected={hSubjects} onToggle={(v) => toggle(hSubjects, v, setHSubjects)} />
+        <VisGroup title="Hidden chapters" empty="No chapters"
+          items={chapters.map((c) => ({ id: c.id, name: c.name }))}
+          selected={hChapters} onToggle={(v) => toggle(hChapters, v, setHChapters)} />
       </div>
-    </div>
-  );
-}
 
-function BulkImport() {
-  const files = [
-    { n: "Physics_Mechanics_Notes.pdf", s: "PDF · 5.4 MB", p: 100, ok: true, items: 12 },
-    { n: "Chemistry_PeriodicTrends.docx", s: "DOCX · 1.8 MB", p: 78, ok: true, items: 8 },
-    { n: "Biology_CellNotes.txt", s: "TXT · 412 KB", p: 42, ok: false, items: 0 },
-  ];
-  return (
-    <div className="glass shadow-card-soft rounded-3xl p-5">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h3 className="font-display text-lg font-bold">Bulk Import</h3>
-          <p className="text-xs text-muted-foreground">Parse PDFs, DOC and TXT into structured short notes.</p>
-        </div>
-        <Button size="sm" className="bg-cta-gradient rounded-xl text-white shadow-glow">
-          <Sparkles className="h-3.5 w-3.5" /> Approve Import
+      <div className="mt-3 flex justify-end">
+        <Button onClick={() => save.mutate()} disabled={save.isPending} className="bg-cta-gradient text-white shadow-glow">
+          <Download className="hidden" />
+          {save.isPending ? "Saving…" : "Save visibility"}
         </Button>
       </div>
-
-      <div className="grid gap-3 lg:grid-cols-[1.1fr_1.4fr]">
-        <div className="group relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-white/15 bg-background/30 p-8 text-center transition-all hover:border-[var(--neon-purple)]/50 hover:bg-[var(--neon-purple)]/5">
-          <div className="bg-cta-gradient mb-3 flex h-12 w-12 items-center justify-center rounded-2xl shadow-glow">
-            <Upload className="h-5 w-5 text-white" />
-          </div>
-          <p className="font-display text-sm font-semibold">Drag & drop files here</p>
-          <p className="mt-1 text-[11px] text-muted-foreground">Multi-file · PDF, DOCX, TXT up to 50 MB</p>
-          <Button size="sm" variant="outline" className="mt-3 rounded-xl border-white/15 bg-background/40">Browse files</Button>
-        </div>
-
-        <div className="space-y-2">
-          {files.map((f) => (
-            <div key={f.n} className="rounded-xl border border-white/10 bg-background/40 p-3">
-              <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-[var(--neon-blue)]" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-medium">{f.n}</p>
-                  <p className="text-[10px] text-muted-foreground">{f.s} · {f.items} notes detected</p>
-                </div>
-                {f.ok ? (
-                  <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-[10px] text-emerald-400">Valid</Badge>
-                ) : (
-                  <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-[10px] text-amber-400">Parsing…</Badge>
-                )}
-              </div>
-              <Progress value={f.p} className="mt-2 h-1.5" />
-            </div>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }
 
-function AnalyticsWidget() {
-  const bars = [35, 60, 50, 72, 65, 88, 95];
+function VisGroup({
+  title, empty, items, selected, onToggle,
+}: {
+  title: string;
+  empty: string;
+  items: { id: string; name: string }[];
+  selected: string[];
+  onToggle: (id: string) => void;
+}) {
   return (
-    <div className="glass shadow-card-soft rounded-2xl p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <h4 className="font-display text-sm font-bold">Notes Analytics</h4>
-        <BarChart3 className="h-4 w-4 text-[var(--neon-blue)]" />
+    <div className="rounded-2xl border border-white/10 bg-background/40 p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-xs font-semibold">{title}</span>
+        <Badge variant="outline" className="border-white/10 bg-background/40 text-[10px]">
+          {selected.length} hidden
+        </Badge>
       </div>
-      <p className="text-[10px] text-muted-foreground">Daily note views · last 7d</p>
-      <div className="mt-2 flex h-24 items-end gap-1.5">
-        {bars.map((b, i) => (
-          <div key={i} className="flex-1 rounded-t-md bg-gradient-to-t from-[var(--neon-purple)] to-[var(--neon-blue)] opacity-90" style={{ height: `${b}%` }} />
-        ))}
+      <div className="max-h-44 space-y-1 overflow-y-auto pr-1">
+        {items.length === 0 && <p className="text-[11px] text-muted-foreground">{empty}</p>}
+        {items.map((it) => {
+          const on = selected.includes(it.id);
+          return (
+            <button key={it.id} type="button" onClick={() => onToggle(it.id)}
+              className={`flex w-full items-center justify-between rounded-lg border px-2 py-1.5 text-left text-xs transition ${
+                on ? "border-rose-500/40 bg-rose-500/10 text-rose-300"
+                   : "border-white/10 bg-background/40 hover:bg-white/5"
+              }`}>
+              <span className="truncate">{it.name}</span>
+              {on ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3 opacity-50" />}
+            </button>
+          );
+        })}
       </div>
-      <div className="mt-3 flex items-center justify-between rounded-lg border border-white/10 bg-background/40 px-2 py-1.5 text-[11px]">
-        <span className="text-muted-foreground">Download trend</span>
-        <span className="font-semibold text-emerald-400">▲ 18%</span>
-      </div>
-      <p className="mt-3 text-[10px] uppercase tracking-widest text-muted-foreground">Most viewed chapters</p>
-      <ul className="mt-1.5 space-y-1.5 text-[11px]">
-        {[
-          { l: "Mechanics · Newton's Laws", v: "12.4k" },
-          { l: "Organic · Reactions", v: "9.8k" },
-          { l: "Cells · Biology", v: "7.2k" },
-        ].map((m) => (
-          <li key={m.l} className="flex items-center justify-between rounded-lg border border-white/10 bg-background/40 px-2 py-1.5">
-            <span className="truncate text-muted-foreground">{m.l}</span>
-            <span className="font-semibold">{m.v}</span>
-          </li>
-        ))}
-      </ul>
-      <div className="mt-3 rounded-lg border border-white/10 bg-background/40 p-2 text-[11px]">
-        <p className="text-muted-foreground">Avg reading completion</p>
-        <p className="font-semibold">81.4%</p>
-      </div>
-    </div>
-  );
-}
-
-function ActivityFeed() {
-  const items = [
-    { i: Plus, c: "var(--neon-purple)", t: "New notes uploaded", s: "Physics · Mechanics · 12 files", a: "4m ago" },
-    { i: Edit3, c: "var(--neon-blue)", t: "Note edited", s: "Periodic Trends · formula fix", a: "22m ago" },
-    { i: Send, c: "#22c55e", t: "Published update", s: "Cell Biology Summary v2.1", a: "1h ago" },
-    { i: BookOpen, c: "#f59e0b", t: "Reading spike", s: "Newton's Laws · 4.8k reads today", a: "2h ago" },
-  ];
-  return (
-    <div className="glass shadow-card-soft rounded-2xl p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <h4 className="font-display text-sm font-bold">Recent Activity</h4>
-        <Activity className="h-4 w-4 text-[var(--neon-purple)]" />
-      </div>
-      <ul className="space-y-2.5">
-        {items.map((it, i) => (
-          <li key={i} className="flex gap-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/10" style={{ background: `color-mix(in oklab, ${it.c} 15%, transparent)` }}>
-              <it.i className="h-3.5 w-3.5" style={{ color: it.c }} />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium">{it.t}</p>
-              <p className="truncate text-[11px] text-muted-foreground">{it.s}</p>
-              <p className="text-[10px] text-muted-foreground">{it.a}</p>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function PopularCollections() {
-  const cols = [
-    { t: "Physics Master Notes Bundle", files: 64, v: "48.2k", dl: "18.4k", sub: "Physics", g: "from-fuchsia-500/30 to-purple-500/20" },
-    { t: "Organic Chemistry Reference Pack", files: 52, v: "31.8k", dl: "12.1k", sub: "Chemistry", g: "from-sky-500/30 to-blue-500/20" },
-    { t: "Cell & Molecular Biology Set", files: 38, v: "22.4k", dl: "8.9k", sub: "Biology", g: "from-emerald-500/30 to-teal-500/20" },
-    { t: "Modern History Quick Notes", files: 41, v: "15.7k", dl: "5.4k", sub: "History", g: "from-amber-500/30 to-orange-500/20" },
-  ];
-  return (
-    <div className="glass shadow-card-soft rounded-3xl p-5">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h3 className="font-display text-lg font-bold">Popular Notes Collections</h3>
-          <p className="text-xs text-muted-foreground">Top performing note bundles across the platform</p>
-        </div>
-        <Button size="sm" variant="outline" className="rounded-xl border-white/10">
-          <Eye className="h-3.5 w-3.5" /> View all
-        </Button>
-      </div>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {cols.map((c) => (
-          <div key={c.t} className={`group relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br ${c.g} p-4 transition-all hover:-translate-y-0.5 hover:shadow-glow`}>
-            <div className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-white/10 blur-2xl" />
-            <Badge variant="outline" className="border-white/20 bg-background/40 text-[10px]">{c.sub}</Badge>
-            <p className="mt-3 font-display text-sm font-bold leading-snug">{c.t}</p>
-            <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground">
-              <span>{c.files} files</span>
-              <span className="flex items-center gap-1"><Eye className="h-3 w-3" /> {c.v}</span>
-            </div>
-            <div className="mt-2 flex items-center justify-between rounded-lg border border-white/10 bg-background/40 px-2 py-1.5 text-[11px]">
-              <span className="text-muted-foreground">Downloads</span>
-              <span className="font-semibold">{c.dl}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-export function ShortNotesManagerFlow() {
-  return (
-    <div className="space-y-4">
-      <Topbar />
-      <HeaderBlock />
-      <FilterPanel />
-      <StatGrid />
-
-      <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
-        <div className="space-y-4">
-          <NotesTable />
-          <NotesCreator />
-          <BulkImport />
-        </div>
-        <aside className="space-y-4">
-          <AnalyticsWidget />
-          <ActivityFeed />
-        </aside>
-      </div>
-
-      <PopularCollections />
     </div>
   );
 }
