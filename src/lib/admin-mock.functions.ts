@@ -133,7 +133,7 @@ export const adminListMocks = createServerFn({ method: "POST" })
         status: statusEnum.optional(),
         level: levelEnum.optional(),
         subjectId: z.string().uuid().optional(),
-        mockType: z.enum(["all", "full", "chapter"]).default("all"),
+        mockType: z.enum(["all", "full", "chapter", "level"]).default("all"),
         date: z.enum(["all", "scheduled", "unscheduled", "upcoming", "expired"]).default("all"),
         sortBy: z.enum(["updated_at", "title", "starts_at", "total_questions"]).default("updated_at"),
         sortDir: z.enum(["asc", "desc"]).default("desc"),
