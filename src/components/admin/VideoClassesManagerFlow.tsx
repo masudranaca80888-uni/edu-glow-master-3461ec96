@@ -1,667 +1,954 @@
+import { useEffect, useMemo, useState } from "react";
 import {
-  Search, Bell, Sun, Moon, Plus, Upload, Youtube, ListVideo, Send, EyeOff,
-  Download, Filter, ArrowUpDown, ChevronRight, BookOpen, CheckCircle2, Eye,
-  Flame, Activity, BarChart3, Edit3, Trash2, Copy, Image as ImageIcon,
-  Save, Rocket, CalendarPlus, Sparkles, CircleDot, Star, Play, Pause,
-  PlayCircle, Video, Clock, Users, TrendingUp, GripVertical, Maximize2,
-  Volume2, SkipForward, Link2, Layers, Film, Mic2,
+  Search, Plus, Send, EyeOff, Filter, ArrowUpDown, CheckCircle2, Eye,
+  Edit3, Trash2, Copy, CircleDot, Sparkles, Youtube, ListVideo, Video,
+  PlayCircle, Clock, Flame, Link2,
 } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Progress } from "@/components/ui/progress";
 import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from "@/components/ui/table";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
-function Spark({ data, color = "var(--neon-purple)" }: { data: number[]; color?: string }) {
-  const max = Math.max(...data, 1);
-  const pts = data.map((v, i) => `${(i / (data.length - 1)) * 100},${30 - (v / max) * 26}`).join(" ");
-  const id = color.replace(/\W/g, "");
-  return (
-    <svg viewBox="0 0 100 30" className="h-8 w-full" preserveAspectRatio="none">
-      <defs>
-        <linearGradient id={`vc-${id}`} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.6" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.6" />
-      <polygon points={`0,30 ${pts} 100,30`} fill={`url(#vc-${id})`} />
-    </svg>
-  );
+import { adminGetAcademicTree } from "@/lib/admin-academic.functions";
+import {
+  adminBulkImportVideoClasses,
+  adminCreateVideoClass,
+  adminDeleteVideoClass,
+  adminDuplicateVideoClass,
+  adminListVideoClasses,
+  adminSetVideoClassHidden,
+  adminSetVideoClassStatus,
+  adminSetVideoClassVisibility,
+  adminUpdateVideoClass,
+  getVideoClassVisibility,
+  parseYouTube,
+} from "@/lib/admin-video-classes.functions";
+
+type VideoClass = {
+  id: string;
+  title: string;
+  description: string | null;
+  level: string;
+  subject_id: string | null;
+  chapter_id: string | null;
+  instructor: string | null;
+  kind: "youtube" | "playlist" | "upload";
+  youtube_url: string | null;
+  youtube_video_id: string | null;
+  youtube_playlist_id: string | null;
+  thumbnail_url: string | null;
+  duration_seconds: number;
+  playlist_key: string | null;
+  position: number;
+  tags: string[];
+  status: "draft" | "published" | "archived";
+  is_hidden: boolean;
+  is_featured: boolean;
+  scheduled_at: string | null;
+  view_count: number;
+  updated_at: string;
+};
+
+type EditState = { open: boolean; item?: VideoClass | null };
+type BulkState = { open: boolean };
+
+function statusTone(s: string, hidden: boolean) {
+  if (hidden) return "bg-zinc-500/15 text-zinc-400 border-zinc-500/30";
+  switch (s) {
+    case "published": return "bg-emerald-500/15 text-emerald-400 border-emerald-500/30";
+    case "draft": return "bg-amber-500/15 text-amber-400 border-amber-500/30";
+    case "archived": return "bg-rose-500/15 text-rose-400 border-rose-500/30";
+    default: return "bg-muted text-foreground";
+  }
 }
 
-function Topbar() {
-  return (
-    <header className="glass shadow-card-soft flex items-center gap-3 rounded-2xl p-3">
-      <div className="relative max-w-xl flex-1">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input placeholder="Search classes, instructors, playlists…" className="h-10 rounded-xl border-white/10 bg-background/60 pl-9 backdrop-blur" />
-        <kbd className="absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-white/10 bg-muted/50 px-1.5 py-0.5 text-[10px] text-muted-foreground md:block">⌘K</kbd>
-      </div>
-      <div className="ml-auto flex items-center gap-2">
-        <div className="hidden items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-medium text-emerald-400 md:flex">
-          <CircleDot className="h-3 w-3 animate-pulse" /> Streaming · 8 edges live
-        </div>
-        <Button size="icon" variant="ghost" className="rounded-xl">
-          <Sun className="h-4 w-4 dark:hidden" /><Moon className="hidden h-4 w-4 dark:block" />
-        </Button>
-        <Button size="icon" variant="ghost" className="relative rounded-xl">
-          <Bell className="h-4 w-4" />
-          <span className="absolute right-1.5 top-1.5 h-2 w-2 animate-pulse rounded-full bg-[var(--neon-purple)] shadow-[0_0_8px_var(--neon-purple)]" />
-        </Button>
-        <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-background/40 p-1 pl-3">
-          <div className="text-right leading-tight">
-            <p className="text-xs font-semibold">Asha Rahman</p>
-            <p className="text-[10px] text-muted-foreground">Super Admin</p>
-          </div>
-          <div className="bg-cta-gradient flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold text-white shadow-glow">AR</div>
-        </div>
-      </div>
-    </header>
-  );
+function fmtDuration(s: number) {
+  if (!s) return "—";
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`
+               : `${m}:${String(sec).padStart(2, "0")}`;
 }
 
-function PageHeader() {
-  return (
-    <section className="glass shadow-card-soft relative overflow-hidden rounded-3xl p-6">
-      <div className="pointer-events-none absolute -right-10 -top-10 h-56 w-56 rounded-full bg-[var(--neon-purple)]/25 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-10 left-1/3 h-48 w-48 rounded-full bg-[var(--neon-blue)]/20 blur-3xl" />
-      <div className="relative flex flex-wrap items-end justify-between gap-4">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Badge className="bg-cta-gradient border-0 text-white shadow-glow">
-              <Sparkles className="mr-1 h-3 w-3" /> Streaming Studio
-            </Badge>
-            <Badge variant="outline" className="border-white/20 text-muted-foreground">v3.2 · live</Badge>
-          </div>
-          <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">
-            Video Classes <span className="text-gradient">Management Center</span>
-          </h1>
-          <p className="max-w-2xl text-sm text-muted-foreground">
-            Upload, organize and manage premium chapter-wise video lessons across every level and subject.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button className="bg-cta-gradient text-white shadow-glow hover:shadow-glow-strong">
-            <Plus className="mr-2 h-4 w-4" /> Add Video Class
-          </Button>
-          <Button variant="outline" className="border-white/15 backdrop-blur">
-            <Youtube className="mr-2 h-4 w-4" /> Import YouTube
-          </Button>
-          <Button variant="outline" className="border-white/15 backdrop-blur">
-            <ListVideo className="mr-2 h-4 w-4" /> Bulk Playlist
-          </Button>
-          <Button variant="outline" className="border-emerald-400/30 text-emerald-400 hover:bg-emerald-500/10">
-            <Send className="mr-2 h-4 w-4" /> Publish
-          </Button>
-          <Button variant="outline" className="border-amber-400/30 text-amber-400 hover:bg-amber-500/10">
-            <EyeOff className="mr-2 h-4 w-4" /> Hide
-          </Button>
-          <Button variant="outline" className="border-white/15">
-            <Download className="mr-2 h-4 w-4" /> Export
-          </Button>
-        </div>
-      </div>
-    </section>
+export function VideoClassesManagerFlow() {
+  const qc = useQueryClient();
+
+  const treeFn = useServerFn(adminGetAcademicTree);
+  const listFn = useServerFn(adminListVideoClasses);
+
+  const [search, setSearch] = useState("");
+  const [level, setLevel] = useState<string>("all");
+  const [subjectId, setSubjectId] = useState<string>("all");
+  const [chapterId, setChapterId] = useState<string>("all");
+  const [statusFilter, setStatusFilter] =
+    useState<"all" | "draft" | "published" | "archived" | "hidden">("all");
+  const [page, setPage] = useState(1);
+  const pageSize = 25;
+
+  const [editor, setEditor] = useState<EditState>({ open: false });
+  const [bulk, setBulk] = useState<BulkState>({ open: false });
+
+  const tree = useQuery({
+    queryKey: ["admin-academic-tree"],
+    queryFn: () => treeFn(),
+    staleTime: 60_000,
+  });
+
+  const levels = (tree.data?.levels ?? []) as { code: string; name: string }[];
+  const allSubjects = (tree.data?.subjects ?? []) as { id: string; name: string; level: string }[];
+  const allChapters = (tree.data?.chapters ?? []) as { id: string; name: string; subject_id: string }[];
+
+  const subjects = useMemo(
+    () => (level === "all" ? allSubjects : allSubjects.filter((s) => s.level === level)),
+    [allSubjects, level],
   );
-}
-
-const stats = [
-  { label: "Total Classes", value: "2,840", delta: "+96", icon: Video, color: "var(--neon-purple)", data: [3, 5, 7, 6, 10, 13, 16] },
-  { label: "Published", value: "2,512", delta: "+72", icon: PlayCircle, color: "var(--neon-blue)", data: [2, 4, 6, 8, 9, 12, 14] },
-  { label: "Hidden", value: "328", delta: "−8", icon: EyeOff, color: "#f59e0b", data: [7, 6, 8, 5, 4, 4, 5] },
-  { label: "Watch Hours", value: "184K", delta: "+22.6%", icon: Clock, color: "#10b981", data: [4, 8, 9, 12, 15, 19, 23] },
-  { label: "Top Subject", value: "Physics", delta: "62K hrs", icon: Flame, color: "#ef4444", data: [5, 8, 11, 13, 12, 16, 19] },
-  { label: "Avg Completion", value: "78.4%", delta: "+4.2%", icon: TrendingUp, color: "#a78bfa", data: [3, 5, 8, 9, 10, 12, 14] },
-];
-
-function StatGrid() {
-  return (
-    <section className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-      {stats.map((s) => (
-        <div key={s.label} className="glass shadow-card-soft group relative overflow-hidden rounded-2xl p-4 transition-all hover:-translate-y-0.5 hover:shadow-glow">
-          <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100"
-            style={{ background: `radial-gradient(circle at 20% 0%, ${s.color}22, transparent 60%)` }} />
-          <div className="relative flex items-start justify-between">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl"
-              style={{ background: `${s.color}22`, color: s.color, boxShadow: `0 0 18px ${s.color}33` }}>
-              <s.icon className="h-4 w-4" />
-            </div>
-            <Badge variant="outline" className="border-white/10 text-[10px] text-muted-foreground">{s.delta}</Badge>
-          </div>
-          <p className="relative mt-3 text-[11px] uppercase tracking-wider text-muted-foreground">{s.label}</p>
-          <p className="relative font-display text-2xl font-bold tracking-tight">{s.value}</p>
-          <div className="relative mt-1"><Spark data={s.data} color={s.color} /></div>
-        </div>
-      ))}
-    </section>
+  const chapters = useMemo(
+    () => (subjectId === "all" ? allChapters : allChapters.filter((c) => c.subject_id === subjectId)),
+    [allChapters, subjectId],
   );
-}
 
-function FilterPanel() {
-  const chips = ["All Levels", "Class 9", "Class 10", "HSC", "Admission"];
-  return (
-    <section className="glass shadow-card-soft rounded-2xl p-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative min-w-[240px] flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search classes by title, instructor or ID…" className="h-10 rounded-xl border-white/10 bg-background/60 pl-9" />
-        </div>
-        {["Level", "Subject", "Chapter", "Instructor", "Status"].map((l) => (
-          <Button key={l} variant="outline" className="h-10 rounded-xl border-white/10 bg-background/40">
-            <Filter className="mr-2 h-3.5 w-3.5" /> {l}
-            <ChevronRight className="ml-1 h-3 w-3 rotate-90 opacity-50" />
-          </Button>
-        ))}
-        <Button variant="outline" className="h-10 rounded-xl border-white/10 bg-background/40">
-          <ArrowUpDown className="mr-2 h-3.5 w-3.5" /> Most Watched
-        </Button>
-      </div>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        {chips.map((c, i) => (
-          <button key={c}
-            className={`rounded-full border px-3 py-1.5 text-xs transition-all ${
-              i === 0 ? "border-transparent bg-cta-gradient text-white shadow-glow"
-                      : "border-white/15 text-foreground/80 hover:border-white/30 hover:bg-muted/40"
-            }`}>
-            {c}
-          </button>
-        ))}
-      </div>
-    </section>
-  );
-}
+  useEffect(() => { setSubjectId("all"); setChapterId("all"); setPage(1); }, [level]);
+  useEffect(() => { setChapterId("all"); setPage(1); }, [subjectId]);
 
-const rows = [
-  { id: "VC-3081", title: "Newton's Laws — Full Conceptual Walkthrough", subject: "Physics", chapter: "Mechanics", inst: "Tahmid Hasan", dur: "48:12", views: "82.4K", comp: 86, status: "Published", date: "May 14" },
-  { id: "VC-3082", title: "Organic Reactions Master Class — Part 3", subject: "Chemistry", chapter: "Organic", inst: "Nabila Ahmed", dur: "62:40", views: "54.1K", comp: 74, status: "Published", date: "May 12" },
-  { id: "VC-3083", title: "Integration Tricks for Admission Math", subject: "Mathematics", chapter: "Calculus", inst: "Rafiq Khan", dur: "38:55", views: "39.2K", comp: 68, status: "Scheduled", date: "May 22" },
-  { id: "VC-3084", title: "Genetics — Mendel to DNA in 40 Minutes", subject: "Biology", chapter: "Genetics", inst: "Sumaya Karim", dur: "41:08", views: "28.6K", comp: 81, status: "Draft", date: "May 10" },
-  { id: "VC-3085", title: "Essay Writing — HSC Board Format", subject: "English", chapter: "Writing", inst: "Imran Iqbal", dur: "29:42", views: "17.9K", comp: 64, status: "Hidden", date: "May 08" },
-  { id: "VC-3086", title: "ICT — Database Design Crash Course", subject: "ICT", chapter: "DBMS", inst: "Tanvir Alam", dur: "55:21", views: "44.7K", comp: 79, status: "Published", date: "May 06" },
-];
+  const listQuery = useQuery({
+    queryKey: ["video-classes", { search, level, subjectId, chapterId, statusFilter, page }],
+    queryFn: () =>
+      listFn({
+        data: {
+          search: search.trim() || undefined,
+          level: level === "all" ? undefined : level,
+          subjectId: subjectId === "all" ? undefined : subjectId,
+          chapterId: chapterId === "all" ? undefined : chapterId,
+          status: statusFilter,
+          page,
+          pageSize,
+        },
+      }),
+  });
 
-function statusTone(s: string) {
-  const m: Record<string, string> = {
-    Published: "border-emerald-400/40 bg-emerald-500/10 text-emerald-400",
-    Draft: "border-amber-400/40 bg-amber-500/10 text-amber-400",
-    Scheduled: "border-sky-400/40 bg-sky-500/10 text-sky-400",
-    Hidden: "border-rose-400/40 bg-rose-500/10 text-rose-400",
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["video-classes"] });
+    qc.invalidateQueries({ queryKey: ["public-video-classes"] });
   };
-  return m[s] ?? "border-white/20 text-muted-foreground";
-}
 
-function ClassTable() {
+  useEffect(() => {
+    const ch = supabase
+      .channel("video-classes-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "video_classes" }, invalidate)
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const delFn = useServerFn(adminDeleteVideoClass);
+  const dupFn = useServerFn(adminDuplicateVideoClass);
+  const statusFn = useServerFn(adminSetVideoClassStatus);
+  const hideFn = useServerFn(adminSetVideoClassHidden);
+
+  const remove = useMutation({
+    mutationFn: (id: string) => delFn({ data: { id } }),
+    onSuccess: () => { toast.success("Class deleted"); invalidate(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const duplicate = useMutation({
+    mutationFn: (id: string) => dupFn({ data: { id } }),
+    onSuccess: () => { toast.success("Duplicated"); invalidate(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const setStatus = useMutation({
+    mutationFn: (p: { id: string; status: "draft" | "published" | "archived" }) => statusFn({ data: p }),
+    onSuccess: (_d, p) => { toast.success(`Marked ${p.status}`); invalidate(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const setHidden = useMutation({
+    mutationFn: (p: { id: string; is_hidden: boolean }) => hideFn({ data: p }),
+    onSuccess: (_d, p) => { toast.success(p.is_hidden ? "Hidden from students" : "Visible again"); invalidate(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const rows: VideoClass[] = (listQuery.data?.rows ?? []) as VideoClass[];
+  const total = listQuery.data?.count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const subjectName = (id: string | null) => allSubjects.find((s) => s.id === id)?.name ?? "—";
+  const chapterName = (id: string | null) => allChapters.find((c) => c.id === id)?.name ?? "—";
+
+  const stats = useMemo(() => {
+    const published = rows.filter((r) => r.status === "published" && !r.is_hidden).length;
+    const hidden = rows.filter((r) => r.is_hidden).length;
+    return { total, published, hidden };
+  }, [rows, total]);
+
   return (
-    <section className="glass shadow-card-soft overflow-hidden rounded-2xl">
-      <div className="flex items-center justify-between gap-2 p-4">
-        <div>
-          <p className="font-display text-lg font-bold">Video Class Library</p>
-          <p className="text-xs text-muted-foreground">{rows.length} of 2,840 classes · live edge CDN</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" className="border-white/15">
-            <ListVideo className="mr-2 h-3.5 w-3.5" /> Playlists
-          </Button>
-          <Button size="sm" className="bg-cta-gradient text-white shadow-glow">
-            <Plus className="mr-2 h-3.5 w-3.5" /> New Class
-          </Button>
-        </div>
-      </div>
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow className="border-white/10 hover:bg-transparent">
-              {["ID", "Class", "Subject", "Chapter", "Instructor", "Duration", "Views", "Completion", "Status", "Upload", ""].map((h, i) => (
-                <TableHead key={i} className={`text-[11px] uppercase tracking-wider ${i >= 6 && i <= 7 ? "text-right" : ""} ${i === 10 ? "text-right" : ""}`}>{h}</TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((r) => (
-              <TableRow key={r.id} className="border-white/5 transition-colors hover:bg-white/[0.03]">
-                <TableCell className="font-mono text-[11px] text-muted-foreground">{r.id}</TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-3">
-                    <div className="relative h-10 w-16 shrink-0 overflow-hidden rounded-md bg-gradient-to-br from-[var(--neon-purple)]/40 to-[var(--neon-blue)]/40 ring-1 ring-white/10">
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <Play className="h-4 w-4 fill-white text-white drop-shadow" />
-                      </div>
-                      <span className="absolute bottom-0.5 right-0.5 rounded bg-black/70 px-1 text-[9px] font-mono text-white">{r.dur}</span>
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{r.title}</p>
-                      <p className="text-[11px] text-muted-foreground">HD · 1080p · CDN-cached</p>
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell className="text-sm">{r.subject}</TableCell>
-                <TableCell className="text-sm text-muted-foreground">{r.chapter}</TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--neon-blue)]/20 text-[10px] font-bold text-[var(--neon-blue)]">
-                      {r.inst.split(" ").map((p) => p[0]).join("")}
-                    </div>
-                    <span className="text-xs">{r.inst}</span>
-                  </div>
-                </TableCell>
-                <TableCell className="font-mono text-xs">{r.dur}</TableCell>
-                <TableCell className="text-right font-mono text-xs">{r.views}</TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <Progress value={r.comp} className="h-1.5 w-16" />
-                    <span className="w-8 font-mono text-[11px]">{r.comp}%</span>
-                  </div>
-                </TableCell>
-                <TableCell><Badge variant="outline" className={statusTone(r.status)}>{r.status}</Badge></TableCell>
-                <TableCell className="text-xs text-muted-foreground">{r.date}</TableCell>
-                <TableCell>
-                  <div className="flex items-center justify-end gap-1">
-                    {[Edit3, Eye, Copy, Send, EyeOff, Trash2].map((I, i) => (
-                      <Button key={i} size="icon" variant="ghost" className="h-7 w-7 rounded-lg hover:bg-white/5">
-                        <I className="h-3.5 w-3.5" />
-                      </Button>
-                    ))}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-    </section>
-  );
-}
-
-function ClassCreator() {
-  const steps = ["Setup", "Video Import", "Player Preview", "Publish"];
-  return (
-    <section className="glass shadow-card-soft relative overflow-hidden rounded-2xl p-5">
-      <div className="pointer-events-none absolute -right-16 -top-16 h-52 w-52 rounded-full bg-[var(--neon-purple)]/20 blur-3xl" />
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-[11px] uppercase tracking-widest text-muted-foreground">Class Creator</p>
-          <p className="font-display text-xl font-bold">Build a new video lesson</p>
-        </div>
-        <Badge variant="outline" className="border-white/15">
-          <Sparkles className="mr-1 h-3 w-3 text-[var(--neon-purple)]" /> AI metadata
-        </Badge>
-      </div>
-
-      <div className="mt-4 flex items-center gap-2">
-        {steps.map((s, i) => (
-          <div key={s} className="flex items-center gap-2">
-            <div className={`flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold ${
-              i <= 2 ? "bg-cta-gradient text-white shadow-glow" : "border border-white/15 text-muted-foreground"
-            }`}>{i + 1}</div>
-            <span className={`text-xs ${i <= 2 ? "text-foreground" : "text-muted-foreground"}`}>{s}</span>
-            {i < steps.length - 1 && <ChevronRight className="h-3 w-3 text-muted-foreground" />}
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-5 grid gap-4 lg:grid-cols-2">
-        {/* STEP 1 */}
-        <div className="rounded-xl border border-white/10 bg-background/40 p-4">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Step 1 · Setup</p>
-          <div className="grid grid-cols-2 gap-3 text-xs">
-            {[
-              { l: "Level", v: "HSC · 2nd Year" },
-              { l: "Subject", v: "Physics" },
-              { l: "Chapter", v: "Mechanics" },
-              { l: "Instructor", v: "Tahmid Hasan" },
-              { l: "Category", v: "Conceptual Lecture" },
-              { l: "Language", v: "Bangla · EN sub" },
-            ].map((f) => (
-              <div key={f.l} className="rounded-lg border border-white/10 bg-background/40 p-2.5">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{f.l}</p>
-                <p className="mt-1 truncate font-medium">{f.v}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* STEP 2 */}
-        <div className="rounded-xl border border-white/10 bg-background/40 p-4">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Step 2 · Video Import</p>
-          <div className="relative">
-            <Link2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input defaultValue="https://youtube.com/watch?v=neWtonLAW01" className="h-10 rounded-xl border-white/10 bg-background/60 pl-9" />
-          </div>
-          <div className="mt-3 flex gap-2">
-            <Button size="sm" variant="outline" className="border-white/15"><Youtube className="mr-2 h-3.5 w-3.5" /> Single</Button>
-            <Button size="sm" variant="outline" className="border-white/15"><ListVideo className="mr-2 h-3.5 w-3.5" /> Playlist</Button>
-            <Button size="sm" variant="outline" className="border-white/15"><ImageIcon className="mr-2 h-3.5 w-3.5" /> Thumbnail</Button>
-          </div>
-          <div className="mt-3 flex items-center gap-2 rounded-lg border border-emerald-400/30 bg-emerald-500/5 p-2.5 text-[11px]">
-            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-            <span className="text-muted-foreground">Auto-detected · <span className="font-mono text-foreground">48:12</span> · 1080p · captions found</span>
-          </div>
-          <div className="mt-3 rounded-lg border border-white/10 bg-background/40 p-2.5">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Description</p>
-            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-              A complete walkthrough of Newton's three laws with worked HSC board examples and intuitive diagrams.
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="glass shadow-card-soft relative overflow-hidden rounded-3xl p-6">
+        <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-[var(--neon-purple)]/25 blur-3xl" />
+        <div className="pointer-events-none absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[var(--neon-blue)]/25 blur-3xl" />
+        <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <Badge className="bg-cta-gradient border-0 text-white shadow-glow">
+                <Video className="mr-1 h-3 w-3" /> Video Classes
+              </Badge>
+              <span className="text-xs text-muted-foreground">/ Admin / Classes Manager</span>
+            </div>
+            <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">
+              Video Classes <span className="text-gradient">Management Center</span>
+            </h1>
+            <p className="max-w-2xl text-sm text-muted-foreground">
+              Add YouTube classes, organize playlists chapter-wise, and publish to all students instantly.
             </p>
           </div>
-        </div>
-
-        {/* STEP 3 — Player Preview */}
-        <div className="rounded-xl border border-white/10 bg-background/40 p-4 lg:col-span-2">
-          <div className="mb-3 flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Step 3 · Cinematic Preview</p>
-            <div className="flex items-center gap-1">
-              <Button size="icon" variant="ghost" className="h-7 w-7"><Maximize2 className="h-3.5 w-3.5" /></Button>
-              <Button size="icon" variant="ghost" className="h-7 w-7"><Sun className="h-3.5 w-3.5 dark:hidden" /><Moon className="hidden h-3.5 w-3.5 dark:block" /></Button>
-            </div>
-          </div>
-          <div className="grid gap-3 lg:grid-cols-[1fr_240px]">
-            <div className="relative aspect-video overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-black via-[var(--neon-purple)]/20 to-[var(--neon-blue)]/20 shadow-glow">
-              <div className="absolute inset-0 flex items-center justify-center">
-                <button className="group flex h-16 w-16 items-center justify-center rounded-full bg-white/10 backdrop-blur-md ring-1 ring-white/30 transition-all hover:scale-110 hover:bg-white/20">
-                  <Play className="h-7 w-7 fill-white text-white" />
-                </button>
-              </div>
-              <div className="absolute bottom-0 left-0 right-0 space-y-2 bg-gradient-to-t from-black/80 to-transparent p-3">
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-[10px] text-white/80">12:48</span>
-                  <div className="relative h-1 flex-1 rounded-full bg-white/15">
-                    <div className="absolute inset-y-0 left-0 w-1/4 rounded-full bg-gradient-to-r from-[var(--neon-purple)] to-[var(--neon-blue)]" />
-                    <div className="absolute left-1/4 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_0_10px_white]" />
-                  </div>
-                  <span className="font-mono text-[10px] text-white/80">48:12</span>
-                </div>
-                <div className="flex items-center gap-2 text-white">
-                  <Pause className="h-4 w-4" /><SkipForward className="h-4 w-4" /><Volume2 className="h-4 w-4" />
-                  <span className="ml-2 text-[11px] font-medium">Newton's Laws — Walkthrough</span>
-                  <span className="ml-auto rounded bg-white/10 px-1.5 py-0.5 text-[10px]">1080p</span>
-                </div>
-              </div>
-            </div>
-            <div className="space-y-2 rounded-xl border border-white/10 bg-background/40 p-2">
-              <p className="px-1 text-[10px] uppercase tracking-wider text-muted-foreground">Up next · Mechanics</p>
-              {[
-                { t: "1.1 Frames of Reference", d: "08:14", a: true },
-                { t: "1.2 Newton's First Law", d: "12:48", a: false },
-                { t: "1.3 Newton's Second Law", d: "14:22", a: false },
-                { t: "1.4 Newton's Third Law", d: "12:48", a: false },
-              ].map((v, i) => (
-                <div key={i} className={`flex items-center gap-2 rounded-lg p-1.5 ${v.a ? "bg-cta-gradient text-white shadow-glow" : "hover:bg-white/5"}`}>
-                  <div className="relative h-8 w-12 shrink-0 overflow-hidden rounded bg-gradient-to-br from-[var(--neon-purple)]/40 to-[var(--neon-blue)]/40">
-                    <Play className="absolute inset-0 m-auto h-3 w-3 fill-white text-white" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className={`truncate text-[11px] font-medium ${v.a ? "text-white" : ""}`}>{v.t}</p>
-                    <p className={`font-mono text-[10px] ${v.a ? "text-white/80" : "text-muted-foreground"}`}>{v.d}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* STEP 4 */}
-        <div className="rounded-xl border border-white/10 bg-background/40 p-4 lg:col-span-2">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Step 4 · Publish</p>
-          <div className="grid gap-3 md:grid-cols-3">
-            {[
-              { l: "Hide from Students", d: "Keep private until reviewed" },
-              { l: "Featured Class", d: "Pin to homepage hero rail" },
-              { l: "Allow Downloads", d: "Offline playback for Pro tier" },
-            ].map((t, i) => (
-              <div key={t.l} className="flex items-center justify-between rounded-lg border border-white/10 bg-background/40 p-2.5">
-                <div>
-                  <p className="text-xs font-medium">{t.l}</p>
-                  <p className="text-[10px] text-muted-foreground">{t.d}</p>
-                </div>
-                <Switch defaultChecked={i !== 0} />
-              </div>
-            ))}
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Button variant="outline" className="border-white/15"><Save className="mr-2 h-4 w-4" /> Save Draft</Button>
-            <Button variant="outline" className="border-white/15"><CalendarPlus className="mr-2 h-4 w-4" /> Schedule</Button>
-            <Button className="bg-cta-gradient text-white shadow-glow hover:shadow-glow-strong">
-              <Rocket className="mr-2 h-4 w-4" /> Publish Now
+          <div className="flex flex-wrap items-center gap-2">
+            <Button onClick={() => setBulk({ open: true })} variant="outline" className="rounded-xl border-white/15">
+              <ListVideo className="h-4 w-4" /> Bulk Playlist
+            </Button>
+            <Button
+              type="button"
+              onClick={() => setEditor({ open: true, item: null })}
+              className="bg-cta-gradient rounded-xl text-white shadow-glow hover:opacity-95"
+            >
+              <Plus className="h-4 w-4" /> Add Class
             </Button>
           </div>
         </div>
       </div>
-    </section>
-  );
-}
 
-function PlaylistManager() {
-  const lessons = [
-    { n: 1, t: "Frames of Reference", d: "08:14" },
-    { n: 2, t: "Newton's First Law", d: "12:48" },
-    { n: 3, t: "Newton's Second Law", d: "14:22" },
-    { n: 4, t: "Newton's Third Law", d: "12:48" },
-    { n: 5, t: "Friction & Inclined Planes", d: "18:02" },
-    { n: 6, t: "Worked Board Problems", d: "22:36" },
-  ];
-  return (
-    <section className="glass shadow-card-soft rounded-2xl p-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-[11px] uppercase tracking-widest text-muted-foreground">Playlist Manager</p>
-          <p className="font-display text-lg font-bold">Mechanics · 6 lessons · 1h 28m</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" className="border-white/15"><Plus className="mr-2 h-3.5 w-3.5" /> Add Lesson</Button>
-          <Button size="sm" className="bg-cta-gradient text-white shadow-glow"><Save className="mr-2 h-3.5 w-3.5" /> Save Order</Button>
-        </div>
-      </div>
-      <div className="mt-4 space-y-2">
-        {lessons.map((l) => (
-          <div key={l.n} className="group flex items-center gap-3 rounded-xl border border-white/10 bg-background/40 p-2.5 transition-all hover:border-[var(--neon-purple)]/40 hover:bg-white/[0.04]">
-            <GripVertical className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-[var(--neon-purple)]" />
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cta-gradient font-mono text-[11px] font-bold text-white shadow-glow">
-              {String(l.n).padStart(2, "0")}
-            </div>
-            <div className="relative h-10 w-16 shrink-0 overflow-hidden rounded-md bg-gradient-to-br from-[var(--neon-purple)]/40 to-[var(--neon-blue)]/40 ring-1 ring-white/10">
-              <Play className="absolute inset-0 m-auto h-3.5 w-3.5 fill-white text-white" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{l.t}</p>
-              <p className="text-[11px] text-muted-foreground">Chapter · Mechanics · HD</p>
-            </div>
-            <span className="font-mono text-xs text-muted-foreground">{l.d}</span>
-            <Button size="icon" variant="ghost" className="h-7 w-7"><Edit3 className="h-3.5 w-3.5" /></Button>
-            <Button size="icon" variant="ghost" className="h-7 w-7"><Trash2 className="h-3.5 w-3.5" /></Button>
+      {/* Filters */}
+      <div className="glass shadow-card-soft rounded-2xl p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-[220px] flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              placeholder="Search by title or instructor…"
+              className="h-9 rounded-xl border-white/10 bg-background/60 pl-9"
+            />
           </div>
-        ))}
+          <SelectFilter icon={<Filter className="h-3 w-3" />} label="Level" value={level} onValueChange={setLevel}
+            options={[{ value: "all", label: "All levels" }, ...levels.map((l) => ({ value: l.code, label: l.name }))]} />
+          <SelectFilter icon={<Filter className="h-3 w-3" />} label="Subject" value={subjectId} onValueChange={setSubjectId}
+            options={[{ value: "all", label: "All subjects" }, ...subjects.map((s) => ({ value: s.id, label: s.name }))]} />
+          <SelectFilter icon={<Filter className="h-3 w-3" />} label="Chapter" value={chapterId} onValueChange={setChapterId}
+            options={[{ value: "all", label: "All chapters" }, ...chapters.map((c) => ({ value: c.id, label: c.name }))]} />
+          <SelectFilter icon={<ArrowUpDown className="h-3 w-3" />} label="Status" value={statusFilter}
+            onValueChange={(v) => { setStatusFilter(v as typeof statusFilter); setPage(1); }}
+            options={[
+              { value: "all", label: "All" },
+              { value: "published", label: "Published" },
+              { value: "draft", label: "Draft" },
+              { value: "archived", label: "Archived" },
+              { value: "hidden", label: "Hidden" },
+            ]} />
+        </div>
       </div>
-    </section>
-  );
-}
 
-function AnalyticsWidget() {
-  const bars = [48, 62, 78, 54, 92, 88, 74];
-  return (
-    <div className="glass shadow-card-soft rounded-2xl p-4">
-      <div className="flex items-center justify-between">
-        <p className="font-display text-sm font-bold">Daily Watch Hours</p>
-        <BarChart3 className="h-4 w-4 text-[var(--neon-purple)]" />
+      <VisibilityPanel
+        levels={levels}
+        subjects={allSubjects}
+        chapters={allChapters}
+      />
+
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+        <StatTile label="Total Classes" value={stats.total} icon={Video} color="var(--neon-purple)" />
+        <StatTile label="Published & Visible" value={stats.published} icon={CheckCircle2} color="#22c55e" />
+        <StatTile label="Hidden in current page" value={stats.hidden} icon={EyeOff} color="#f59e0b" />
       </div>
-      <p className="mt-1 font-display text-2xl font-bold">
-        12.8K <span className="text-xs font-normal text-emerald-400">▲ 14.2%</span>
-      </p>
-      <div className="mt-3 flex h-24 items-end gap-1.5">
-        {bars.map((b, i) => (
-          <div key={i} className="flex-1 rounded-t-md bg-gradient-to-t from-[var(--neon-purple)]/30 to-[var(--neon-blue)]/80 transition-all hover:from-[var(--neon-purple)]/60 hover:to-[var(--neon-blue)]" style={{ height: `${b}%` }} />
-        ))}
-      </div>
-      <div className="mt-2 flex justify-between text-[10px] text-muted-foreground">
-        {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => <span key={i}>{d}</span>)}
-      </div>
-      <div className="mt-4 space-y-2">
-        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Most Watched</p>
-        {[
-          { t: "Newton's Laws Walkthrough", v: "82.4K" },
-          { t: "Organic Reactions P3", v: "54.1K" },
-          { t: "ICT — Database Crash", v: "44.7K" },
-        ].map((r) => (
-          <div key={r.t} className="flex items-center justify-between rounded-lg border border-white/10 bg-background/40 px-2.5 py-1.5">
-            <span className="truncate text-xs">{r.t}</span>
-            <span className="font-mono text-[11px] text-muted-foreground">{r.v}</span>
+
+      {/* Table */}
+      <div className="glass shadow-card-soft overflow-hidden rounded-3xl">
+        <div className="flex items-center justify-between border-b border-white/10 p-4">
+          <div>
+            <h3 className="font-display text-lg font-bold">All Video Classes</h3>
+            <p className="text-xs text-muted-foreground">
+              {listQuery.isLoading ? "Loading…" : `Showing ${rows.length} of ${total}`} — live sync enabled
+            </p>
           </div>
-        ))}
-      </div>
-      <div className="mt-4">
-        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Student engagement</p>
-        <div className="mt-1 flex items-center gap-2">
-          <Progress value={82} className="h-1.5 flex-1" />
-          <span className="font-mono text-xs">82%</span>
+          <Badge variant="outline" className="border-white/10 bg-background/40">
+            <CircleDot className="mr-1 h-2.5 w-2.5 animate-pulse text-emerald-400" /> Live
+          </Badge>
+        </div>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-white/10 hover:bg-transparent">
+                <TableHead className="pl-4">Class</TableHead>
+                <TableHead>Subject</TableHead>
+                <TableHead>Chapter</TableHead>
+                <TableHead>Instructor</TableHead>
+                <TableHead>Duration</TableHead>
+                <TableHead>Views</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Updated</TableHead>
+                <TableHead className="pr-4 text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((n) => (
+                <TableRow key={n.id} className="border-white/5 hover:bg-white/[0.03]">
+                  <TableCell className="max-w-[320px] pl-4">
+                    <div className="flex items-center gap-2.5">
+                      <div className="relative h-10 w-16 shrink-0 overflow-hidden rounded-md bg-gradient-to-br from-[var(--neon-purple)]/40 to-[var(--neon-blue)]/40 ring-1 ring-white/10">
+                        {n.thumbnail_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={n.thumbnail_url} alt="" className="absolute inset-0 h-full w-full object-cover opacity-80" />
+                        ) : null}
+                        <PlayCircle className="absolute inset-0 m-auto h-4 w-4 text-white drop-shadow" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{n.title}</p>
+                        <p className="truncate text-[10px] text-muted-foreground">
+                          {n.kind === "playlist" ? "Playlist" : "Single video"} · {n.playlist_key ?? "no playlist"}
+                        </p>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{subjectName(n.subject_id)}</TableCell>
+                  <TableCell className="text-muted-foreground">{chapterName(n.chapter_id)}</TableCell>
+                  <TableCell className="text-xs">{n.instructor || "—"}</TableCell>
+                  <TableCell className="font-mono text-xs">{fmtDuration(n.duration_seconds)}</TableCell>
+                  <TableCell>{n.view_count.toLocaleString()}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className={`${statusTone(n.status, n.is_hidden)} border text-[10px]`}>
+                      {n.is_hidden ? "Hidden" : n.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {new Date(n.updated_at).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell className="pr-4">
+                    <div className="flex items-center justify-end gap-0.5">
+                      <RowBtn title="Edit" onClick={() => setEditor({ open: true, item: n })}>
+                        <Edit3 className="h-3.5 w-3.5" />
+                      </RowBtn>
+                      {n.youtube_url && (
+                        <RowBtn title="Open YouTube" onClick={() => window.open(n.youtube_url!, "_blank") }>
+                          <Eye className="h-3.5 w-3.5" />
+                        </RowBtn>
+                      )}
+                      <RowBtn title="Duplicate" onClick={() => duplicate.mutate(n.id)}>
+                        <Copy className="h-3.5 w-3.5" />
+                      </RowBtn>
+                      <RowBtn
+                        title={n.status === "published" ? "Unpublish" : "Publish"}
+                        onClick={() => setStatus.mutate({ id: n.id, status: n.status === "published" ? "draft" : "published" })}
+                      >
+                        <Send className={`h-3.5 w-3.5 ${n.status === "published" ? "text-emerald-400" : ""}`} />
+                      </RowBtn>
+                      <RowBtn
+                        title={n.is_hidden ? "Unhide" : "Hide from students"}
+                        onClick={() => setHidden.mutate({ id: n.id, is_hidden: !n.is_hidden })}
+                      >
+                        {n.is_hidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                      </RowBtn>
+                      <RowBtn
+                        title="Delete"
+                        onClick={() => {
+                          if (confirm(`Delete class "${n.title}"?`)) remove.mutate(n.id);
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      </RowBtn>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {!listQuery.isLoading && rows.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={9} className="py-10 text-center text-sm text-muted-foreground">
+                    <Sparkles className="mx-auto mb-2 h-5 w-5" />
+                    No classes match your filters. Add your first class.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+        <div className="flex items-center justify-between border-t border-white/10 px-4 py-3 text-xs text-muted-foreground">
+          <span>Page {page} of {totalPages}</span>
+          <div className="flex gap-1">
+            <Button size="sm" variant="outline" className="h-7 rounded-lg border-white/10"
+              disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Prev</Button>
+            <Button size="sm" variant="outline" className="h-7 rounded-lg border-white/10"
+              disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>Next</Button>
+          </div>
         </div>
       </div>
+
+      <EditorDialog
+        state={editor}
+        onClose={() => setEditor({ open: false })}
+        onSaved={invalidate}
+        levels={levels}
+        allSubjects={allSubjects}
+        allChapters={allChapters}
+      />
+      <BulkDialog
+        state={bulk}
+        onClose={() => setBulk({ open: false })}
+        onSaved={invalidate}
+        levels={levels}
+        allSubjects={allSubjects}
+        allChapters={allChapters}
+      />
     </div>
   );
 }
 
-function ActivityFeed() {
-  const items = [
-    { i: Upload, c: "var(--neon-purple)", t: "New video uploaded", s: "Physics · Newton's Laws · 2m" },
-    { i: Edit3, c: "var(--neon-blue)", t: "Class edited", s: "Chemistry · Organic P3 · 14m" },
-    { i: Send, c: "#10b981", t: "Playlist published", s: "Math · Calculus Drill · 28m" },
-    { i: Eye, c: "#f59e0b", t: "Watch surge", s: "Biology · Genetics · +1.4K views · 1h" },
-    { i: EyeOff, c: "#ef4444", t: "Class hidden", s: "English · Essay Writing · 2h" },
-  ];
+// ===============================================
+function StatTile({ label, value, icon: Icon, color }: { label: string; value: number; icon: React.ComponentType<{ className?: string }>; color: string }) {
   return (
-    <div className="glass shadow-card-soft rounded-2xl p-4">
+    <div className="glass relative overflow-hidden rounded-2xl p-4">
+      <div className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full opacity-30 blur-2xl" style={{ background: color }} />
       <div className="flex items-center justify-between">
-        <p className="font-display text-sm font-bold">Recent Activity</p>
-        <Activity className="h-4 w-4 text-[var(--neon-blue)]" />
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10" style={{ background: `color-mix(in oklab, ${color} 15%, transparent)` }}>
+          <Icon className="h-4 w-4" />
+        </div>
+        <Flame className="h-3.5 w-3.5 text-muted-foreground" />
       </div>
-      <ul className="mt-3 space-y-2.5">
-        {items.map((a, i) => (
-          <li key={i} className="flex items-start gap-2.5 rounded-lg border border-white/10 bg-background/40 p-2.5">
-            <div className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-lg"
-              style={{ background: `${a.c}22`, color: a.c, boxShadow: `0 0 12px ${a.c}33` }}>
-              <a.i className="h-3.5 w-3.5" />
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-xs font-medium">{a.t}</p>
-              <p className="truncate text-[10px] text-muted-foreground">{a.s}</p>
-            </div>
-          </li>
-        ))}
-      </ul>
+      <p className="mt-3 text-[11px] text-muted-foreground">{label}</p>
+      <p className="font-display text-2xl font-bold tracking-tight">{value.toLocaleString()}</p>
     </div>
   );
 }
 
-function TopInstructors() {
-  const list = [
-    { n: "Tahmid Hasan", s: "Physics", v: "182K", c: "var(--neon-purple)" },
-    { n: "Nabila Ahmed", s: "Chemistry", v: "148K", c: "var(--neon-blue)" },
-    { n: "Rafiq Khan", s: "Math", v: "121K", c: "#10b981" },
-  ];
+function RowBtn({ title, onClick, children }: { title: string; onClick: () => void; children: React.ReactNode }) {
   return (
-    <div className="glass shadow-card-soft rounded-2xl p-4">
-      <div className="flex items-center justify-between">
-        <p className="font-display text-sm font-bold">Top Instructors</p>
-        <Mic2 className="h-4 w-4 text-[var(--neon-purple)]" />
-      </div>
-      <ul className="mt-3 space-y-2">
-        {list.map((i) => (
-          <li key={i.n} className="flex items-center gap-2 rounded-lg border border-white/10 bg-background/40 p-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold"
-              style={{ background: `${i.c}22`, color: i.c, boxShadow: `0 0 10px ${i.c}33` }}>
-              {i.n.split(" ").map((p) => p[0]).join("")}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-medium">{i.n}</p>
-              <p className="text-[10px] text-muted-foreground">{i.s}</p>
-            </div>
-            <span className="font-mono text-[11px] text-muted-foreground">{i.v}</span>
-          </li>
-        ))}
-      </ul>
+    <button type="button" title={title} onClick={onClick}
+      className="rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-white/5 hover:text-foreground">
+      {children}
+    </button>
+  );
+}
+
+function SelectFilter({
+  icon, label, value, onValueChange, options,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  onValueChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <div className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-background/50 px-2 py-1 text-xs">
+      {icon}
+      <span className="text-muted-foreground">{label}:</span>
+      <Select value={value} onValueChange={onValueChange}>
+        <SelectTrigger className="h-7 w-[140px] border-0 bg-transparent px-1 text-xs focus:ring-0">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+        </SelectContent>
+      </Select>
     </div>
   );
 }
 
-function PopularCollections() {
-  const cols = [
-    { t: "HSC Physics — Mechanics Masterclass", q: 24, h: "12.4K", comp: 86, sub: "Physics", c: "var(--neon-purple)" },
-    { t: "Organic Chemistry Deep Dive", q: 18, h: "9.2K", comp: 78, sub: "Chemistry", c: "var(--neon-blue)" },
-    { t: "Admission Math Drill", q: 32, h: "8.6K", comp: 71, sub: "Mathematics", c: "#10b981" },
-    { t: "Biology — Genetics Visual Atlas", q: 14, h: "6.8K", comp: 83, sub: "Biology", c: "#ef4444" },
-  ];
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <section className="glass shadow-card-soft rounded-2xl p-5">
-      <div className="flex items-center justify-between">
+    <div className="space-y-1">
+      <Label className="text-xs font-medium">{label}</Label>
+      {children}
+    </div>
+  );
+}
+
+// ===============================================
+// Editor
+// ===============================================
+function EditorDialog({
+  state, onClose, onSaved, levels, allSubjects, allChapters,
+}: {
+  state: EditState;
+  onClose: () => void;
+  onSaved: () => void;
+  levels: { code: string; name: string }[];
+  allSubjects: { id: string; name: string; level: string }[];
+  allChapters: { id: string; name: string; subject_id: string }[];
+}) {
+  const createFn = useServerFn(adminCreateVideoClass);
+  const updateFn = useServerFn(adminUpdateVideoClass);
+  const isEdit = !!state.item;
+
+  const [form, setForm] = useState<Partial<VideoClass>>({});
+
+  useEffect(() => {
+    if (!state.open) return;
+    setForm(
+      state.item
+        ? { ...state.item }
+        : {
+            title: "",
+            description: "",
+            level: "professional",
+            kind: "youtube",
+            youtube_url: "",
+            thumbnail_url: null,
+            instructor: "",
+            duration_seconds: 0,
+            playlist_key: null,
+            position: 0,
+            tags: [],
+            status: "draft",
+            is_hidden: false,
+            is_featured: false,
+            subject_id: null,
+            chapter_id: null,
+          },
+    );
+  }, [state]);
+
+  const subjectsForLevel = useMemo(
+    () => (form.level ? allSubjects.filter((s) => s.level === form.level) : allSubjects),
+    [allSubjects, form.level],
+  );
+  const chaptersForSubject = useMemo(
+    () => (form.subject_id ? allChapters.filter((c) => c.subject_id === form.subject_id) : []),
+    [allChapters, form.subject_id],
+  );
+
+  const set = <K extends keyof VideoClass>(k: K, v: VideoClass[K] | null) =>
+    setForm((f) => ({ ...f, [k]: v as never }));
+
+  // Auto-derive thumb when YouTube URL changes
+  const parsed = useMemo(() => (form.youtube_url ? parseYouTube(form.youtube_url) : null), [form.youtube_url]);
+  const effectiveThumb = form.thumbnail_url || parsed?.thumb || null;
+
+  const save = useMutation({
+    mutationFn: async () => {
+      if (!form.title?.trim()) throw new Error("Title is required");
+      if (!form.youtube_url?.trim()) throw new Error("YouTube URL is required");
+      const payload = {
+        title: form.title!,
+        description: form.description || null,
+        level: form.level ?? "professional",
+        subject_id: form.subject_id ?? null,
+        chapter_id: form.chapter_id ?? null,
+        instructor: form.instructor || null,
+        kind: (form.kind ?? "youtube") as "youtube" | "playlist" | "upload",
+        youtube_url: form.youtube_url || null,
+        thumbnail_url: form.thumbnail_url || null,
+        duration_seconds: Number(form.duration_seconds ?? 0),
+        playlist_key: form.playlist_key || null,
+        position: Number(form.position ?? 0),
+        tags: form.tags ?? [],
+        status: form.status ?? "draft",
+        is_hidden: form.is_hidden ?? false,
+        is_featured: form.is_featured ?? false,
+        scheduled_at: form.scheduled_at ?? null,
+      };
+      if (isEdit && state.item) return updateFn({ data: { id: state.item.id, ...payload } });
+      return createFn({ data: payload });
+    },
+    onSuccess: () => { toast.success(isEdit ? "Class updated" : "Class created"); onSaved(); onClose(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Dialog open={state.open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{isEdit ? "Edit Video Class" : "Add Video Class"}</DialogTitle>
+          <DialogDescription>Classes sync to all students instantly once published.</DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          <Field label="Level">
+            <Select value={form.level ?? "professional"} onValueChange={(v) => { set("level", v); set("subject_id", null); set("chapter_id", null); }}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>{levels.map((l) => <SelectItem key={l.code} value={l.code}>{l.name}</SelectItem>)}</SelectContent>
+            </Select>
+          </Field>
+          <Field label="Type">
+            <Select value={form.kind ?? "youtube"} onValueChange={(v) => set("kind", v as VideoClass["kind"]) }>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="youtube">Single YouTube Video</SelectItem>
+                <SelectItem value="playlist">YouTube Playlist Entry</SelectItem>
+                <SelectItem value="upload">Hosted Upload</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Subject">
+            <Select value={form.subject_id ?? ""} onValueChange={(v) => { set("subject_id", v); set("chapter_id", null); }}>
+              <SelectTrigger><SelectValue placeholder="Select subject" /></SelectTrigger>
+              <SelectContent>
+                {subjectsForLevel.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Chapter">
+            <Select value={form.chapter_id ?? ""} onValueChange={(v) => set("chapter_id", v)} disabled={!form.subject_id}>
+              <SelectTrigger><SelectValue placeholder={form.subject_id ? "Select chapter" : "Pick subject first"} /></SelectTrigger>
+              <SelectContent>
+                {chaptersForSubject.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </Field>
+        </div>
+
+        <Field label="Title *">
+          <Input value={form.title ?? ""} onChange={(e) => set("title", e.target.value)} placeholder="Newton's Laws — Full Walkthrough" />
+        </Field>
+
+        <Field label="YouTube URL *">
+          <div className="relative">
+            <Youtube className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-rose-400" />
+            <Input
+              value={form.youtube_url ?? ""}
+              onChange={(e) => set("youtube_url", e.target.value)}
+              placeholder="https://www.youtube.com/watch?v=..."
+              className="pl-9"
+            />
+          </div>
+          {parsed?.videoId && (
+            <p className="mt-1 text-[11px] text-emerald-400">
+              <CheckCircle2 className="mr-1 inline h-3 w-3" />
+              Detected video ID <span className="font-mono">{parsed.videoId}</span>
+              {parsed.playlistId && <> · playlist <span className="font-mono">{parsed.playlistId}</span></>}
+            </p>
+          )}
+        </Field>
+
+        {effectiveThumb && (
+          <div className="overflow-hidden rounded-xl border border-white/10">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={effectiveThumb} alt="" className="aspect-video w-full object-cover" />
+          </div>
+        )}
+
+        <div className="grid gap-3 md:grid-cols-3">
+          <Field label="Instructor">
+            <Input value={form.instructor ?? ""} onChange={(e) => set("instructor", e.target.value)} placeholder="Tahmid Hasan" />
+          </Field>
+          <Field label="Duration (seconds)">
+            <Input
+              type="number"
+              min={0}
+              value={form.duration_seconds ?? 0}
+              onChange={(e) => set("duration_seconds", Number(e.target.value || 0))}
+              placeholder="2880"
+            />
+          </Field>
+          <Field label="Playlist key">
+            <Input
+              value={form.playlist_key ?? ""}
+              onChange={(e) => set("playlist_key", e.target.value || null)}
+              placeholder="mechanics-hsc"
+            />
+          </Field>
+        </div>
+
+        <Field label="Description">
+          <Textarea
+            rows={4}
+            value={form.description ?? ""}
+            onChange={(e) => set("description", e.target.value)}
+            placeholder="A complete walkthrough of Newton's three laws with worked HSC board examples."
+          />
+        </Field>
+
+        <div className="grid gap-3 md:grid-cols-3">
+          <Field label="Status">
+            <Select value={form.status ?? "draft"} onValueChange={(v) => set("status", v as VideoClass["status"])}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="published">Published</SelectItem>
+                <SelectItem value="archived">Archived</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+          <div className="flex items-center justify-between rounded-xl border border-white/10 bg-background/40 px-3 py-2 text-xs">
+            <span>Hide from students</span>
+            <Switch checked={!!form.is_hidden} onCheckedChange={(v) => set("is_hidden", v)} />
+          </div>
+          <div className="flex items-center justify-between rounded-xl border border-white/10 bg-background/40 px-3 py-2 text-xs">
+            <span>Featured</span>
+            <Switch checked={!!form.is_featured} onCheckedChange={(v) => set("is_featured", v)} />
+          </div>
+        </div>
+
+        <Field label="Tags (comma-separated)">
+          <Input
+            value={(form.tags ?? []).join(", ")}
+            onChange={(e) => set("tags", e.target.value.split(",").map((t) => t.trim()).filter(Boolean) as never)}
+            placeholder="hsc, mechanics, board"
+          />
+        </Field>
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button onClick={() => save.mutate()} disabled={save.isPending}>
+            {save.isPending ? "Saving…" : isEdit ? "Save changes" : "Create"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ===============================================
+// Bulk Playlist Importer
+// ===============================================
+function BulkDialog({
+  state, onClose, onSaved, levels, allSubjects, allChapters,
+}: {
+  state: BulkState;
+  onClose: () => void;
+  onSaved: () => void;
+  levels: { code: string; name: string }[];
+  allSubjects: { id: string; name: string; level: string }[];
+  allChapters: { id: string; name: string; subject_id: string }[];
+}) {
+  const bulkFn = useServerFn(adminBulkImportVideoClasses);
+  const [playlistKey, setPlaylistKey] = useState("");
+  const [level, setLevel] = useState("professional");
+  const [subjectId, setSubjectId] = useState<string>("");
+  const [chapterId, setChapterId] = useState<string>("");
+  const [urlsText, setUrlsText] = useState("");
+
+  useEffect(() => {
+    if (!state.open) return;
+    setPlaylistKey(""); setLevel("professional"); setSubjectId(""); setChapterId(""); setUrlsText("");
+  }, [state.open]);
+
+  const subjectsForLevel = allSubjects.filter((s) => s.level === level);
+  const chaptersForSubject = allChapters.filter((c) => c.subject_id === subjectId);
+
+  const submit = useMutation({
+    mutationFn: () => {
+      const urls = urlsText.split(/\s+/).map((u) => u.trim()).filter(Boolean);
+      if (!playlistKey.trim()) throw new Error("Playlist key required");
+      if (urls.length === 0) throw new Error("Paste at least one YouTube URL");
+      return bulkFn({
+        data: {
+          playlist_key: playlistKey.trim(),
+          level,
+          subject_id: subjectId || null,
+          chapter_id: chapterId || null,
+          status: "draft",
+          urls,
+        },
+      });
+    },
+    onSuccess: (r) => { toast.success(`Imported ${r.inserted} classes`); onSaved(); onClose(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Dialog open={state.open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Bulk Playlist Import</DialogTitle>
+          <DialogDescription>Paste one YouTube URL per line. All classes are created as drafts.</DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          <Field label="Playlist key *">
+            <div className="relative">
+              <Link2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input value={playlistKey} onChange={(e) => setPlaylistKey(e.target.value)} placeholder="mechanics-hsc" className="pl-9" />
+            </div>
+          </Field>
+          <Field label="Level">
+            <Select value={level} onValueChange={(v) => { setLevel(v); setSubjectId(""); setChapterId(""); }}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>{levels.map((l) => <SelectItem key={l.code} value={l.code}>{l.name}</SelectItem>)}</SelectContent>
+            </Select>
+          </Field>
+          <Field label="Subject">
+            <Select value={subjectId} onValueChange={(v) => { setSubjectId(v); setChapterId(""); }}>
+              <SelectTrigger><SelectValue placeholder="Select subject" /></SelectTrigger>
+              <SelectContent>{subjectsForLevel.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+            </Select>
+          </Field>
+          <Field label="Chapter">
+            <Select value={chapterId} onValueChange={setChapterId} disabled={!subjectId}>
+              <SelectTrigger><SelectValue placeholder={subjectId ? "Select chapter" : "Pick subject first"} /></SelectTrigger>
+              <SelectContent>{chaptersForSubject.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+            </Select>
+          </Field>
+        </div>
+
+        <Field label="YouTube URLs (one per line) *">
+          <Textarea
+            rows={10}
+            value={urlsText}
+            onChange={(e) => setUrlsText(e.target.value)}
+            placeholder={"https://youtube.com/watch?v=...\nhttps://youtu.be/..."}
+            className="font-mono text-xs"
+          />
+        </Field>
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button onClick={() => submit.mutate()} disabled={submit.isPending}>
+            {submit.isPending ? "Importing…" : "Import as drafts"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ===============================================
+// Visibility
+// ===============================================
+function VisibilityPanel({
+  levels, subjects, chapters,
+}: {
+  levels: { code: string; name: string }[];
+  subjects: { id: string; name: string; level: string }[];
+  chapters: { id: string; name: string; subject_id: string }[];
+}) {
+  const qc = useQueryClient();
+  const getFn = useServerFn(getVideoClassVisibility);
+  const setFn = useServerFn(adminSetVideoClassVisibility);
+
+  const vq = useQuery({
+    queryKey: ["video-class-visibility"],
+    queryFn: () => getFn(),
+    staleTime: 30_000,
+  });
+
+  useEffect(() => {
+    const ch = supabase
+      .channel("vcv-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "video_class_visibility" }, () => {
+        qc.invalidateQueries({ queryKey: ["video-class-visibility"] });
+        qc.invalidateQueries({ queryKey: ["public-video-classes"] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [qc]);
+
+  const [section, setSection] = useState(false);
+  const [hLevels, setHLevels] = useState<string[]>([]);
+  const [hSubjects, setHSubjects] = useState<string[]>([]);
+  const [hChapters, setHChapters] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!vq.data) return;
+    setSection(vq.data.section_hidden);
+    setHLevels(vq.data.hidden_levels ?? []);
+    setHSubjects(vq.data.hidden_subject_ids ?? []);
+    setHChapters(vq.data.hidden_chapter_ids ?? []);
+  }, [vq.data]);
+
+  const save = useMutation({
+    mutationFn: () =>
+      setFn({
+        data: {
+          section_hidden: section,
+          hidden_levels: hLevels,
+          hidden_subject_ids: hSubjects,
+          hidden_chapter_ids: hChapters,
+        },
+      }),
+    onSuccess: () => {
+      toast.success("Visibility updated — students sync instantly");
+      qc.invalidateQueries({ queryKey: ["video-class-visibility"] });
+      qc.invalidateQueries({ queryKey: ["public-video-classes"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const toggle = (arr: string[], v: string, set: (n: string[]) => void) =>
+    set(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
+
+  return (
+    <div className="glass shadow-card-soft rounded-3xl p-5">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-[11px] uppercase tracking-widest text-muted-foreground">Popular collections</p>
-          <p className="font-display text-lg font-bold">Top performing playlists</p>
+          <h3 className="font-display text-lg font-bold flex items-center gap-2">
+            <EyeOff className="h-4 w-4" /> Section Visibility
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            Hide the entire Video Classes section, or hide by level / subject / chapter — applies live to all students.
+          </p>
         </div>
-        <Button variant="outline" size="sm" className="border-white/15">
-          <BookOpen className="mr-2 h-3.5 w-3.5" /> Browse All
+        <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-background/40 px-3 py-2 text-xs">
+          <span className="font-medium">Hide entire section</span>
+          <Switch checked={section} onCheckedChange={setSection} />
+        </div>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        <VisGroup title="Hidden levels" empty="No levels"
+          items={levels.map((l) => ({ id: l.code, name: l.name }))}
+          selected={hLevels} onToggle={(v) => toggle(hLevels, v, setHLevels)} />
+        <VisGroup title="Hidden subjects" empty="No subjects"
+          items={subjects.map((s) => ({ id: s.id, name: s.name }))}
+          selected={hSubjects} onToggle={(v) => toggle(hSubjects, v, setHSubjects)} />
+        <VisGroup title="Hidden chapters" empty="No chapters"
+          items={chapters.map((c) => ({ id: c.id, name: c.name }))}
+          selected={hChapters} onToggle={(v) => toggle(hChapters, v, setHChapters)} />
+      </div>
+
+      <div className="mt-3 flex justify-end">
+        <Button onClick={() => save.mutate()} disabled={save.isPending} className="bg-cta-gradient text-white shadow-glow">
+          <Clock className="hidden" />
+          {save.isPending ? "Saving…" : "Save visibility"}
         </Button>
       </div>
-      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {cols.map((c) => (
-          <div key={c.t} className="group relative overflow-hidden rounded-xl border border-white/10 bg-background/40 p-4 transition-all hover:-translate-y-0.5 hover:shadow-glow">
-            <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full blur-2xl" style={{ background: `${c.c}33` }} />
-            <div className="relative flex items-start justify-between">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl"
-                style={{ background: `${c.c}22`, color: c.c, boxShadow: `0 0 14px ${c.c}33` }}>
-                <Film className="h-4 w-4" />
-              </div>
-              <Badge variant="outline" className="border-white/15 text-[10px]">{c.sub}</Badge>
-            </div>
-            <p className="relative mt-3 line-clamp-2 text-sm font-semibold">{c.t}</p>
-            <div className="relative mt-3 grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-lg border border-white/10 bg-background/40 p-1.5">
-                <p className="text-[9px] uppercase tracking-wider text-muted-foreground">Vids</p>
-                <p className="font-mono text-xs font-bold">{c.q}</p>
-              </div>
-              <div className="rounded-lg border border-white/10 bg-background/40 p-1.5">
-                <p className="text-[9px] uppercase tracking-wider text-muted-foreground">Hrs</p>
-                <p className="font-mono text-xs font-bold">{c.h}</p>
-              </div>
-              <div className="rounded-lg border border-white/10 bg-background/40 p-1.5">
-                <p className="text-[9px] uppercase tracking-wider text-muted-foreground">Cmp</p>
-                <p className="font-mono text-xs font-bold">{c.comp}%</p>
-              </div>
-            </div>
-            <div className="relative mt-3">
-              <Progress value={c.comp} className="h-1.5" />
-            </div>
-            <div className="relative mt-2 flex items-center justify-between text-[10px] text-muted-foreground">
-              <span className="inline-flex items-center gap-1"><Users className="h-3 w-3" /> 3.1K learners</span>
-              <span className="inline-flex items-center gap-1 text-emerald-400"><TrendingUp className="h-3 w-3" /> +9%</span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
+    </div>
   );
 }
 
-export function VideoClassesManagerFlow() {
+function VisGroup({
+  title, empty, items, selected, onToggle,
+}: {
+  title: string;
+  empty: string;
+  items: { id: string; name: string }[];
+  selected: string[];
+  onToggle: (id: string) => void;
+}) {
   return (
-    <div className="space-y-4">
-      <Topbar />
-      <PageHeader />
-      <StatGrid />
-      <FilterPanel />
-      <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
-        <div className="space-y-4">
-          <ClassTable />
-          <ClassCreator />
-          <PlaylistManager />
-        </div>
-        <aside className="space-y-4">
-          <AnalyticsWidget />
-          <ActivityFeed />
-          <TopInstructors />
-        </aside>
+    <div className="rounded-2xl border border-white/10 bg-background/40 p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-xs font-semibold">{title}</span>
+        <Badge variant="outline" className="border-white/10 bg-background/40 text-[10px]">
+          {selected.length} hidden
+        </Badge>
       </div>
-      <PopularCollections />
+      <div className="max-h-44 space-y-1 overflow-y-auto pr-1">
+        {items.length === 0 && <p className="text-[11px] text-muted-foreground">{empty}</p>}
+        {items.map((it) => {
+          const on = selected.includes(it.id);
+          return (
+            <button key={it.id} type="button" onClick={() => onToggle(it.id)}
+              className={`flex w-full items-center justify-between rounded-lg border px-2 py-1.5 text-left text-xs transition ${
+                on ? "border-rose-500/40 bg-rose-500/10 text-rose-300"
+                   : "border-white/10 bg-background/40 hover:bg-white/5"
+              }`}>
+              <span className="truncate">{it.name}</span>
+              {on ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3 opacity-50" />}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
