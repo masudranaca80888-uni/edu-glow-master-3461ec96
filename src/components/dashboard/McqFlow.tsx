@@ -488,6 +488,8 @@ export function McqFlow() {
                 {(subjectsQ.data ?? []).map((s) => {
                   const { i: Icon, tone } = iconFor(s.slug);
                   const active = subjectId === s.id;
+                  const prog = subjectProgressMap.get(s.id);
+                  const pct = prog?.percent ?? 0;
                   return (
                     <button
                       key={s.id}
@@ -502,11 +504,22 @@ export function McqFlow() {
                         </div>
                         <h3 className="font-display mt-4 text-lg font-bold">{s.name}</h3>
                         <p className="text-xs text-muted-foreground line-clamp-2">{s.description ?? "Tap to explore chapters"}</p>
+                        {prog && prog.total > 0 && (
+                          <div className="mt-3">
+                            <div className="flex items-center justify-between text-[11px] font-semibold">
+                              <span className="text-muted-foreground">{prog.completed} / {prog.total} MCQs</span>
+                              <span className="text-gradient">{pct}%</span>
+                            </div>
+                            <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-muted/60">
+                              <div className="h-full rounded-full bg-gradient-to-r from-[var(--neon-purple)] to-[var(--neon-blue)] transition-all duration-500" style={{ width: `${pct}%` }} />
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </button>
                   );
                 })}
-                {!subjectsQ.isLoading && (subjectsQ.data ?? []).length === 0 && <EmptyState text="No subjects published yet." />}
+                {!subjectsQ.isLoading && (subjectsQ.data ?? []).length === 0 && <EmptyState text="No subjects published for this level yet." />}
               </div>
             )}
           </section>
