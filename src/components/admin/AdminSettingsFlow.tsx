@@ -16,6 +16,11 @@ import { Progress } from "@/components/ui/progress";
 import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from "@/components/ui/table";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
+import { useModuleVisibility } from "@/hooks/use-module-visibility";
+import { adminSetModuleHidden } from "@/lib/module-visibility.functions";
 
 /* -------------------- top bar -------------------- */
 function Topbar() {
