@@ -31,6 +31,8 @@ export function DashTopbar({ onMenu }: { onMenu?: () => void }) {
         />
       </div>
 
+      <LiveIndicator className="hidden sm:inline-flex" />
+
       <button
         type="button"
         onClick={toggleTheme}
