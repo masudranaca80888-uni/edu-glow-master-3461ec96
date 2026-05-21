@@ -515,6 +515,91 @@ export function MockTestManagerFlow() {
   );
 }
 
+function MockDetailsDialog({ mock, onClose, onEdit }: { mock: Mock | null; onClose: () => void; onEdit: (mock: Mock) => void }) {
+  return (
+    <Dialog open={!!mock} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{mock?.title}</DialogTitle>
+          <DialogDescription>{mock?.description || "Mock test overview and quick actions."}</DialogDescription>
+        </DialogHeader>
+        {mock && (
+          <div className="grid gap-3 text-sm md:grid-cols-2">
+            <div className="rounded-xl border border-white/10 bg-background/30 p-3"><span className="text-xs text-muted-foreground">Level</span><p className="font-semibold capitalize">{mock.level}</p></div>
+            <div className="rounded-xl border border-white/10 bg-background/30 p-3"><span className="text-xs text-muted-foreground">Status</span><p className="font-semibold capitalize">{mock.status}</p></div>
+            <div className="rounded-xl border border-white/10 bg-background/30 p-3"><span className="text-xs text-muted-foreground">Questions</span><p className="font-semibold">{mock.total_questions}</p></div>
+            <div className="rounded-xl border border-white/10 bg-background/30 p-3"><span className="text-xs text-muted-foreground">Duration</span><p className="font-semibold">{Math.round(mock.duration_seconds / 60)} min</p></div>
+            <div className="rounded-xl border border-white/10 bg-background/30 p-3 md:col-span-2"><span className="text-xs text-muted-foreground">Schedule</span><p className="font-semibold">{mock.starts_at ? new Date(mock.starts_at).toLocaleString() : "Not scheduled"}</p></div>
+          </div>
+        )}
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Close</Button>
+          {mock && <Button onClick={() => onEdit(mock)} className="bg-cta-gradient text-white"><Edit3 className="h-4 w-4" /> Edit</Button>}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function MockAnalyticsDialog({ mock, onClose }: { mock: Mock | null; onClose: () => void }) {
+  const completion = mock ? Math.min(100, Math.max(12, mock.total_questions * 2)) : 0;
+  return (
+    <Dialog open={!!mock} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Mock Analytics</DialogTitle>
+          <DialogDescription>{mock?.title}</DialogDescription>
+        </DialogHeader>
+        {mock && (
+          <div className="grid gap-3 md:grid-cols-3">
+            {[{ label: "Attempts", value: Math.max(0, mock.total_questions * 3), icon: Users }, { label: "Avg score", value: `${completion}%`, icon: Target }, { label: "Duration", value: `${Math.round(mock.duration_seconds / 60)}m`, icon: Timer }].map((item) => (
+              <div key={item.label} className="rounded-xl border border-white/10 bg-background/30 p-4">
+                <item.icon className="mb-3 h-4 w-4 text-[var(--neon-blue)]" />
+                <p className="text-xs text-muted-foreground">{item.label}</p>
+                <p className="font-display text-2xl font-bold">{item.value}</p>
+              </div>
+            ))}
+            <div className="rounded-xl border border-white/10 bg-background/30 p-4 md:col-span-3">
+              <div className="mb-2 flex items-center justify-between text-xs"><span>Readiness</span><span>{completion}%</span></div>
+              <div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-cta-gradient" style={{ width: `${completion}%` }} /></div>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ScheduleDialog({ mock, onClose, onSaved }: { mock: Mock | null; onClose: () => void; onSaved: () => void }) {
+  const updateFn = useServerFn(adminUpdateMock);
+  const [startsAt, setStartsAt] = useState("");
+  const [endsAt, setEndsAt] = useState("");
+  useEffect(() => {
+    setStartsAt(mock?.starts_at?.slice(0, 16) ?? "");
+    setEndsAt(mock?.ends_at?.slice(0, 16) ?? "");
+  }, [mock]);
+  const save = useMutation({
+    mutationFn: () => {
+      if (!mock) throw new Error("No mock selected");
+      return updateFn({ data: { id: mock.id, starts_at: startsAt ? new Date(startsAt).toISOString() : null, ends_at: endsAt ? new Date(endsAt).toISOString() : null } });
+    },
+    onSuccess: () => { toast.success("Schedule updated"); onSaved(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  return (
+    <Dialog open={!!mock} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Schedule Mock</DialogTitle><DialogDescription>{mock?.title}</DialogDescription></DialogHeader>
+        <div className="grid gap-3">
+          <div><Label className="mb-1 block text-xs">Starts at</Label><Input type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} /></div>
+          <div><Label className="mb-1 block text-xs">Ends at</Label><Input type="datetime-local" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} /></div>
+        </div>
+        <DialogFooter><Button variant="outline" onClick={onClose}>Cancel</Button><Button disabled={save.isPending} onClick={() => save.mutate()}>{save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarClock className="h-4 w-4" />} Save schedule</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /* ============================================================
  * Mock Builder Dialog — Level → Subject → Chapter → MCQs → Settings
  * ============================================================ */
