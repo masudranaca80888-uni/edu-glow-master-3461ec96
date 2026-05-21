@@ -469,9 +469,48 @@ export function MockTestManagerFlow() {
           open
           onClose={() => { setCreating(false); setEditing(null); }}
           existing={editing}
+          preset={builderPreset}
           onSaved={() => { setCreating(false); setEditing(null); invalidate(); }}
         />
       )}
+
+      <MockDetailsDialog mock={viewing} onClose={() => setViewing(null)} onEdit={(mock) => { setViewing(null); setEditing(mock); }} />
+      <MockAnalyticsDialog mock={analyticsFor} onClose={() => setAnalyticsFor(null)} />
+      <ScheduleDialog mock={scheduling} onClose={() => setScheduling(null)} onSaved={() => { setScheduling(null); invalidate(); }} />
+
+      <AlertDialog open={!!publishing} onOpenChange={(open) => !open && setPublishing(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{publishing?.status === "published" ? "Publish mock test?" : "Hide mock test?"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {publishing?.mock.title} will be {publishing?.status === "published" ? "visible to students immediately" : "archived and hidden from students"}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction disabled={statusMut.isPending} onClick={() => publishing && statusMut.mutate({ id: publishing.mock.id, status: publishing.status })}>
+              {statusMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!deleting} onOpenChange={(open) => !open && setDeleting(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete mock test?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes {deleting?.title} and its selected question links.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={deleteMut.isPending} onClick={() => deleting && deleteMut.mutate(deleting.id)}>
+              {deleteMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />} Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
