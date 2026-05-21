@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -52,7 +52,19 @@ type Mcq = {
   difficulty: string;
 };
 
-type AnswerRec = { chosen: "A" | "B" | "C" | "D" | null; timeMs: number };
+type Choice = "A" | "B" | "C" | "D";
+type AnswerRec = { chosen: Choice | null; timeMs: number } | undefined;
+
+function normalizeChoice(value: string | null | undefined): Choice | null {
+  const normalized = (value ?? "").trim().toUpperCase();
+  return normalized === "A" || normalized === "B" || normalized === "C" || normalized === "D"
+    ? normalized
+    : null;
+}
+
+function debugMcq(label: string, payload?: unknown) {
+  console.debug(`[MCQ Practice] ${label}`, payload ?? "");
+}
 
 function fmtDuration(sec: number) {
   if (!sec) return "0s";
@@ -79,6 +91,7 @@ export function McqFlow() {
   const [reviewMode, setReviewMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedAttemptId, setSavedAttemptId] = useState<string | null>(null);
+  const autoFinishKeyRef = useRef<string | null>(null);
 
   const listSubjectsFn = useServerFn(listSubjects);
   const listChaptersFn = useServerFn(listChapters);
@@ -101,7 +114,7 @@ export function McqFlow() {
     enabled: !!chapterId && step === 3,
   });
 
-  const mcqs = (mcqsQ.data ?? []) as Mcq[];
+  const mcqs = useMemo(() => (mcqsQ.data ?? []) as Mcq[], [mcqsQ.data]);
   const total = mcqs.length;
   const q = mcqs[current];
   const currentAnswer = answers[current];
@@ -125,7 +138,7 @@ export function McqFlow() {
       if (a.chosen === null) skipped++;
       else {
         attempted++;
-        if (a.chosen === mcqs[i].correct_option) correct++;
+        if (a.chosen === normalizeChoice(mcqs[i].correct_option)) correct++;
         else wrong++;
       }
     });
@@ -153,23 +166,36 @@ export function McqFlow() {
     setFinished(false);
     setReviewMode(false);
     setSavedAttemptId(null);
+    autoFinishKeyRef.current = null;
     setSessionStart(Date.now());
     questionStartRef.current = Date.now();
+    debugMcq("chapter start", { chapterId: id, chapterName: name, level, subjectId, subjectName });
   }
 
-  function recordAnswer(chosen: "A" | "B" | "C" | "D" | null) {
+  const buildCompletedAnswers = useCallback(
+    (source: AnswerRec[]) => mcqs.map((_, i) => source[i] ?? { chosen: null, timeMs: 0 }),
+    [mcqs],
+  );
+
+  function recordAnswer(chosen: Choice | null) {
     if (!q) return;
     const elapsed = Math.max(0, Date.now() - questionStartRef.current);
     setAnswers((prev) => {
       const next = [...prev];
-      while (next.length < total) next.push(undefined as unknown as AnswerRec);
       next[current] = { chosen, timeMs: Math.min(elapsed, 60 * 60 * 1000) };
+      debugMcq("answer recorded", {
+        currentIndex: current,
+        chosen,
+        answeredCount: next.filter(Boolean).length,
+        totalQuestions: total,
+      });
       return next;
     });
   }
 
-  function submitAnswer(chosen: "A" | "B" | "C" | "D" | null) {
+  function submitAnswer(chosen: Choice | null) {
     if (!q || revealed) return;
+    debugMcq("submit trigger", { currentIndex: current, chosen, isLastQuestion: current === total - 1 });
     recordAnswer(chosen);
   }
 
@@ -183,17 +209,44 @@ export function McqFlow() {
     if (i >= 0 && i < total) setCurrent(i);
   }
 
-  async function finishPractice(opts?: { auto?: boolean }) {
-    if (saving || finished) return;
+  const finishPractice = useCallback(async (opts?: { auto?: boolean }) => {
+    if (saving || (finished && savedAttemptId)) return;
+    const finalizedAnswers = buildCompletedAnswers(answers);
+    const totalDurationSec = Math.max(1, Math.round((Date.now() - (sessionStart || Date.now())) / 1000));
+    const localCorrect = finalizedAnswers.reduce((sum, a, i) => (
+      sum + (a?.chosen !== null && a?.chosen === normalizeChoice(mcqs[i]?.correct_option) ? 1 : 0)
+    ), 0);
+    const localSkipped = finalizedAnswers.filter((a) => a?.chosen === null).length;
+    const localWrong = Math.max(0, total - localCorrect - localSkipped);
+    const localAttempted = total - localSkipped;
+    const localScore = total ? Math.round((localCorrect / total) * 100) : 0;
+    const localAccuracy = localAttempted ? Math.round((localCorrect / localAttempted) * 100) : 0;
+
+    debugMcq("finish trigger", {
+      auto: !!opts?.auto,
+      currentIndex: current,
+      answeredCount: finalizedAnswers.filter(Boolean).length,
+      totalQuestions: total,
+      localCorrect,
+      localWrong,
+      localSkipped,
+      localScore,
+      localAccuracy,
+    });
+
+    // Mount the result screen immediately. The DB save runs after this so a
+    // network/RLS failure can never strand the student on the last question.
+    setAnswers(finalizedAnswers);
+    setFinished(true);
+    setReviewMode(false);
     setSaving(true);
-    const totalDurationSec = Math.max(1, Math.round((Date.now() - sessionStart) / 1000));
 
     // Ensure answer record for every question (missing = skipped)
     const finalAnswers = mcqs.map((m, i) => {
-      const a = answers[i];
+      const a = finalizedAnswers[i];
       return {
         mcqId: m.id,
-        chosen: (a?.chosen ?? null) as "A" | "B" | "C" | "D" | null,
+        chosen: a?.chosen ?? null,
         timeMs: Math.min(a?.timeMs ?? 0, 60 * 60 * 1000),
       };
     });
@@ -208,11 +261,11 @@ export function McqFlow() {
           title: chapterName ?? "MCQ Practice",
           durationSeconds: totalDurationSec,
           answers: finalAnswers,
-          meta: { auto: !!opts?.auto },
+          meta: { auto: !!opts?.auto, score: localScore, accuracy: localAccuracy, correct: localCorrect, wrong: localWrong, skipped: localSkipped },
         },
       });
       setSavedAttemptId(res.attemptId);
-      setFinished(true);
+      debugMcq("DB save success", { attemptId: res.attemptId, score: res.score, correct: res.correct, total: res.total });
       toast.success(opts?.auto ? "Practice auto-submitted" : "Practice complete!", {
         description: `Score ${res.score}% · ${res.correct}/${res.total} correct`,
       });
@@ -221,13 +274,36 @@ export function McqFlow() {
       qc.invalidateQueries({ queryKey: ["student-completion-tracker"] });
       qc.invalidateQueries({ queryKey: ["exam-attempts"] });
     } catch (e) {
+      debugMcq("DB save failed", e);
       toast.error("Could not save attempt", {
-        description: e instanceof Error ? e.message : "Please try again.",
+        description: "Your result is shown. Please retry saving from this screen if needed.",
       });
     } finally {
       setSaving(false);
     }
-  }
+  }, [answers, buildCompletedAnswers, chapterId, chapterName, current, finished, level, mcqs, qc, saveAttemptFn, savedAttemptId, saving, sessionStart, subjectId, total]);
+
+  useEffect(() => {
+    if (step !== 3 || total === 0) return;
+    debugMcq("state", {
+      currentIndex: current,
+      answeredCount: stats.submitted,
+      totalQuestions: total,
+      allSubmitted,
+      finished,
+      saving,
+      reviewMode,
+    });
+  }, [allSubmitted, current, finished, reviewMode, saving, stats.submitted, step, total]);
+
+  useEffect(() => {
+    if (step !== 3 || total === 0 || !allSubmitted || finished || reviewMode || saving) return;
+    const key = `${chapterId ?? "chapter"}:${total}:${answers.map((a) => a?.chosen ?? "_").join("|")}`;
+    if (autoFinishKeyRef.current === key) return;
+    autoFinishKeyRef.current = key;
+    debugMcq("auto finish condition met", { answeredCount: stats.submitted, totalQuestions: total, currentIndex: current });
+    void finishPractice({ auto: true });
+  }, [allSubmitted, answers, chapterId, current, finishPractice, finished, reviewMode, saving, stats.submitted, step, total]);
 
   function restartSame() {
     if (!chapterId || !chapterName) return;
@@ -408,6 +484,8 @@ export function McqFlow() {
                 onRetry={restartSame}
                 onNewChapter={() => setStep(2)}
                 savedAttemptId={savedAttemptId}
+                saving={saving}
+                onSaveRetry={() => finishPractice()}
               />
             ) : (
               <div className="glass shadow-glow relative overflow-hidden rounded-3xl p-6">
@@ -446,7 +524,7 @@ export function McqFlow() {
                     <div className="relative mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
                       {options.map((o) => {
                         const isPicked = picked === o.k;
-                        const isCorrect = q.correct_option === o.k;
+                        const isCorrect = normalizeChoice(q.correct_option) === o.k;
                         let state: "idle" | "correct" | "wrong" | "selected" = "idle";
                         if (revealed) {
                           if (isCorrect) state = "correct";
@@ -596,7 +674,7 @@ export function McqFlow() {
                 else if (a) {
                   if (finished || reviewMode) {
                     if (a.chosen === null) cls = "bg-amber-500/15 text-amber-400 border border-amber-400/30";
-                    else if (a.chosen === m.correct_option) cls = "bg-emerald-500/15 text-emerald-400 border border-emerald-400/30";
+                    else if (a.chosen === normalizeChoice(m.correct_option)) cls = "bg-emerald-500/15 text-emerald-400 border border-emerald-400/30";
                     else cls = "bg-rose-500/15 text-rose-400 border border-rose-400/30";
                   } else {
                     cls = "bg-[var(--neon-blue)]/15 text-[var(--neon-blue)] border border-[var(--neon-blue)]/30";
@@ -607,7 +685,7 @@ export function McqFlow() {
                     key={m.id}
                     onClick={() => jumpTo(i)}
                     className={`flex h-9 items-center justify-center rounded-lg text-xs font-semibold transition-transform hover:scale-110 ${cls}`}
-                    title={`Q${i + 1}${a ? (a.chosen === null ? " · skipped" : a.chosen === m.correct_option ? " · correct" : " · wrong") : " · unattempted"}`}
+                    title={`Q${i + 1}${a ? (a.chosen === null ? " · skipped" : a.chosen === normalizeChoice(m.correct_option) ? " · correct" : " · wrong") : " · unattempted"}`}
                   >
                     {i + 1}
                   </button>
@@ -632,7 +710,7 @@ export function McqFlow() {
 
 function ResultScreen({
   stats, total, chapterName, subjectName, level, durationSec,
-  mcqs, answers, onReview, onRetry, onNewChapter, savedAttemptId,
+  mcqs, answers, onReview, onRetry, onNewChapter, savedAttemptId, saving, onSaveRetry,
 }: {
   stats: { correct: number; wrong: number; skipped: number; attempted: number; accuracy: number; score: number; submitted: number };
   total: number;
@@ -646,6 +724,8 @@ function ResultScreen({
   onRetry: () => void;
   onNewChapter: () => void;
   savedAttemptId: string | null;
+  saving: boolean;
+  onSaveRetry: () => void;
 }) {
   const passed = stats.score >= 60;
 
@@ -656,7 +736,7 @@ function ResultScreen({
       buckets[k] = buckets[k] ?? { correct: 0, total: 0 };
       buckets[k].total++;
       const a = answers[i];
-      if (a && a.chosen === m.correct_option) buckets[k].correct++;
+      if (a && a.chosen === normalizeChoice(m.correct_option)) buckets[k].correct++;
     });
     return Object.entries(buckets).map(([k, v]) => ({
       key: k,
@@ -740,6 +820,15 @@ function ResultScreen({
           >
             Pick Another Chapter
           </button>
+          {!savedAttemptId && (
+            <button
+              onClick={onSaveRetry}
+              disabled={saving}
+              className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-2.5 text-sm font-semibold text-amber-400 transition-colors hover:bg-amber-400/15 disabled:opacity-60"
+            >
+              {saving ? "Saving…" : "Save Attempt"}
+            </button>
+          )}
         </div>
       </div>
 
@@ -780,7 +869,7 @@ function ResultScreen({
           <ul className="mt-4 space-y-2 max-h-64 overflow-y-auto pr-1">
             {mcqs.map((m, i) => {
               const a = answers[i];
-              if (!a || a.chosen === null || a.chosen === m.correct_option) return null;
+              if (!a || a.chosen === null || a.chosen === normalizeChoice(m.correct_option)) return null;
               return (
                 <li key={m.id} className="rounded-xl bg-background/40 p-3 text-xs">
                   <p className="font-medium line-clamp-2">Q{i + 1}. {m.question}</p>

@@ -10,6 +10,13 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const kindEnum = z.enum(["mcq_practice", "quiz", "mock", "custom_exam"]);
 
+function normalizeChoice(value: string | null | undefined) {
+  const normalized = (value ?? "").trim().toUpperCase();
+  return normalized === "A" || normalized === "B" || normalized === "C" || normalized === "D"
+    ? normalized
+    : null;
+}
+
 const saveSchema = z.object({
   kind: kindEnum,
   quizId: z.string().uuid().nullable().optional(),
@@ -45,12 +52,12 @@ export const saveSessionAttempt = createServerFn({ method: "POST" })
         .select("id,correct_option")
         .in("id", ids);
       if (error) throw error;
-      correctMap = new Map((mcqs ?? []).map((m) => [m.id, m.correct_option]));
+      correctMap = new Map((mcqs ?? []).map((m) => [m.id, normalizeChoice(m.correct_option) ?? ""]));
     }
 
     let correct = 0;
     const rows = data.answers.map((a) => {
-      const isCorrect = a.chosen !== null && correctMap.get(a.mcqId) === a.chosen;
+      const isCorrect = a.chosen !== null && correctMap.get(a.mcqId) === normalizeChoice(a.chosen);
       if (isCorrect) correct++;
       return {
         mcq_id: a.mcqId,
