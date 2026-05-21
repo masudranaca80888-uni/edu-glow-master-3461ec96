@@ -614,7 +614,7 @@ function ScheduleDialog({ mock, onClose, onSaved }: { mock: Mock | null; onClose
 function MockBuilderDialog({
   open, onClose, existing, preset, onSaved,
 }: {
-  open: boolean; onClose: () => void; existing: Mock | null; preset: "blank" | "generate" | "full" | "chapter"; onSaved: () => void;
+  open: boolean; onClose: () => void; existing: Mock | null; preset: "blank" | "generate" | "full" | "chapter" | "level"; onSaved: () => void;
 }) {
   const listSubjects = useServerFn(adminListSubjectsByLevel);
   const listChapters = useServerFn(adminListChaptersBySubject);
