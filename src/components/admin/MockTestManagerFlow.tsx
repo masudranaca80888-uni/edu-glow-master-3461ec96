@@ -722,8 +722,9 @@ function MockBuilderDialog({
         title: title.trim(),
         description: description.trim() || null,
         level,
-        subject_id: subjectId,
-        chapter_id: chapterIds[0] ?? null,
+        subject_id: scope === "level" ? null : subjectId,
+        chapter_id: scope === "chapter" ? (chapterIds[0] ?? null) : null,
+
         duration_seconds: Math.max(60, durationMin * 60),
         total_questions: selectedMcqIds.length,
         difficulty: "medium" as const,
