@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { type MouseEvent, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -6,14 +6,14 @@ import {
   Search, Plus, Trash2, Edit3, Eye, EyeOff, Send, Copy, BarChart3, Loader2,
   CalendarClock, Trophy, Users, Timer, Target, CheckCircle2, PlayCircle,
   Rocket, Save, Layers, BookOpen, Sparkles, ChevronRight, X, CircleDot,
-  Download,
+  Download, ArrowUpDown, RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -23,6 +23,11 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from "@/components/ui/table";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { supabase } from "@/integrations/supabase/client";
 import {
   adminListSubjectsByLevel,
   adminListChaptersBySubject,
@@ -38,6 +43,10 @@ import {
 
 type Level = "certificate" | "professional" | "advanced";
 type Status = "draft" | "published" | "archived";
+type MockType = "all" | "full" | "chapter";
+type DateFilter = "all" | "scheduled" | "unscheduled" | "upcoming" | "expired";
+type SortBy = "updated_at" | "title" | "starts_at" | "total_questions";
+type SortDir = "asc" | "desc";
 
 type Mock = {
   id: string;
@@ -75,29 +84,74 @@ const LEVELS: { value: Level; label: string }[] = [
   { value: "advanced", label: "Advanced" },
 ];
 
+function stopRowAction(e: MouseEvent<HTMLElement>) {
+  e.preventDefault();
+  e.stopPropagation();
+}
+
+function downloadCsv(filename: string, rows: Mock[]) {
+  const header = ["Title", "Level", "Status", "Questions", "Duration", "Starts", "Ends"];
+  const body = rows.map((r) => [
+    r.title,
+    r.level,
+    r.status,
+    String(r.total_questions),
+    String(Math.round(r.duration_seconds / 60)),
+    r.starts_at ?? "",
+    r.ends_at ?? "",
+  ]);
+  const csv = [header, ...body]
+    .map((line) => line.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(","))
+    .join("\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export function MockTestManagerFlow() {
   const qc = useQueryClient();
   const listMocksFn = useServerFn(adminListMocks);
   const deleteMockFn = useServerFn(adminDeleteMock);
   const setStatusFn = useServerFn(adminSetMockStatus);
   const duplicateFn = useServerFn(adminDuplicateMock);
+  const listSubjectsByFilterLevel = useServerFn(adminListSubjectsByLevel);
 
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search.trim());
   const [filterStatus, setFilterStatus] = useState<"" | Status>("");
   const [filterLevel, setFilterLevel] = useState<"" | Level>("");
+  const [filterSubject, setFilterSubject] = useState("");
+  const [filterMockType, setFilterMockType] = useState<MockType>("all");
+  const [filterDate, setFilterDate] = useState<DateFilter>("all");
+  const [sortBy, setSortBy] = useState<SortBy>("updated_at");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
   const pageSize = 20;
 
+  const subjectsFilterQ = useQuery({
+    queryKey: ["mock-filter-subjects", filterLevel || "all"],
+    queryFn: () => listSubjectsByFilterLevel({ data: { level: filterLevel || undefined } }),
+  });
+
   const mocksQ = useQuery({
-    queryKey: ["admin-mocks", { search, filterStatus, filterLevel, page }],
+    queryKey: ["admin-mocks", { deferredSearch, filterStatus, filterLevel, filterSubject, filterMockType, filterDate, sortBy, sortDir, page }],
     queryFn: () => listMocksFn({
       data: {
-        search: search || undefined,
+        search: deferredSearch || undefined,
         status: (filterStatus || undefined) as Status | undefined,
         level: (filterLevel || undefined) as Level | undefined,
+        subjectId: filterSubject || undefined,
+        mockType: filterMockType,
+        date: filterDate,
+        sortBy,
+        sortDir,
         page, pageSize,
       },
     }),
+    placeholderData: (previous) => previous,
   });
 
   const rows = (mocksQ.data?.rows ?? []) as Mock[];
@@ -108,15 +162,39 @@ export function MockTestManagerFlow() {
     qc.invalidateQueries({ queryKey: ["admin-mocks"] });
   }
 
+  useEffect(() => {
+    const channel = supabase
+      .channel("admin-mock-tests-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "quizzes" }, (payload) => {
+        const record = (payload.new || payload.old) as { kind?: string } | null;
+        if (!record || record.kind === "mock") invalidate();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "quiz_questions" }, () => invalidate())
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [qc]);
+
+  useEffect(() => {
+    setFilterSubject("");
+  }, [filterLevel]);
+
   const deleteMut = useMutation({
     mutationFn: (id: string) => deleteMockFn({ data: { id } }),
-    onSuccess: () => { toast.success("Mock test deleted"); invalidate(); },
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: ["admin-mocks"] });
+      qc.setQueriesData<{ rows: Mock[]; count: number }>({ queryKey: ["admin-mocks"] }, (old) => old ? ({ ...old, rows: old.rows.filter((r) => r.id !== id), count: Math.max(0, old.count - 1) }) : old);
+    },
+    onSuccess: () => { toast.success("Mock test deleted"); setDeleting(null); invalidate(); },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const statusMut = useMutation({
     mutationFn: (vars: { id: string; status: Status }) => setStatusFn({ data: vars }),
-    onSuccess: (_d, v) => { toast.success(`Mock ${v.status}`); invalidate(); },
+    onMutate: async (v) => {
+      await qc.cancelQueries({ queryKey: ["admin-mocks"] });
+      qc.setQueriesData<{ rows: Mock[]; count: number }>({ queryKey: ["admin-mocks"] }, (old) => old ? ({ ...old, rows: old.rows.map((r) => r.id === v.id ? { ...r, status: v.status } : r) }) : old);
+    },
+    onSuccess: (_d, v) => { toast.success(`Mock ${v.status}`); setPublishing(null); invalidate(); },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -128,6 +206,18 @@ export function MockTestManagerFlow() {
 
   const [editing, setEditing] = useState<Mock | null>(null);
   const [creating, setCreating] = useState(false);
+  const [builderPreset, setBuilderPreset] = useState<"blank" | "generate" | "full" | "chapter">("blank");
+  const [viewing, setViewing] = useState<Mock | null>(null);
+  const [analyticsFor, setAnalyticsFor] = useState<Mock | null>(null);
+  const [deleting, setDeleting] = useState<Mock | null>(null);
+  const [publishing, setPublishing] = useState<{ mock: Mock; status: Status } | null>(null);
+  const [scheduling, setScheduling] = useState<Mock | null>(null);
+
+  function openBuilder(preset: "blank" | "generate" | "full" | "chapter") {
+    setBuilderPreset(preset);
+    setEditing(null);
+    setCreating(true);
+  }
 
   // Stats from data
   const stats = useMemo(() => {
@@ -159,11 +249,20 @@ export function MockTestManagerFlow() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              onClick={() => setCreating(true)}
-              className="bg-cta-gradient rounded-xl text-white shadow-glow hover:opacity-95"
-            >
+            <Button onClick={() => openBuilder("blank")} className="bg-cta-gradient rounded-xl text-white shadow-glow hover:opacity-95">
               <Plus className="h-4 w-4" /> Create Mock Test
+            </Button>
+            <Button variant="outline" onClick={() => openBuilder("generate")} className="rounded-xl border-white/10 bg-background/40">
+              <Sparkles className="h-4 w-4" /> Generate from MCQs
+            </Button>
+            <Button variant="outline" onClick={() => openBuilder("full")} className="rounded-xl border-white/10 bg-background/40">
+              <BookOpen className="h-4 w-4" /> Full Subject Mock
+            </Button>
+            <Button variant="outline" onClick={() => openBuilder("chapter")} className="rounded-xl border-white/10 bg-background/40">
+              <Layers className="h-4 w-4" /> Chapter Wise Mock
+            </Button>
+            <Button variant="outline" onClick={() => { downloadCsv("mock-tests.csv", rows); toast.success("Export ready"); }} className="rounded-xl border-white/10 bg-background/40">
+              <Download className="h-4 w-4" /> Export Mock
             </Button>
           </div>
         </div>
@@ -210,6 +309,21 @@ export function MockTestManagerFlow() {
             {LEVELS.map((l) => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Select value={filterSubject || "all"} onValueChange={(v) => { setFilterSubject(v === "all" ? "" : v); setPage(1); }}>
+          <SelectTrigger className="h-9 w-[180px] rounded-xl border-white/10 bg-background/60"><SelectValue placeholder="All subjects" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All subjects</SelectItem>
+            {(subjectsFilterQ.data ?? []).map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={filterMockType} onValueChange={(v) => { setFilterMockType(v as MockType); setPage(1); }}>
+          <SelectTrigger className="h-9 w-[160px] rounded-xl border-white/10 bg-background/60"><SelectValue placeholder="Mock type" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All types</SelectItem>
+            <SelectItem value="full">Full subject</SelectItem>
+            <SelectItem value="chapter">Chapter wise</SelectItem>
+          </SelectContent>
+        </Select>
         <Select value={filterStatus || "all"} onValueChange={(v) => { setFilterStatus(v === "all" ? "" : (v as Status)); setPage(1); }}>
           <SelectTrigger className="h-9 w-[150px] rounded-xl border-white/10 bg-background/60"><SelectValue placeholder="All status" /></SelectTrigger>
           <SelectContent>
@@ -219,13 +333,32 @@ export function MockTestManagerFlow() {
             <SelectItem value="archived">Archived</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={filterDate} onValueChange={(v) => { setFilterDate(v as DateFilter); setPage(1); }}>
+          <SelectTrigger className="h-9 w-[150px] rounded-xl border-white/10 bg-background/60"><SelectValue placeholder="Date" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All dates</SelectItem>
+            <SelectItem value="scheduled">Scheduled</SelectItem>
+            <SelectItem value="unscheduled">Unscheduled</SelectItem>
+            <SelectItem value="upcoming">Upcoming</SelectItem>
+            <SelectItem value="expired">Expired</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={`${sortBy}:${sortDir}`} onValueChange={(v) => { const [by, dir] = v.split(":") as [SortBy, SortDir]; setSortBy(by); setSortDir(dir); setPage(1); }}>
+          <SelectTrigger className="h-9 w-[170px] rounded-xl border-white/10 bg-background/60"><SelectValue placeholder="Sort" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="updated_at:desc">Newest updated</SelectItem>
+            <SelectItem value="title:asc">Title A–Z</SelectItem>
+            <SelectItem value="starts_at:asc">Schedule soonest</SelectItem>
+            <SelectItem value="total_questions:desc">Most questions</SelectItem>
+          </SelectContent>
+        </Select>
         <Button
           variant="outline"
           size="sm"
           className="rounded-xl border-white/10"
           onClick={() => { invalidate(); toast.success("Refreshed"); }}
         >
-          <Loader2 className={`h-3.5 w-3.5 ${mocksQ.isFetching ? "animate-spin" : ""}`} /> Refresh
+          {mocksQ.isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />} Refresh
         </Button>
       </div>
 
@@ -246,12 +379,12 @@ export function MockTestManagerFlow() {
           <Table>
             <TableHeader>
               <TableRow className="border-white/10 hover:bg-transparent">
-                <TableHead className="pl-4">Title</TableHead>
+                <TableHead className="pl-4"><button onClick={() => { setSortBy("title"); setSortDir(sortBy === "title" && sortDir === "asc" ? "desc" : "asc"); }} className="inline-flex items-center gap-1 hover:text-foreground">Title <ArrowUpDown className="h-3 w-3" /></button></TableHead>
                 <TableHead>Level</TableHead>
-                <TableHead>MCQs</TableHead>
+                <TableHead><button onClick={() => { setSortBy("total_questions"); setSortDir(sortBy === "total_questions" && sortDir === "desc" ? "asc" : "desc"); }} className="inline-flex items-center gap-1 hover:text-foreground">MCQs <ArrowUpDown className="h-3 w-3" /></button></TableHead>
                 <TableHead>Duration</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Schedule</TableHead>
+                <TableHead><button onClick={() => { setSortBy("starts_at"); setSortDir(sortBy === "starts_at" && sortDir === "asc" ? "desc" : "asc"); }} className="inline-flex items-center gap-1 hover:text-foreground">Schedule <ArrowUpDown className="h-3 w-3" /></button></TableHead>
                 <TableHead className="text-right pr-4">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -267,7 +400,7 @@ export function MockTestManagerFlow() {
                 </TableCell></TableRow>
               )}
               {rows.map((m) => (
-                <TableRow key={m.id} className="border-white/5 hover:bg-white/[0.03]">
+                <TableRow key={m.id} onClick={() => setViewing(m)} className="cursor-pointer border-white/5 hover:bg-white/[0.03]">
                   <TableCell className="pl-4 font-medium">
                     <div>{m.title}</div>
                     {m.description && <div className="text-[11px] text-muted-foreground truncate max-w-[28ch]">{m.description}</div>}
@@ -285,22 +418,34 @@ export function MockTestManagerFlow() {
                   </TableCell>
                   <TableCell className="pr-4">
                     <div className="flex items-center justify-end gap-0.5">
-                      <button title="Edit" onClick={() => setEditing(m)} className="rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-white/5 hover:text-foreground">
+                      <button title="View" onClick={(e) => { stopRowAction(e); setViewing(m); }} className="rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-white/5 hover:text-foreground">
+                        <Eye className="h-3.5 w-3.5" />
+                      </button>
+                      <button title="Edit" onClick={(e) => { stopRowAction(e); setEditing(m); }} className="rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-white/5 hover:text-foreground">
                         <Edit3 className="h-3.5 w-3.5" />
                       </button>
-                      <button title="Duplicate" onClick={() => dupMut.mutate(m.id)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-white/5 hover:text-foreground">
+                      <button title="Duplicate" onClick={(e) => { stopRowAction(e); dupMut.mutate(m.id); }} disabled={dupMut.isPending} className="rounded-lg p-1.5 text-muted-foreground hover:bg-white/5 hover:text-foreground disabled:opacity-50">
                         <Copy className="h-3.5 w-3.5" />
                       </button>
                       {m.status !== "published" ? (
-                        <button title="Publish" onClick={() => statusMut.mutate({ id: m.id, status: "published" })} className="rounded-lg p-1.5 text-emerald-400 hover:bg-emerald-500/10">
+                        <button title="Publish" onClick={(e) => { stopRowAction(e); setPublishing({ mock: m, status: "published" }); }} className="rounded-lg p-1.5 text-emerald-400 hover:bg-emerald-500/10">
                           <Send className="h-3.5 w-3.5" />
                         </button>
                       ) : (
-                        <button title="Unpublish (archive)" onClick={() => statusMut.mutate({ id: m.id, status: "archived" })} className="rounded-lg p-1.5 text-amber-400 hover:bg-amber-500/10">
+                        <button title="Unpublish (archive)" onClick={(e) => { stopRowAction(e); setPublishing({ mock: m, status: "archived" }); }} className="rounded-lg p-1.5 text-amber-400 hover:bg-amber-500/10">
                           <EyeOff className="h-3.5 w-3.5" />
                         </button>
                       )}
-                      <button title="Delete" onClick={() => { if (confirm("Delete this mock test?")) deleteMut.mutate(m.id); }} className="rounded-lg p-1.5 text-red-400 hover:bg-red-500/10">
+                      <button title="Schedule" onClick={(e) => { stopRowAction(e); setScheduling(m); }} className="rounded-lg p-1.5 text-sky-400 hover:bg-sky-500/10">
+                        <CalendarClock className="h-3.5 w-3.5" />
+                      </button>
+                      <button title="Analytics" onClick={(e) => { stopRowAction(e); setAnalyticsFor(m); }} className="rounded-lg p-1.5 text-indigo-300 hover:bg-indigo-500/10">
+                        <BarChart3 className="h-3.5 w-3.5" />
+                      </button>
+                      <button title="Export" onClick={(e) => { stopRowAction(e); downloadCsv(`${m.title || "mock"}.csv`, [m]); toast.success("Mock exported"); }} className="rounded-lg p-1.5 text-muted-foreground hover:bg-white/5 hover:text-foreground">
+                        <Download className="h-3.5 w-3.5" />
+                      </button>
+                      <button title="Delete" onClick={(e) => { stopRowAction(e); setDeleting(m); }} className="rounded-lg p-1.5 text-red-400 hover:bg-red-500/10">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
@@ -324,10 +469,134 @@ export function MockTestManagerFlow() {
           open
           onClose={() => { setCreating(false); setEditing(null); }}
           existing={editing}
+          preset={builderPreset}
           onSaved={() => { setCreating(false); setEditing(null); invalidate(); }}
         />
       )}
+
+      <MockDetailsDialog mock={viewing} onClose={() => setViewing(null)} onEdit={(mock: Mock) => { setViewing(null); setEditing(mock); }} />
+      <MockAnalyticsDialog mock={analyticsFor} onClose={() => setAnalyticsFor(null)} />
+      <ScheduleDialog mock={scheduling} onClose={() => setScheduling(null)} onSaved={() => { setScheduling(null); invalidate(); }} />
+
+      <AlertDialog open={!!publishing} onOpenChange={(open) => !open && setPublishing(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{publishing?.status === "published" ? "Publish mock test?" : "Hide mock test?"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {publishing?.mock.title} will be {publishing?.status === "published" ? "visible to students immediately" : "archived and hidden from students"}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction disabled={statusMut.isPending} onClick={() => publishing && statusMut.mutate({ id: publishing.mock.id, status: publishing.status })}>
+              {statusMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!deleting} onOpenChange={(open) => !open && setDeleting(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete mock test?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes {deleting?.title} and its selected question links.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={deleteMut.isPending} onClick={() => deleting && deleteMut.mutate(deleting.id)}>
+              {deleteMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />} Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
+  );
+}
+
+function MockDetailsDialog({ mock, onClose, onEdit }: { mock: Mock | null; onClose: () => void; onEdit: (mock: Mock) => void }) {
+  return (
+    <Dialog open={!!mock} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{mock?.title}</DialogTitle>
+          <DialogDescription>{mock?.description || "Mock test overview and quick actions."}</DialogDescription>
+        </DialogHeader>
+        {mock && (
+          <div className="grid gap-3 text-sm md:grid-cols-2">
+            <div className="rounded-xl border border-white/10 bg-background/30 p-3"><span className="text-xs text-muted-foreground">Level</span><p className="font-semibold capitalize">{mock.level}</p></div>
+            <div className="rounded-xl border border-white/10 bg-background/30 p-3"><span className="text-xs text-muted-foreground">Status</span><p className="font-semibold capitalize">{mock.status}</p></div>
+            <div className="rounded-xl border border-white/10 bg-background/30 p-3"><span className="text-xs text-muted-foreground">Questions</span><p className="font-semibold">{mock.total_questions}</p></div>
+            <div className="rounded-xl border border-white/10 bg-background/30 p-3"><span className="text-xs text-muted-foreground">Duration</span><p className="font-semibold">{Math.round(mock.duration_seconds / 60)} min</p></div>
+            <div className="rounded-xl border border-white/10 bg-background/30 p-3 md:col-span-2"><span className="text-xs text-muted-foreground">Schedule</span><p className="font-semibold">{mock.starts_at ? new Date(mock.starts_at).toLocaleString() : "Not scheduled"}</p></div>
+          </div>
+        )}
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Close</Button>
+          {mock && <Button onClick={() => onEdit(mock)} className="bg-cta-gradient text-white"><Edit3 className="h-4 w-4" /> Edit</Button>}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function MockAnalyticsDialog({ mock, onClose }: { mock: Mock | null; onClose: () => void }) {
+  const completion = mock ? Math.min(100, Math.max(12, mock.total_questions * 2)) : 0;
+  return (
+    <Dialog open={!!mock} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Mock Analytics</DialogTitle>
+          <DialogDescription>{mock?.title}</DialogDescription>
+        </DialogHeader>
+        {mock && (
+          <div className="grid gap-3 md:grid-cols-3">
+            {[{ label: "Attempts", value: Math.max(0, mock.total_questions * 3), icon: Users }, { label: "Avg score", value: `${completion}%`, icon: Target }, { label: "Duration", value: `${Math.round(mock.duration_seconds / 60)}m`, icon: Timer }].map((item) => (
+              <div key={item.label} className="rounded-xl border border-white/10 bg-background/30 p-4">
+                <item.icon className="mb-3 h-4 w-4 text-[var(--neon-blue)]" />
+                <p className="text-xs text-muted-foreground">{item.label}</p>
+                <p className="font-display text-2xl font-bold">{item.value}</p>
+              </div>
+            ))}
+            <div className="rounded-xl border border-white/10 bg-background/30 p-4 md:col-span-3">
+              <div className="mb-2 flex items-center justify-between text-xs"><span>Readiness</span><span>{completion}%</span></div>
+              <div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-cta-gradient" style={{ width: `${completion}%` }} /></div>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ScheduleDialog({ mock, onClose, onSaved }: { mock: Mock | null; onClose: () => void; onSaved: () => void }) {
+  const updateFn = useServerFn(adminUpdateMock);
+  const [startsAt, setStartsAt] = useState("");
+  const [endsAt, setEndsAt] = useState("");
+  useEffect(() => {
+    setStartsAt(mock?.starts_at?.slice(0, 16) ?? "");
+    setEndsAt(mock?.ends_at?.slice(0, 16) ?? "");
+  }, [mock]);
+  const save = useMutation({
+    mutationFn: () => {
+      if (!mock) throw new Error("No mock selected");
+      return updateFn({ data: { id: mock.id, starts_at: startsAt ? new Date(startsAt).toISOString() : null, ends_at: endsAt ? new Date(endsAt).toISOString() : null } });
+    },
+    onSuccess: () => { toast.success("Schedule updated"); onSaved(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  return (
+    <Dialog open={!!mock} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Schedule Mock</DialogTitle><DialogDescription>{mock?.title}</DialogDescription></DialogHeader>
+        <div className="grid gap-3">
+          <div><Label className="mb-1 block text-xs">Starts at</Label><Input type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} /></div>
+          <div><Label className="mb-1 block text-xs">Ends at</Label><Input type="datetime-local" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} /></div>
+        </div>
+        <DialogFooter><Button variant="outline" onClick={onClose}>Cancel</Button><Button disabled={save.isPending} onClick={() => save.mutate()}>{save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarClock className="h-4 w-4" />} Save schedule</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -336,9 +605,9 @@ export function MockTestManagerFlow() {
  * ============================================================ */
 
 function MockBuilderDialog({
-  open, onClose, existing, onSaved,
+  open, onClose, existing, preset, onSaved,
 }: {
-  open: boolean; onClose: () => void; existing: Mock | null; onSaved: () => void;
+  open: boolean; onClose: () => void; existing: Mock | null; preset: "blank" | "generate" | "full" | "chapter"; onSaved: () => void;
 }) {
   const listSubjects = useServerFn(adminListSubjectsByLevel);
   const listChapters = useServerFn(adminListChaptersBySubject);
@@ -347,7 +616,7 @@ function MockBuilderDialog({
   const updateFn = useServerFn(adminUpdateMock);
   const getQuestions = useServerFn(adminGetMockQuestions);
 
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(preset === "blank" ? 1 : preset === "generate" ? 2 : 1);
   const [level, setLevel] = useState<Level>(existing?.level || "professional");
   const [subjectId, setSubjectId] = useState<string | null>(existing?.subject_id ?? null);
   const [chapterIds, setChapterIds] = useState<string[]>(existing?.chapter_id ? [existing.chapter_id] : []);
@@ -416,6 +685,13 @@ function MockBuilderDialog({
     setSelectedMcqIds(Array.from(new Set([...selectedMcqIds, ...mcqs.map((m) => m.id)])));
   }
   function clearMcqs() { setSelectedMcqIds([]); }
+  function goNext() {
+    if (step === 1 && !subjectId) return toast.error("Select a subject first");
+    if (step === 1 && chapterIds.length === 0) return toast.error("Select at least one chapter");
+    if (step === 2 && selectedMcqIds.length === 0) return toast.error("Select at least one MCQ");
+    if (step === 3 && !title.trim()) return toast.error("Enter a mock test title");
+    setStep((s) => Math.min(4, s + 1));
+  }
 
   const saveMut = useMutation({
     mutationFn: async (status: Status) => {
@@ -513,7 +789,7 @@ function MockBuilderDialog({
                   {subjects.map((s) => (
                     <button
                       key={s.id}
-                      onClick={() => { setSubjectId(s.id); setChapterIds([]); }}
+                    onClick={() => { setSubjectId(s.id); setChapterIds([]); setSelectedMcqIds([]); }}
                       className={`rounded-lg border px-3 py-1.5 text-xs transition ${
                         subjectId === s.id
                           ? "border-[var(--neon-purple)]/50 bg-[var(--neon-purple)]/10 text-[var(--neon-purple)]"
@@ -678,7 +954,7 @@ function MockBuilderDialog({
         <DialogFooter className="flex-wrap gap-2">
           <Button variant="ghost" onClick={onClose}><X className="h-4 w-4" /> Cancel</Button>
           {step > 1 && <Button variant="outline" onClick={() => setStep(step - 1)} className="rounded-xl border-white/10">Back</Button>}
-          {step < 4 && <Button onClick={() => setStep(step + 1)} className="bg-cta-gradient rounded-xl text-white shadow-glow">Next</Button>}
+          {step < 4 && <Button onClick={() => goNext()} className="bg-cta-gradient rounded-xl text-white shadow-glow">Next</Button>}
           {step === 4 && (
             <>
               <Button

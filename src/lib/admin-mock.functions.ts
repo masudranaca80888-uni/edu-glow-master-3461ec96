@@ -79,12 +79,28 @@ const mockSelect =
 
 export const adminListMocks = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i: { search?: string; status?: string; level?: string; page?: number; pageSize?: number }) =>
+  .inputValidator((i: {
+    search?: string;
+    status?: string;
+    level?: string;
+    subjectId?: string;
+    mockType?: "all" | "full" | "chapter";
+    date?: "all" | "scheduled" | "unscheduled" | "upcoming" | "expired";
+    sortBy?: "updated_at" | "title" | "starts_at" | "total_questions";
+    sortDir?: "asc" | "desc";
+    page?: number;
+    pageSize?: number;
+  }) =>
     z
       .object({
         search: z.string().trim().max(200).optional(),
         status: statusEnum.optional(),
         level: levelEnum.optional(),
+        subjectId: z.string().uuid().optional(),
+        mockType: z.enum(["all", "full", "chapter"]).default("all"),
+        date: z.enum(["all", "scheduled", "unscheduled", "upcoming", "expired"]).default("all"),
+        sortBy: z.enum(["updated_at", "title", "starts_at", "total_questions"]).default("updated_at"),
+        sortDir: z.enum(["asc", "desc"]).default("desc"),
         page: z.number().int().min(1).max(2000).default(1),
         pageSize: z.number().int().min(1).max(100).default(20),
       })
@@ -98,10 +114,17 @@ export const adminListMocks = createServerFn({ method: "POST" })
       .from("quizzes")
       .select(mockSelect, { count: "exact" })
       .eq("kind", "mock")
-      .order("updated_at", { ascending: false })
+      .order(data.sortBy, { ascending: data.sortDir === "asc", nullsFirst: false })
       .range(from, to);
     if (data.status) q = q.eq("status", data.status);
     if (data.level) q = q.eq("level", data.level);
+    if (data.subjectId) q = q.eq("subject_id", data.subjectId);
+    if (data.mockType === "full") q = q.not("subject_id", "is", null).is("chapter_id", null);
+    if (data.mockType === "chapter") q = q.not("chapter_id", "is", null);
+    if (data.date === "scheduled") q = q.not("starts_at", "is", null);
+    if (data.date === "unscheduled") q = q.is("starts_at", null);
+    if (data.date === "upcoming") q = q.gte("starts_at", new Date().toISOString());
+    if (data.date === "expired") q = q.lt("ends_at", new Date().toISOString());
     if (data.search) q = q.ilike("title", `%${data.search}%`);
     const { data: rows, error, count } = await q;
     if (error) throw error;
@@ -155,7 +178,7 @@ export const adminUpdateMock = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertAdmin(context.supabase, context.userId);
     const { id, mcq_ids, ...patch } = data;
-    const { error } = await context.supabase.from("quizzes").update(patch).eq("id", id);
+    const { error } = await context.supabase.from("quizzes").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", id);
     if (error) throw error;
     if (mcq_ids) {
       await context.supabase.from("quiz_questions").delete().eq("quiz_id", id);
@@ -164,7 +187,7 @@ export const adminUpdateMock = createServerFn({ method: "POST" })
         const { error: le } = await context.supabase.from("quiz_questions").insert(links);
         if (le) throw le;
       }
-      await context.supabase.from("quizzes").update({ total_questions: mcq_ids.length }).eq("id", id);
+      await context.supabase.from("quizzes").update({ total_questions: mcq_ids.length, updated_at: new Date().toISOString() }).eq("id", id);
     }
     return { ok: true };
   });
@@ -187,7 +210,7 @@ export const adminSetMockStatus = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context.supabase, context.userId);
-    const { error } = await context.supabase.from("quizzes").update({ status: data.status }).eq("id", data.id);
+    const { error } = await context.supabase.from("quizzes").update({ status: data.status, updated_at: new Date().toISOString() }).eq("id", data.id);
     if (error) throw error;
     return { ok: true };
   });
