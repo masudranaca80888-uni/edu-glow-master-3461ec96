@@ -59,7 +59,7 @@ export const adminAnalyticsOverview = createServerFn({ method: "POST" })
       sb.from("quizzes").select("id", { count: "exact", head: true }),
     ]);
 
-    const completed = (attemptsCompleted.data ?? []) as Array<{ correct_count: number; total_count: number; duration_seconds: number; user_id: string; created_at: string }>;
+    const completed = (attemptsCompleted.data ?? []) as Array<{ correct_count: number; total_count: number; duration_seconds: number; user_id: string; quiz_id: string; created_at: string }>;
     const totalAnswered = completed.reduce((s, a) => s + (a.total_count ?? 0), 0);
     const totalCorrect = completed.reduce((s, a) => s + (a.correct_count ?? 0), 0);
     const accuracy = totalAnswered > 0 ? (totalCorrect / totalAnswered) * 100 : 0;
