@@ -369,7 +369,7 @@ export function QuizFlow() {
                   <div className={`glass flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm font-bold ${timeLeft < 60 ? "text-red-400" : "text-gradient"}`}>
                     <Clock className="h-4 w-4" /> {m}:{s}
                   </div>
-                  <button onClick={() => setStep(1)} className="glass inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-semibold text-red-400 transition-colors hover:bg-destructive/10">
+                  <button onClick={() => setStep(3)} className="glass inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-semibold text-red-400 transition-colors hover:bg-destructive/10">
                     <LogOut className="h-3.5 w-3.5" /> Exit
                   </button>
                 </div>
