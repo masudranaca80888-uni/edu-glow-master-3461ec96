@@ -193,10 +193,12 @@ export function McqFlow() {
 
   const allSubmitted = total > 0 && stats.submitted === total;
 
-  // reset question timer on navigation
+  // reset question timer on navigation; rehydrate selectedOption from prior answer
   useEffect(() => {
     questionStartRef.current = Date.now();
     setShowExp(false);
+    setSelectedOption(answers[current]?.chosen ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current, chapterId]);
 
   function gotoChapter(id: string, name: string) {
@@ -206,6 +208,7 @@ export function McqFlow() {
     setCurrent(0);
     setShowExp(false);
     setAnswers([]);
+    setSelectedOption(null);
     setFinished(false);
     setReviewMode(false);
     setSavedAttemptId(null);
