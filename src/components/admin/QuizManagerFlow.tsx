@@ -359,7 +359,7 @@ function QuizEditorDialog({
     chapter_id: quiz?.chapter_id ?? "",
     difficulty: quiz?.difficulty ?? "medium",
     total_questions: quiz?.total_questions ?? 10,
-    duration_minutes: Math.round((quiz?.duration_seconds ?? 900) / 60),
+    duration_minutes: Math.round((quiz?.duration_seconds ?? 600) / 60),
     is_public: quiz?.is_public ?? true,
     randomize_questions: true,
     status: quiz?.status ?? "draft",
