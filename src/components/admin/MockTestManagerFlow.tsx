@@ -685,6 +685,13 @@ function MockBuilderDialog({
     setSelectedMcqIds(Array.from(new Set([...selectedMcqIds, ...mcqs.map((m) => m.id)])));
   }
   function clearMcqs() { setSelectedMcqIds([]); }
+  function goNext() {
+    if (step === 1 && !subjectId) return toast.error("Select a subject first");
+    if (step === 1 && chapterIds.length === 0) return toast.error("Select at least one chapter");
+    if (step === 2 && selectedMcqIds.length === 0) return toast.error("Select at least one MCQ");
+    if (step === 3 && !title.trim()) return toast.error("Enter a mock test title");
+    setStep((s) => Math.min(4, s + 1));
+  }
 
   const saveMut = useMutation({
     mutationFn: async (status: Status) => {
