@@ -828,35 +828,44 @@ function MockBuilderDialog({
             )}
 
 
-            <div>
-              <Label className="mb-2 block text-xs">
-                Chapters {chaptersQ.isFetching && <Loader2 className="ml-1 inline h-3 w-3 animate-spin" />}
-              </Label>
-              {!subjectId ? (
-                <p className="text-xs text-muted-foreground">Pick a subject first.</p>
-              ) : chapters.length === 0 && !chaptersQ.isFetching ? (
-                <p className="text-xs text-muted-foreground">No chapters in this subject.</p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {chapters.map((c) => (
-                    <button
-                      key={c.id}
-                      onClick={() => toggleChapter(c.id)}
-                      className={`rounded-lg border px-3 py-1.5 text-xs transition ${
-                        chapterIds.includes(c.id)
-                          ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
-                          : "border-white/10 hover:border-white/30"
-                      }`}
-                    >
-                      {c.name}
-                    </button>
-                  ))}
-                </div>
-              )}
-              <p className="mt-2 text-[11px] text-muted-foreground">
-                {chapterIds.length} chapter(s) selected
-              </p>
-            </div>
+            {scope === "chapter" && (
+              <div>
+                <Label className="mb-2 block text-xs">
+                  Chapters {chaptersQ.isFetching && <Loader2 className="ml-1 inline h-3 w-3 animate-spin" />}
+                </Label>
+                {!subjectId ? (
+                  <p className="text-xs text-muted-foreground">Pick a subject first.</p>
+                ) : chapters.length === 0 && !chaptersQ.isFetching ? (
+                  <p className="text-xs text-muted-foreground">No chapters in this subject.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {chapters.map((c) => (
+                      <button
+                        key={c.id}
+                        onClick={() => toggleChapter(c.id)}
+                        className={`rounded-lg border px-3 py-1.5 text-xs transition ${
+                          chapterIds.includes(c.id)
+                            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+                            : "border-white/10 hover:border-white/30"
+                        }`}
+                      >
+                        {c.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  {chapterIds.length} chapter(s) selected
+                </p>
+              </div>
+            )}
+            {scope === "subject" && (
+              <p className="text-[11px] text-muted-foreground">Full subject mock: MCQ pool will include every chapter in the selected subject.</p>
+            )}
+            {scope === "level" && (
+              <p className="text-[11px] text-muted-foreground">Level-wide mock: MCQ pool will include every subject/chapter under <strong className="capitalize">{level}</strong>.</p>
+            )}
+
           </div>
         )}
 
