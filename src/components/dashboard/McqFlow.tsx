@@ -1,29 +1,15 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
-  Sparkles,
-  Award,
-  Crown,
-  Atom,
-  FlaskConical,
-  Dna,
-  Sigma,
-  Languages,
-  Cpu,
-  BookOpen,
-  ChevronRight,
-  ChevronDown,
-  Bookmark,
-  Flame,
-  ArrowLeft,
-  ArrowRight,
-  Check,
-  X,
-  Lightbulb,
-  Loader2,
+  Sparkles, Award, Crown, Atom, FlaskConical, Dna, Sigma, Languages, Cpu,
+  BookOpen, ChevronRight, ChevronDown, Bookmark, Flame, ArrowLeft, ArrowRight,
+  Check, X, Lightbulb, Loader2, Trophy, RotateCw, Eye, Clock, Target,
+  CheckCircle2, XCircle, MinusCircle, BarChart3,
 } from "lucide-react";
+import { toast } from "sonner";
 import { listSubjects, listChapters, listMcqs } from "@/lib/learning.functions";
+import { saveSessionAttempt } from "@/lib/student-performance.functions";
 
 type Step = 0 | 1 | 2 | 3;
 
@@ -66,6 +52,15 @@ type Mcq = {
   difficulty: string;
 };
 
+type AnswerRec = { chosen: "A" | "B" | "C" | "D" | null; timeMs: number };
+
+function fmtDuration(sec: number) {
+  if (!sec) return "0s";
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return m ? `${m}m ${s}s` : `${s}s`;
+}
+
 export function McqFlow() {
   const [step, setStep] = useState<Step>(0);
   const [level, setLevel] = useState<string | null>(null);
@@ -76,15 +71,20 @@ export function McqFlow() {
   const [openChapter, setOpenChapter] = useState<string | null>(null);
 
   const [current, setCurrent] = useState(0);
-  const [picked, setPicked] = useState<string | null>(null);
-  const [revealed, setRevealed] = useState(false);
   const [showExp, setShowExp] = useState(false);
-  const [correctCount, setCorrectCount] = useState(0);
-  const [attempted, setAttempted] = useState(0);
+  const [answers, setAnswers] = useState<AnswerRec[]>([]);
+  const [sessionStart, setSessionStart] = useState<number>(0);
+  const questionStartRef = useRef<number>(Date.now());
+  const [finished, setFinished] = useState(false);
+  const [reviewMode, setReviewMode] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [savedAttemptId, setSavedAttemptId] = useState<string | null>(null);
 
   const listSubjectsFn = useServerFn(listSubjects);
   const listChaptersFn = useServerFn(listChapters);
   const listMcqsFn = useServerFn(listMcqs);
+  const saveAttemptFn = useServerFn(saveSessionAttempt);
+  const qc = useQueryClient();
 
   const subjectsQ = useQuery({
     queryKey: ["subjects"],
@@ -104,41 +104,135 @@ export function McqFlow() {
   const mcqs = (mcqsQ.data ?? []) as Mcq[];
   const total = mcqs.length;
   const q = mcqs[current];
+  const currentAnswer = answers[current];
+  const revealed = !!currentAnswer; // submitted once
+  const picked = currentAnswer?.chosen ?? null;
+
   const options = q
     ? [
         { k: "A", t: q.option_a },
         { k: "B", t: q.option_b },
         { k: "C", t: q.option_c },
         { k: "D", t: q.option_d },
-      ]
+      ] as const
     : [];
-  const accuracy = attempted ? Math.round((correctCount / attempted) * 100) : 0;
+
+  // Derived metrics
+  const stats = useMemo(() => {
+    let correct = 0, wrong = 0, skipped = 0, attempted = 0;
+    answers.forEach((a, i) => {
+      if (!a || !mcqs[i]) return;
+      if (a.chosen === null) skipped++;
+      else {
+        attempted++;
+        if (a.chosen === mcqs[i].correct_option) correct++;
+        else wrong++;
+      }
+    });
+    const submitted = answers.filter(Boolean).length;
+    const accuracy = attempted ? Math.round((correct / attempted) * 100) : 0;
+    const score = total ? Math.round((correct / total) * 100) : 0;
+    return { correct, wrong, skipped, attempted, submitted, accuracy, score };
+  }, [answers, mcqs, total]);
+
+  const allSubmitted = total > 0 && stats.submitted === total;
+
+  // reset question timer on navigation
+  useEffect(() => {
+    questionStartRef.current = Date.now();
+    setShowExp(false);
+  }, [current, chapterId]);
 
   function gotoChapter(id: string, name: string) {
     setChapterId(id);
     setChapterName(name);
     setStep(3);
     setCurrent(0);
-    setPicked(null);
-    setRevealed(false);
     setShowExp(false);
-    setCorrectCount(0);
-    setAttempted(0);
+    setAnswers([]);
+    setFinished(false);
+    setReviewMode(false);
+    setSavedAttemptId(null);
+    setSessionStart(Date.now());
+    questionStartRef.current = Date.now();
   }
 
-  function submitAnswer() {
-    if (!q || picked === null || revealed) return;
-    setRevealed(true);
-    setAttempted((a) => a + 1);
-    if (picked === q.correct_option) setCorrectCount((c) => c + 1);
+  function recordAnswer(chosen: "A" | "B" | "C" | "D" | null) {
+    if (!q) return;
+    const elapsed = Math.max(0, Date.now() - questionStartRef.current);
+    setAnswers((prev) => {
+      const next = [...prev];
+      while (next.length < total) next.push(undefined as unknown as AnswerRec);
+      next[current] = { chosen, timeMs: Math.min(elapsed, 60 * 60 * 1000) };
+      return next;
+    });
+  }
+
+  function submitAnswer(chosen: "A" | "B" | "C" | "D" | null) {
+    if (!q || revealed) return;
+    recordAnswer(chosen);
   }
 
   function nextQ() {
-    if (!q) return;
-    setRevealed(false);
-    setPicked(null);
-    setShowExp(false);
-    setCurrent((c) => Math.min(total - 1, c + 1));
+    if (current < total - 1) setCurrent((c) => c + 1);
+  }
+  function prevQ() {
+    if (current > 0) setCurrent((c) => c - 1);
+  }
+  function jumpTo(i: number) {
+    if (i >= 0 && i < total) setCurrent(i);
+  }
+
+  async function finishPractice(opts?: { auto?: boolean }) {
+    if (saving || finished) return;
+    setSaving(true);
+    const totalDurationSec = Math.max(1, Math.round((Date.now() - sessionStart) / 1000));
+
+    // Ensure answer record for every question (missing = skipped)
+    const finalAnswers = mcqs.map((m, i) => {
+      const a = answers[i];
+      return {
+        mcqId: m.id,
+        chosen: (a?.chosen ?? null) as "A" | "B" | "C" | "D" | null,
+        timeMs: Math.min(a?.timeMs ?? 0, 60 * 60 * 1000),
+      };
+    });
+
+    try {
+      const res = await saveAttemptFn({
+        data: {
+          kind: "mcq_practice",
+          subjectId: subjectId ?? null,
+          chapterId: chapterId ?? null,
+          level: level ?? null,
+          title: chapterName ?? "MCQ Practice",
+          durationSeconds: totalDurationSec,
+          answers: finalAnswers,
+          meta: { auto: !!opts?.auto },
+        },
+      });
+      setSavedAttemptId(res.attemptId);
+      setFinished(true);
+      toast.success(opts?.auto ? "Practice auto-submitted" : "Practice complete!", {
+        description: `Score ${res.score}% · ${res.correct}/${res.total} correct`,
+      });
+      // Refresh dashboard views immediately
+      qc.invalidateQueries({ queryKey: ["student-performance-center"] });
+      qc.invalidateQueries({ queryKey: ["student-completion-tracker"] });
+      qc.invalidateQueries({ queryKey: ["exam-attempts"] });
+    } catch (e) {
+      toast.error("Could not save attempt", {
+        description: e instanceof Error ? e.message : "Please try again.",
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function restartSame() {
+    if (!chapterId || !chapterName) return;
+    gotoChapter(chapterId, chapterName);
+    mcqsQ.refetch();
   }
 
   return (
@@ -155,18 +249,14 @@ export function McqFlow() {
                   <button
                     onClick={() => i <= step && setStep(i as Step)}
                     className={`flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
-                      active
-                        ? "bg-cta-gradient text-white shadow-glow"
-                        : done
-                        ? "bg-muted text-foreground"
+                      active ? "bg-cta-gradient text-white shadow-glow"
+                        : done ? "bg-muted text-foreground"
                         : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
-                    <span
-                      className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] ${
-                        active ? "bg-white/20" : done ? "bg-foreground/10" : "border border-border"
-                      }`}
-                    >
+                    <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] ${
+                      active ? "bg-white/20" : done ? "bg-foreground/10" : "border border-border"
+                    }`}>
                       {done ? <Check className="h-3 w-3" /> : i + 1}
                     </span>
                     {l}
@@ -300,116 +390,158 @@ export function McqFlow() {
           </section>
         )}
 
-        {/* STEP 4 — PRACTICE */}
+        {/* STEP 4 — PRACTICE / RESULT */}
         {step === 3 && (
           <section className="animate-fade-up">
-            <div className="glass shadow-glow relative overflow-hidden rounded-3xl p-6">
-              <div className="pointer-events-none absolute -right-20 -top-20 h-60 w-60 rounded-full bg-[var(--neon-purple)]/25 blur-3xl" />
-              <div className="pointer-events-none absolute -left-20 -bottom-20 h-60 w-60 rounded-full bg-[var(--neon-blue)]/20 blur-3xl" />
+            {/* RESULT SCREEN */}
+            {finished && !reviewMode ? (
+              <ResultScreen
+                stats={stats}
+                total={total}
+                chapterName={chapterName}
+                subjectName={subjectName}
+                level={level}
+                durationSec={Math.max(1, Math.round((Date.now() - sessionStart) / 1000))}
+                mcqs={mcqs}
+                answers={answers}
+                onReview={() => { setReviewMode(true); setCurrent(0); }}
+                onRetry={restartSame}
+                onNewChapter={() => setStep(2)}
+                savedAttemptId={savedAttemptId}
+              />
+            ) : (
+              <div className="glass shadow-glow relative overflow-hidden rounded-3xl p-6">
+                <div className="pointer-events-none absolute -right-20 -top-20 h-60 w-60 rounded-full bg-[var(--neon-purple)]/25 blur-3xl" />
+                <div className="pointer-events-none absolute -left-20 -bottom-20 h-60 w-60 rounded-full bg-[var(--neon-blue)]/20 blur-3xl" />
 
-              {mcqsQ.isLoading ? (
-                <LoadingBlock />
-              ) : total === 0 ? (
-                <EmptyState text="No questions published in this chapter yet." />
-              ) : q ? (
-                <>
-                  <div className="relative flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <span className="glass rounded-xl px-3 py-1.5 text-xs font-semibold">
-                        Q {String(current + 1).padStart(2, "0")} / {total}
-                      </span>
-                      <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize text-white" style={{ background: diffColor[q.difficulty] ?? "var(--neon-blue)" }}>
-                        {q.difficulty}
-                      </span>
-                    </div>
-                    <button className="glass flex h-9 w-9 items-center justify-center rounded-xl transition-transform hover:scale-105">
-                      <Bookmark className="h-4 w-4" />
-                    </button>
-                  </div>
-
-                  <h3 className="font-display relative mt-6 text-xl font-bold leading-snug sm:text-2xl">
-                    {q.question}
-                  </h3>
-
-                  <div className="relative mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    {options.map((o) => {
-                      const isPicked = picked === o.k;
-                      const isCorrect = q.correct_option === o.k;
-                      let state: "idle" | "correct" | "wrong" | "selected" = "idle";
-                      if (revealed) {
-                        if (isCorrect) state = "correct";
-                        else if (isPicked) state = "wrong";
-                      } else if (isPicked) state = "selected";
-
-                      const tone =
-                        state === "correct" ? "border-emerald-400/60 bg-emerald-400/10"
-                        : state === "wrong" ? "border-red-400/60 bg-red-400/10"
-                        : state === "selected" ? "border-primary bg-primary/10"
-                        : "border-border hover:border-primary/50 hover:bg-muted/40";
-
-                      return (
-                        <button
-                          key={o.k}
-                          onClick={() => !revealed && setPicked(o.k)}
-                          className={`group relative flex items-center gap-4 rounded-2xl border p-4 text-left transition-all ${tone}`}
-                        >
-                          <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-display text-base font-bold transition-all ${
-                            state === "correct" ? "bg-emerald-500 text-white"
-                            : state === "wrong" ? "bg-red-500 text-white"
-                            : state === "selected" ? "bg-cta-gradient text-white shadow-glow"
-                            : "bg-muted text-foreground group-hover:bg-cta-gradient group-hover:text-white"
-                          }`}>
-                            {state === "correct" ? <Check className="h-4 w-4" /> : state === "wrong" ? <X className="h-4 w-4" /> : o.k}
+                {mcqsQ.isLoading ? (
+                  <LoadingBlock />
+                ) : total === 0 ? (
+                  <EmptyState text="No questions published in this chapter yet." />
+                ) : q ? (
+                  <>
+                    <div className="relative flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <span className="glass rounded-xl px-3 py-1.5 text-xs font-semibold">
+                          Q {String(current + 1).padStart(2, "0")} / {total}
+                        </span>
+                        <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize text-white" style={{ background: diffColor[q.difficulty] ?? "var(--neon-blue)" }}>
+                          {q.difficulty}
+                        </span>
+                        {reviewMode && (
+                          <span className="rounded-full bg-[var(--neon-blue)]/15 px-2 py-0.5 text-[10px] font-semibold text-[var(--neon-blue)]">
+                            <Eye className="mr-1 inline h-3 w-3" /> Review mode
                           </span>
-                          <span className="text-sm font-medium">{o.t}</span>
+                        )}
+                      </div>
+                      <button className="glass flex h-9 w-9 items-center justify-center rounded-xl transition-transform hover:scale-105">
+                        <Bookmark className="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    <h3 className="font-display relative mt-6 text-xl font-bold leading-snug sm:text-2xl">
+                      {q.question}
+                    </h3>
+
+                    <div className="relative mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      {options.map((o) => {
+                        const isPicked = picked === o.k;
+                        const isCorrect = q.correct_option === o.k;
+                        let state: "idle" | "correct" | "wrong" | "selected" = "idle";
+                        if (revealed) {
+                          if (isCorrect) state = "correct";
+                          else if (isPicked) state = "wrong";
+                        } else if (isPicked) state = "selected";
+
+                        const tone =
+                          state === "correct" ? "border-emerald-400/60 bg-emerald-400/10"
+                          : state === "wrong" ? "border-red-400/60 bg-red-400/10"
+                          : state === "selected" ? "border-primary bg-primary/10"
+                          : "border-border hover:border-primary/50 hover:bg-muted/40";
+
+                        return (
+                          <button
+                            key={o.k}
+                            onClick={() => !revealed && submitAnswer(o.k as "A" | "B" | "C" | "D")}
+                            disabled={revealed}
+                            className={`group relative flex items-center gap-4 rounded-2xl border p-4 text-left transition-all ${tone} disabled:cursor-default`}
+                          >
+                            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-display text-base font-bold transition-all ${
+                              state === "correct" ? "bg-emerald-500 text-white"
+                              : state === "wrong" ? "bg-red-500 text-white"
+                              : state === "selected" ? "bg-cta-gradient text-white shadow-glow"
+                              : "bg-muted text-foreground group-hover:bg-cta-gradient group-hover:text-white"
+                            }`}>
+                              {state === "correct" ? <Check className="h-4 w-4" /> : state === "wrong" ? <X className="h-4 w-4" /> : o.k}
+                            </span>
+                            <span className="text-sm font-medium">{o.t}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {revealed && q.explanation && (
+                      <div className="relative mt-5">
+                        <button onClick={() => setShowExp((s) => !s)} className="glass inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-transform hover:scale-[1.02]">
+                          <Lightbulb className="h-3.5 w-3.5 text-[var(--neon-purple)]" />
+                          Explanation
+                          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showExp ? "rotate-180" : ""}`} />
                         </button>
-                      );
-                    })}
-                  </div>
+                        {showExp && (
+                          <div className="animate-fade-up mt-3 rounded-2xl border border-border bg-background/40 p-4 text-sm text-muted-foreground">
+                            {q.explanation}
+                          </div>
+                        )}
+                      </div>
+                    )}
 
-                  {revealed && q.explanation && (
-                    <div className="relative mt-5">
-                      <button onClick={() => setShowExp((s) => !s)} className="glass inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-transform hover:scale-[1.02]">
-                        <Lightbulb className="h-3.5 w-3.5 text-[var(--neon-purple)]" />
-                        Explanation
-                        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showExp ? "rotate-180" : ""}`} />
-                      </button>
-                      {showExp && (
-                        <div className="animate-fade-up mt-3 rounded-2xl border border-border bg-background/40 p-4 text-sm text-muted-foreground">
-                          {q.explanation}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="relative mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <button
-                      onClick={() => { setCurrent((c) => Math.max(0, c - 1)); setRevealed(false); setPicked(null); setShowExp(false); }}
-                      disabled={current === 0}
-                      className="glass inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-transform hover:scale-[1.02] disabled:opacity-40"
-                    >
-                      <ArrowLeft className="h-4 w-4" /> Previous
-                    </button>
-                    <div className="flex gap-3">
+                    <div className="relative mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <button
-                        onClick={submitAnswer}
-                        disabled={!picked || revealed}
-                        className="rounded-xl border border-border bg-background/40 px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-muted disabled:opacity-40"
+                        onClick={prevQ}
+                        disabled={current === 0}
+                        className="glass inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-transform hover:scale-[1.02] disabled:opacity-40"
                       >
-                        Submit Answer
+                        <ArrowLeft className="h-4 w-4" /> Previous
                       </button>
-                      <button
-                        onClick={nextQ}
-                        disabled={current >= total - 1}
-                        className="bg-cta-gradient inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-glow transition-transform hover:scale-[1.02] disabled:opacity-50"
-                      >
-                        Next <ArrowRight className="h-4 w-4" />
-                      </button>
+                      <div className="flex flex-wrap gap-3">
+                        {!reviewMode && !revealed && (
+                          <button
+                            onClick={() => submitAnswer(null)}
+                            className="rounded-xl border border-border bg-background/40 px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
+                          >
+                            Skip
+                          </button>
+                        )}
+                        {current < total - 1 ? (
+                          <button
+                            onClick={nextQ}
+                            className="bg-cta-gradient inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-glow transition-transform hover:scale-[1.02]"
+                          >
+                            Next <ArrowRight className="h-4 w-4" />
+                          </button>
+                        ) : reviewMode ? (
+                          <button
+                            onClick={() => setReviewMode(false)}
+                            className="bg-cta-gradient inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-glow transition-transform hover:scale-[1.02]"
+                          >
+                            Back to Result
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => finishPractice()}
+                            disabled={saving}
+                            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-glow transition-transform hover:scale-[1.02] disabled:opacity-60"
+                          >
+                            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trophy className="h-4 w-4" />}
+                            {saving ? "Saving…" : allSubmitted ? "Finish Practice" : `Finish (${stats.submitted}/${total})`}
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </>
-              ) : null}
-            </div>
+                  </>
+                ) : null}
+              </div>
+            )}
           </section>
         )}
       </div>
@@ -425,47 +557,265 @@ export function McqFlow() {
             <div>
               <div className="flex items-center justify-between text-xs">
                 <span className="text-muted-foreground">Progress</span>
-                <span className="font-semibold">{Math.min(current + (revealed ? 1 : 0), total)} / {total || 0}</span>
+                <span className="font-semibold">{stats.submitted} / {total || 0}</span>
               </div>
               <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted">
-                <div className="h-full rounded-full bg-gradient-to-r from-[var(--neon-purple)] to-[var(--neon-blue)] shadow-[0_0_12px_var(--neon-purple)]" style={{ width: total ? `${(Math.min(current + (revealed ? 1 : 0), total) / total) * 100}%` : "0%" }} />
+                <div className="h-full rounded-full bg-gradient-to-r from-[var(--neon-purple)] to-[var(--neon-blue)] shadow-[0_0_12px_var(--neon-purple)] transition-all duration-500" style={{ width: total ? `${(stats.submitted / total) * 100}%` : "0%" }} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <Stat label="Accuracy" value={`${accuracy}%`} gradient />
-              <Stat label="Correct" value={String(correctCount)} />
-              <Stat label="Attempted" value={String(attempted)} />
-              <Stat label="Remaining" value={String(Math.max(0, total - current - (revealed ? 1 : 0)))} />
+              <Stat label="Accuracy" value={`${stats.accuracy}%`} gradient />
+              <Stat label="Correct" value={String(stats.correct)} />
+              <Stat label="Wrong" value={String(stats.wrong)} />
+              <Stat label="Skipped" value={String(stats.skipped)} />
             </div>
           </div>
         </div>
 
         {step === 3 && total > 0 && (
           <div className="glass shadow-card-soft rounded-3xl p-5">
-            <h3 className="font-display text-base font-bold">Question Map</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="font-display text-base font-bold">Question Map</h3>
+              {!finished && stats.submitted > 0 && (
+                <button
+                  onClick={() => finishPractice()}
+                  disabled={saving}
+                  className="rounded-lg bg-emerald-500/15 px-2 py-1 text-[10px] font-bold text-emerald-400 hover:bg-emerald-500/25 disabled:opacity-50"
+                >
+                  Finish
+                </button>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">{chapterName}</p>
             <div className="mt-4 grid grid-cols-5 gap-2">
-              {mcqs.map((_, i) => {
+              {mcqs.map((m, i) => {
+                const a = answers[i];
                 const isCurrent = i === current;
-                const isDone = i < current || (i === current && revealed);
+                let cls = "border border-border bg-card/40 text-muted-foreground";
+                if (isCurrent) cls = "bg-cta-gradient text-white shadow-glow";
+                else if (a) {
+                  if (finished || reviewMode) {
+                    if (a.chosen === null) cls = "bg-amber-500/15 text-amber-400 border border-amber-400/30";
+                    else if (a.chosen === m.correct_option) cls = "bg-emerald-500/15 text-emerald-400 border border-emerald-400/30";
+                    else cls = "bg-rose-500/15 text-rose-400 border border-rose-400/30";
+                  } else {
+                    cls = "bg-[var(--neon-blue)]/15 text-[var(--neon-blue)] border border-[var(--neon-blue)]/30";
+                  }
+                }
                 return (
                   <button
-                    key={i}
-                    onClick={() => { setCurrent(i); setRevealed(false); setPicked(null); setShowExp(false); }}
-                    className={`flex h-9 items-center justify-center rounded-lg text-xs font-semibold transition-transform hover:scale-110 ${
-                      isCurrent ? "bg-cta-gradient text-white shadow-glow"
-                      : isDone ? "bg-emerald-500/15 text-emerald-400 border border-emerald-400/30"
-                      : "border border-border bg-card/40 text-muted-foreground"
-                    }`}
+                    key={m.id}
+                    onClick={() => jumpTo(i)}
+                    className={`flex h-9 items-center justify-center rounded-lg text-xs font-semibold transition-transform hover:scale-110 ${cls}`}
+                    title={`Q${i + 1}${a ? (a.chosen === null ? " · skipped" : a.chosen === m.correct_option ? " · correct" : " · wrong") : " · unattempted"}`}
                   >
                     {i + 1}
                   </button>
                 );
               })}
             </div>
+            <div className="mt-3 flex items-center gap-2 text-[10px] text-muted-foreground">
+              <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-[var(--neon-blue)]" /> answered</span>
+              <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-foreground/60" /> current</span>
+              <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full border border-border" /> unattempted</span>
+            </div>
           </div>
         )}
       </aside>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Result screen                                                      */
+/* ------------------------------------------------------------------ */
+
+function ResultScreen({
+  stats, total, chapterName, subjectName, level, durationSec,
+  mcqs, answers, onReview, onRetry, onNewChapter, savedAttemptId,
+}: {
+  stats: { correct: number; wrong: number; skipped: number; attempted: number; accuracy: number; score: number; submitted: number };
+  total: number;
+  chapterName: string | null;
+  subjectName: string | null;
+  level: string | null;
+  durationSec: number;
+  mcqs: Mcq[];
+  answers: AnswerRec[];
+  onReview: () => void;
+  onRetry: () => void;
+  onNewChapter: () => void;
+  savedAttemptId: string | null;
+}) {
+  const passed = stats.score >= 60;
+
+  const diffPerf = useMemo(() => {
+    const buckets: Record<string, { correct: number; total: number }> = {};
+    mcqs.forEach((m, i) => {
+      const k = (m.difficulty || "medium").toLowerCase();
+      buckets[k] = buckets[k] ?? { correct: 0, total: 0 };
+      buckets[k].total++;
+      const a = answers[i];
+      if (a && a.chosen === m.correct_option) buckets[k].correct++;
+    });
+    return Object.entries(buckets).map(([k, v]) => ({
+      key: k,
+      label: k.charAt(0).toUpperCase() + k.slice(1),
+      correct: v.correct,
+      total: v.total,
+      pct: v.total ? Math.round((v.correct / v.total) * 100) : 0,
+    }));
+  }, [mcqs, answers]);
+
+  return (
+    <div className="space-y-5">
+      {/* Hero */}
+      <div className="glass shadow-glow relative overflow-hidden rounded-3xl p-6 sm:p-8">
+        <div className="pointer-events-none absolute -right-20 -top-20 h-60 w-60 rounded-full blur-3xl"
+          style={{ background: passed ? "oklch(0.75 0.18 150 / 0.3)" : "var(--neon-pink) / 0.25" }} />
+        <div className="pointer-events-none absolute -left-20 -bottom-20 h-60 w-60 rounded-full bg-[var(--neon-blue)]/20 blur-3xl" />
+
+        <div className="relative flex flex-col items-start gap-6 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <span className="inline-flex items-center gap-2 rounded-full bg-emerald-400/15 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-emerald-400">
+              <CheckCircle2 className="h-3 w-3" /> Practice Complete
+            </span>
+            <h2 className="font-display mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
+              {passed ? "Great work!" : "Keep going — you got this."}
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {level} · {subjectName} · {chapterName}
+            </p>
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              {new Date().toLocaleString()} {savedAttemptId ? "· saved" : ""}
+            </p>
+          </div>
+
+          {/* Circular score */}
+          <div className="relative">
+            <svg width="140" height="140" className="-rotate-90">
+              <circle cx="70" cy="70" r="60" stroke="currentColor" strokeWidth="10" fill="none" className="text-muted/40" />
+              <circle
+                cx="70" cy="70" r="60" strokeWidth="10" fill="none" strokeLinecap="round"
+                stroke={passed ? "oklch(0.75 0.18 150)" : "var(--neon-pink)"}
+                strokeDasharray={`${(stats.score / 100) * 2 * Math.PI * 60} ${2 * Math.PI * 60}`}
+                style={{ filter: `drop-shadow(0 0 10px ${passed ? "oklch(0.75 0.18 150)" : "var(--neon-pink)"})` }}
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className={`font-display text-4xl font-bold ${passed ? "text-emerald-400" : "text-rose-400"}`}>
+                {stats.score}%
+              </span>
+              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Score</span>
+            </div>
+          </div>
+        </div>
+
+        {/* KPI strip */}
+        <div className="relative mt-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <ResultStat icon={Target} label="Accuracy" value={`${stats.accuracy}%`} tone="var(--neon-purple)" />
+          <ResultStat icon={CheckCircle2} label="Correct" value={`${stats.correct}/${total}`} tone="oklch(0.75 0.18 150)" />
+          <ResultStat icon={XCircle} label="Wrong" value={String(stats.wrong)} tone="var(--neon-pink)" />
+          <ResultStat icon={MinusCircle} label="Skipped" value={String(stats.skipped)} tone="oklch(0.78 0.15 60)" />
+          <ResultStat icon={Clock} label="Time" value={fmtDuration(durationSec)} tone="var(--neon-blue)" />
+        </div>
+
+        {/* Actions */}
+        <div className="relative mt-6 flex flex-wrap gap-3">
+          <button
+            onClick={onReview}
+            className="bg-cta-gradient inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-glow transition-transform hover:scale-[1.02]"
+          >
+            <Eye className="h-4 w-4" /> Review Answers
+          </button>
+          <button
+            onClick={onRetry}
+            className="glass inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-transform hover:scale-[1.02]"
+          >
+            <RotateCw className="h-4 w-4" /> Retry Chapter
+          </button>
+          <button
+            onClick={onNewChapter}
+            className="rounded-xl border border-border bg-background/40 px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
+          >
+            Pick Another Chapter
+          </button>
+        </div>
+      </div>
+
+      {/* Difficulty perf */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <div className="glass shadow-card-soft rounded-3xl p-5">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4 text-[var(--neon-blue)]" />
+            <h3 className="font-display text-lg font-bold">Difficulty Breakdown</h3>
+          </div>
+          <p className="text-xs text-muted-foreground">How you did across question difficulties</p>
+          <div className="mt-4 space-y-3">
+            {diffPerf.length ? diffPerf.map((d) => (
+              <div key={d.key}>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="capitalize font-medium">{d.label}</span>
+                  <span className="text-xs text-muted-foreground">{d.correct}/{d.total} · <b className="text-foreground">{d.pct}%</b></span>
+                </div>
+                <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted">
+                  <div className="h-full rounded-full transition-all duration-700"
+                    style={{
+                      width: `${d.pct}%`,
+                      background: `linear-gradient(90deg, ${diffColor[d.key] ?? "var(--neon-blue)"}, var(--neon-purple))`,
+                      boxShadow: `0 0 12px ${diffColor[d.key] ?? "var(--neon-blue)"}`,
+                    }} />
+                </div>
+              </div>
+            )) : <p className="text-xs text-muted-foreground">No data.</p>}
+          </div>
+        </div>
+
+        <div className="glass shadow-card-soft rounded-3xl p-5">
+          <div className="flex items-center gap-2">
+            <Target className="h-4 w-4 text-[var(--neon-purple)]" />
+            <h3 className="font-display text-lg font-bold">Weak Spots</h3>
+          </div>
+          <p className="text-xs text-muted-foreground">Questions you got wrong — revisit these</p>
+          <ul className="mt-4 space-y-2 max-h-64 overflow-y-auto pr-1">
+            {mcqs.map((m, i) => {
+              const a = answers[i];
+              if (!a || a.chosen === null || a.chosen === m.correct_option) return null;
+              return (
+                <li key={m.id} className="rounded-xl bg-background/40 p-3 text-xs">
+                  <p className="font-medium line-clamp-2">Q{i + 1}. {m.question}</p>
+                  <p className="mt-1 text-[10px] text-rose-400">
+                    Your answer: {a.chosen} · Correct: <b>{m.correct_option}</b>
+                  </p>
+                </li>
+              );
+            })}
+            {stats.wrong === 0 && stats.skipped === 0 && (
+              <li className="text-xs text-emerald-400">🎯 No weak spots — perfect run.</li>
+            )}
+            {stats.skipped > 0 && (
+              <li className="rounded-xl border border-dashed border-amber-400/30 p-2 text-[10px] text-amber-400">
+                {stats.skipped} skipped — open Review to attempt them.
+              </li>
+            )}
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ResultStat({ icon: Icon, label, value, tone }: {
+  icon: typeof Target; label: string; value: string; tone: string;
+}) {
+  return (
+    <div className="glass relative overflow-hidden rounded-2xl p-3">
+      <div className="pointer-events-none absolute -right-6 -top-6 h-16 w-16 rounded-full opacity-30 blur-xl" style={{ background: tone }} />
+      <div className="flex items-center gap-2">
+        <Icon className="h-3.5 w-3.5" style={{ color: tone }} />
+        <p className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</p>
+      </div>
+      <p className="font-display mt-1 text-lg font-bold">{value}</p>
     </div>
   );
 }
@@ -494,4 +844,3 @@ function EmptyState({ text }: { text: string }) {
     </div>
   );
 }
-
