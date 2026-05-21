@@ -241,9 +241,10 @@ export function McqFlow() {
 
   function submitAnswer(chosen: Choice | null) {
     if (!q || reviewMode) return;
-    // Manual submit only — records answer, NO auto-advance.
+    // Manual submit only — records answer, reveals correctness + explanation, NO auto-advance.
     debugMcq("submit trigger", { currentIndex: current, chosen, isLastQuestion: current === total - 1 });
     recordAnswer(chosen);
+    setShowExp(true);
   }
 
   function nextQ() {
