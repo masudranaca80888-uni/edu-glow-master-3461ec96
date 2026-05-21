@@ -43,7 +43,7 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "bun run server/index.ts"
+args = "bun run backend/index.ts"
 
 [[ports]]
 localPort = 5000

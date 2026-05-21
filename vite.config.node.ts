@@ -11,7 +11,7 @@
  * Notes:
  * - Does NOT use @lovable.dev/vite-tanstack-config, because that preset
  *   bundles the Cloudflare Vite plugin. We compose the same pieces manually.
- * - Does NOT override tanstackStart.server.entry — the custom src/server.ts
+ * - Does NOT override tanstackStart.server.entry — the custom frontend/src/server.ts
  *   wrapper is Workers-shaped ({ fetch }). For Node, we let Nitro build its
  *   standard standalone HTTP server.
  */
@@ -27,6 +27,11 @@ export default defineConfig({
     tailwindcss(),
     tanstackStart({
       target: "node-server",
+      srcDirectory: "./frontend/src",
+      tsr: {
+        routesDirectory: "./frontend/src/routes",
+        generatedRouteTree: "./frontend/src/routeTree.gen.ts",
+      },
     }),
     viteReact(),
   ],
