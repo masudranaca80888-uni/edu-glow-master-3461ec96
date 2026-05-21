@@ -65,6 +65,22 @@ export function QuizFlow() {
   const listQuizzesFn = useServerFn(listQuizzes);
   const getQuizFn = useServerFn(getQuiz);
   const submitFn = useServerFn(submitAttempt);
+  const qc = useQueryClient();
+
+  // Realtime: any quiz/question change on admin side refreshes student view
+  useEffect(() => {
+    const ch = supabase
+      .channel("student-quiz-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "quizzes" }, () => {
+        qc.invalidateQueries({ queryKey: ["quizzes"] });
+        qc.invalidateQueries({ queryKey: ["quiz"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "quiz_questions" }, () => {
+        qc.invalidateQueries({ queryKey: ["quiz"] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [qc]);
 
   const quizzesQ = useQuery({
     queryKey: ["quizzes"],
