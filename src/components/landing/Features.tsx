@@ -93,6 +93,11 @@ const stats = [
 ];
 
 export function Features() {
+  const { isHidden } = useModuleVisibility();
+  const visibleFeatures = features.filter((f) => {
+    const k = MODULE_BY_FEATURE_TITLE[f.title];
+    return !k || !isHidden(k);
+  });
   return (
     <section id="features" className="relative py-24 sm:py-32">
       {/* floating shapes */}
