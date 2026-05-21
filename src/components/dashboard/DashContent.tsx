@@ -214,6 +214,7 @@ export function DashContent() {
         </div>
 
         {/* Mock test widget */}
+        {!mockTestHidden && (
         <div className="relative overflow-hidden rounded-3xl p-px">
           <div className="absolute inset-0 bg-gradient-to-br from-[var(--neon-purple)] via-[var(--neon-blue)] to-[var(--neon-pink)] opacity-90" />
           <div className="relative flex h-full flex-col rounded-[calc(theme(borderRadius.3xl)-1px)] bg-background/85 p-5 backdrop-blur">
