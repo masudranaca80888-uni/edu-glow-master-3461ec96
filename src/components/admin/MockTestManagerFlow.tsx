@@ -117,6 +117,7 @@ export function MockTestManagerFlow() {
   const deleteMockFn = useServerFn(adminDeleteMock);
   const setStatusFn = useServerFn(adminSetMockStatus);
   const duplicateFn = useServerFn(adminDuplicateMock);
+  const listSubjectsByFilterLevel = useServerFn(adminListSubjectsByLevel);
 
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search.trim());
