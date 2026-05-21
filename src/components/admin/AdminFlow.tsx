@@ -83,6 +83,7 @@ function AdminTopbar() {
         />
       </div>
       <div className="ml-auto flex items-center gap-2">
+        <LiveIndicator />
         <div className="hidden items-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-500/10 px-3 py-1.5 text-[11px] text-emerald-300 md:flex">
           <CircleDot className="h-3 w-3 animate-pulse" />
           All systems operational
