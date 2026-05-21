@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useServerFn } from "@tanstack/react-start";
 import {
   Search, Users, UserPlus, UserX, Crown, ShieldCheck, Activity,
@@ -75,17 +76,20 @@ export function UserManagementFlow() {
 
   const stats = useQuery({ queryKey: ["admin-user-stats"], queryFn: () => statsFn() });
   const levels = useQuery({ queryKey: ["admin-levels"], queryFn: () => levelsFn() });
+  const debouncedSearch = useDebouncedValue(search, 300);
   const list = useQuery({
-    queryKey: ["admin-users", { search, role, status, level, page }],
+    queryKey: ["admin-users", { search: debouncedSearch, role, status, level, page }],
     queryFn: () => listFn({
       data: {
-        search: search || undefined,
+        search: debouncedSearch || undefined,
         role: role === "all" ? undefined : (role as "admin" | "moderator" | "student"),
         status: status === "all" ? undefined : (status as User["status"]),
         level: level === "all" ? undefined : level,
         page, pageSize: 25,
       },
     }),
+    placeholderData: keepPreviousData,
+    staleTime: 10_000,
   });
 
   const invalidate = () => {
