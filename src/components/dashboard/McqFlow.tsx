@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -114,7 +114,7 @@ export function McqFlow() {
     enabled: !!chapterId && step === 3,
   });
 
-  const mcqs = (mcqsQ.data ?? []) as Mcq[];
+  const mcqs = useMemo(() => (mcqsQ.data ?? []) as Mcq[], [mcqsQ.data]);
   const total = mcqs.length;
   const q = mcqs[current];
   const currentAnswer = answers[current];
@@ -172,9 +172,10 @@ export function McqFlow() {
     debugMcq("chapter start", { chapterId: id, chapterName: name, level, subjectId, subjectName });
   }
 
-  function buildCompletedAnswers(source: AnswerRec[]) {
-    return mcqs.map((_, i) => source[i] ?? { chosen: null, timeMs: 0 });
-  }
+  const buildCompletedAnswers = useCallback(
+    (source: AnswerRec[]) => mcqs.map((_, i) => source[i] ?? { chosen: null, timeMs: 0 }),
+    [mcqs],
+  );
 
   function recordAnswer(chosen: Choice | null) {
     if (!q) return;
@@ -208,7 +209,7 @@ export function McqFlow() {
     if (i >= 0 && i < total) setCurrent(i);
   }
 
-  async function finishPractice(opts?: { auto?: boolean }) {
+  const finishPractice = useCallback(async (opts?: { auto?: boolean }) => {
     if (saving || (finished && savedAttemptId)) return;
     const finalizedAnswers = buildCompletedAnswers(answers);
     const totalDurationSec = Math.max(1, Math.round((Date.now() - (sessionStart || Date.now())) / 1000));
@@ -280,7 +281,7 @@ export function McqFlow() {
     } finally {
       setSaving(false);
     }
-  }
+  }, [answers, buildCompletedAnswers, chapterId, chapterName, current, finished, level, mcqs, qc, saveAttemptFn, savedAttemptId, saving, sessionStart, subjectId, total]);
 
   useEffect(() => {
     if (step !== 3 || total === 0) return;
@@ -302,7 +303,7 @@ export function McqFlow() {
     autoFinishKeyRef.current = key;
     debugMcq("auto finish condition met", { answeredCount: stats.submitted, totalQuestions: total, currentIndex: current });
     void finishPractice({ auto: true });
-  }, [allSubmitted, answers, chapterId, current, finished, reviewMode, saving, stats.submitted, step, total]);
+  }, [allSubmitted, answers, chapterId, current, finishPractice, finished, reviewMode, saving, stats.submitted, step, total]);
 
   function restartSame() {
     if (!chapterId || !chapterName) return;
