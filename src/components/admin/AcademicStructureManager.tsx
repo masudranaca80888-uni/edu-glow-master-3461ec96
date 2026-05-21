@@ -411,14 +411,26 @@ export function AcademicStructureManager() {
                   <span className="flex h-6 w-6 items-center justify-center rounded-md bg-muted text-[10px] font-bold text-muted-foreground">
                     {c.sort_order + 1}
                   </span>
-                  <div className="flex-1 truncate">
+                  <button
+                    type="button"
+                    onClick={() => setMcqChapter(c)}
+                    className="flex-1 truncate text-left hover:text-primary"
+                    title="View & manage MCQs"
+                  >
                     <p className="truncate font-medium">{c.name}</p>
                     {c.description && (
                       <p className="truncate text-[11px] text-muted-foreground">{c.description}</p>
                     )}
-                  </div>
+                  </button>
                   <div className="flex items-center gap-1">
-                    <Pill label="MCQ" value={counts.mcqByChapter[c.id] ?? 0} />
+                    <button
+                      type="button"
+                      onClick={() => setMcqChapter(c)}
+                      className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-background/40 px-2 py-1 text-[10px] font-semibold hover:bg-muted"
+                      title="View MCQs"
+                    >
+                      <ListChecks className="h-3 w-3" /> {counts.mcqByChapter[c.id] ?? 0}
+                    </button>
                     <Pill label="Quiz" value={counts.quizByChapter[c.id] ?? 0} />
                     <Pill label="Mock" value={counts.mockByChapter[c.id] ?? 0} />
                   </div>
