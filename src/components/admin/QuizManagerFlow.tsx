@@ -314,6 +314,10 @@ export function QuizManagerFlow() {
           onSaved={invalidate}
         />
       )}
+
+      {previewFor && (
+        <QuizPreviewDialog quiz={previewFor} onClose={() => setPreviewFor(null)} />
+      )}
     </div>
   );
 }
