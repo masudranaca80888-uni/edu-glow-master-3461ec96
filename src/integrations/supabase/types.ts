@@ -478,6 +478,108 @@ export type Database = {
         }
         Relationships: []
       }
+      question_bank_resources: {
+        Row: {
+          body: string | null
+          chapter_id: string | null
+          created_at: string
+          created_by: string | null
+          download_count: number
+          file_name: string | null
+          file_size_bytes: number | null
+          file_url: string | null
+          id: string
+          is_hidden: boolean
+          kind: Database["public"]["Enums"]["qb_kind"]
+          level: string
+          question_count: number
+          resource_type: string
+          scheduled_at: string | null
+          status: Database["public"]["Enums"]["content_status"]
+          subject_id: string | null
+          summary: string | null
+          tags: string[]
+          title: string
+          updated_at: string
+          view_count: number
+        }
+        Insert: {
+          body?: string | null
+          chapter_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          download_count?: number
+          file_name?: string | null
+          file_size_bytes?: number | null
+          file_url?: string | null
+          id?: string
+          is_hidden?: boolean
+          kind?: Database["public"]["Enums"]["qb_kind"]
+          level?: string
+          question_count?: number
+          resource_type?: string
+          scheduled_at?: string | null
+          status?: Database["public"]["Enums"]["content_status"]
+          subject_id?: string | null
+          summary?: string | null
+          tags?: string[]
+          title: string
+          updated_at?: string
+          view_count?: number
+        }
+        Update: {
+          body?: string | null
+          chapter_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          download_count?: number
+          file_name?: string | null
+          file_size_bytes?: number | null
+          file_url?: string | null
+          id?: string
+          is_hidden?: boolean
+          kind?: Database["public"]["Enums"]["qb_kind"]
+          level?: string
+          question_count?: number
+          resource_type?: string
+          scheduled_at?: string | null
+          status?: Database["public"]["Enums"]["content_status"]
+          subject_id?: string | null
+          summary?: string | null
+          tags?: string[]
+          title?: string
+          updated_at?: string
+          view_count?: number
+        }
+        Relationships: []
+      }
+      question_bank_visibility: {
+        Row: {
+          hidden_chapter_ids: string[]
+          hidden_levels: string[]
+          hidden_subject_ids: string[]
+          id: number
+          section_hidden: boolean
+          updated_at: string
+        }
+        Insert: {
+          hidden_chapter_ids?: string[]
+          hidden_levels?: string[]
+          hidden_subject_ids?: string[]
+          id?: number
+          section_hidden?: boolean
+          updated_at?: string
+        }
+        Update: {
+          hidden_chapter_ids?: string[]
+          hidden_levels?: string[]
+          hidden_subject_ids?: string[]
+          id?: number
+          section_hidden?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       quiz_questions: {
         Row: {
           id: string
@@ -826,6 +928,7 @@ export type Database = {
       notification_status: "draft" | "scheduled" | "sent" | "failed" | "paused"
       notification_type: "announcement" | "push" | "email" | "in_app"
       profile_status: "active" | "suspended" | "pending"
+      qb_kind: "text" | "pdf" | "doc"
       short_note_kind: "text" | "pdf" | "doc"
     }
     CompositeTypes: {
@@ -971,6 +1074,7 @@ export const Constants = {
       notification_status: ["draft", "scheduled", "sent", "failed", "paused"],
       notification_type: ["announcement", "push", "email", "in_app"],
       profile_status: ["active", "suspended", "pending"],
+      qb_kind: ["text", "pdf", "doc"],
       short_note_kind: ["text", "pdf", "doc"],
     },
   },

@@ -1,689 +1,903 @@
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Search, Bell, Sun, Moon, Upload, FileText, FileType, CloudUpload,
-  Send, EyeOff, Download, Filter, ArrowUpDown, ChevronRight, BookOpen,
-  CheckCircle2, Eye, Flame, Activity, BarChart3, Edit3, Trash2, Copy,
-  Image as ImageIcon, Save, Rocket, CalendarPlus, Sparkles, CircleDot,
-  Star, ZoomIn, FileSearch, Database, FilePlus2, Folder, Archive,
-  AlertTriangle, FileCheck2, Hash, TrendingUp, Users, Layers,
+  Search, Plus, Send, EyeOff, Filter, ArrowUpDown, CheckCircle2, Eye, Flame,
+  Edit3, Trash2, Copy, CircleDot, CloudUpload, Sparkles, FileText, FileType,
+  Database, Upload, Star, Archive, FileCheck2, NotebookPen,
 } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Progress } from "@/components/ui/progress";
 import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from "@/components/ui/table";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
-function Spark({ data, color = "var(--neon-purple)" }: { data: number[]; color?: string }) {
-  const max = Math.max(...data, 1);
-  const pts = data.map((v, i) => `${(i / (data.length - 1)) * 100},${30 - (v / max) * 26}`).join(" ");
-  const id = color.replace(/\W/g, "");
-  return (
-    <svg viewBox="0 0 100 30" className="h-8 w-full" preserveAspectRatio="none">
-      <defs>
-        <linearGradient id={`qb-${id}`} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.6" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.6" />
-      <polygon points={`0,30 ${pts} 100,30`} fill={`url(#qb-${id})`} />
-    </svg>
-  );
+import { adminGetAcademicTree } from "@/lib/admin-academic.functions";
+import {
+  adminCreateQuestionBank,
+  adminDeleteQuestionBank,
+  adminDuplicateQuestionBank,
+  adminListQuestionBank,
+  adminSetQuestionBankHidden,
+  adminSetQuestionBankStatus,
+  adminSetQuestionBankVisibility,
+  adminUpdateQuestionBank,
+  getQuestionBankVisibility,
+} from "@/lib/admin-question-bank.functions";
+
+type Kind = "text" | "pdf" | "doc";
+type ResourceType = "important" | "pyq" | "model" | "notes" | "text";
+type Status = "draft" | "published" | "archived";
+
+type QB = {
+  id: string;
+  title: string;
+  summary: string | null;
+  level: string;
+  subject_id: string | null;
+  chapter_id: string | null;
+  kind: Kind;
+  resource_type: ResourceType;
+  body: string | null;
+  file_url: string | null;
+  file_name: string | null;
+  file_size_bytes: number | null;
+  question_count: number;
+  tags: string[];
+  status: Status;
+  is_hidden: boolean;
+  scheduled_at: string | null;
+  view_count: number;
+  download_count: number;
+  updated_at: string;
+};
+
+type EditState = { open: boolean; row?: QB | null };
+
+function statusTone(s: string, hidden: boolean) {
+  if (hidden) return "bg-zinc-500/15 text-zinc-400 border-zinc-500/30";
+  switch (s) {
+    case "published": return "bg-emerald-500/15 text-emerald-400 border-emerald-500/30";
+    case "draft": return "bg-amber-500/15 text-amber-400 border-amber-500/30";
+    case "archived": return "bg-rose-500/15 text-rose-400 border-rose-500/30";
+    default: return "bg-muted text-foreground";
+  }
 }
 
-function Topbar() {
-  return (
-    <header className="glass shadow-card-soft flex items-center gap-3 rounded-2xl p-3">
-      <div className="relative max-w-xl flex-1">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Search resources, PDFs, papers…"
-          className="h-10 rounded-xl border-white/10 bg-background/60 pl-9 backdrop-blur"
-        />
-        <kbd className="absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-white/10 bg-muted/50 px-1.5 py-0.5 text-[10px] text-muted-foreground md:block">⌘K</kbd>
-      </div>
-      <div className="ml-auto flex items-center gap-2">
-        <div className="hidden items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-medium text-emerald-400 md:flex">
-          <CircleDot className="h-3 w-3 animate-pulse" /> Library online · 99.99%
-        </div>
-        <Button size="icon" variant="ghost" className="rounded-xl">
-          <Sun className="h-4 w-4 dark:hidden" />
-          <Moon className="hidden h-4 w-4 dark:block" />
-        </Button>
-        <Button size="icon" variant="ghost" className="relative rounded-xl">
-          <Bell className="h-4 w-4" />
-          <span className="absolute right-1.5 top-1.5 h-2 w-2 animate-pulse rounded-full bg-[var(--neon-purple)] shadow-[0_0_8px_var(--neon-purple)]" />
-        </Button>
-        <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-background/40 p-1 pl-3">
-          <div className="text-right leading-tight">
-            <p className="text-xs font-semibold">Asha Rahman</p>
-            <p className="text-[10px] text-muted-foreground">Super Admin</p>
-          </div>
-          <div className="bg-cta-gradient flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold text-white shadow-glow">
-            AR
-          </div>
-        </div>
-      </div>
-    </header>
-  );
+function kindIcon(k: Kind) {
+  if (k === "pdf") return FileText;
+  if (k === "doc") return FileType;
+  return NotebookPen;
 }
 
-function PageHeader() {
-  return (
-    <section className="glass shadow-card-soft relative overflow-hidden rounded-3xl p-6">
-      <div className="pointer-events-none absolute -right-10 -top-10 h-56 w-56 rounded-full bg-[var(--neon-purple)]/25 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-10 left-1/3 h-48 w-48 rounded-full bg-[var(--neon-blue)]/20 blur-3xl" />
-      <div className="relative flex flex-wrap items-end justify-between gap-4">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Badge className="bg-cta-gradient border-0 text-white shadow-glow">
-              <Sparkles className="mr-1 h-3 w-3" /> Resource Vault
-            </Badge>
-            <Badge variant="outline" className="border-white/20 text-muted-foreground">
-              v3.2 · live
-            </Badge>
-          </div>
-          <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">
-            Question Bank <span className="text-gradient">Management Center</span>
-          </h1>
-          <p className="max-w-2xl text-sm text-muted-foreground">
-            Manage important questions, previous year papers, PDFs and model test resources across every chapter and class.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button className="bg-cta-gradient text-white shadow-glow hover:shadow-glow-strong">
-            <Upload className="mr-2 h-4 w-4" /> Upload Resource
-          </Button>
-          <Button variant="outline" className="border-white/15 backdrop-blur">
-            <FileText className="mr-2 h-4 w-4" /> Upload PDF
-          </Button>
-          <Button variant="outline" className="border-white/15 backdrop-blur">
-            <FileType className="mr-2 h-4 w-4" /> Upload DOC/Text
-          </Button>
-          <Button variant="outline" className="border-white/15 backdrop-blur">
-            <CloudUpload className="mr-2 h-4 w-4" /> Bulk Import
-          </Button>
-          <Button variant="outline" className="border-emerald-400/30 text-emerald-400 hover:bg-emerald-500/10">
-            <Send className="mr-2 h-4 w-4" /> Publish
-          </Button>
-          <Button variant="outline" className="border-amber-400/30 text-amber-400 hover:bg-amber-500/10">
-            <EyeOff className="mr-2 h-4 w-4" /> Hide
-          </Button>
-          <Button variant="outline" className="border-white/15">
-            <Download className="mr-2 h-4 w-4" /> Export
-          </Button>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-const stats = [
-  { label: "Total Resources", value: "4,182", delta: "+128", icon: Database, color: "var(--neon-purple)", data: [4, 8, 6, 10, 12, 14, 18] },
-  { label: "Published", value: "3,720", delta: "+96", icon: FileCheck2, color: "var(--neon-blue)", data: [2, 5, 4, 8, 9, 12, 15] },
-  { label: "Hidden", value: "462", delta: "−12", icon: EyeOff, color: "#f59e0b", data: [8, 7, 9, 6, 5, 4, 5] },
-  { label: "Total Downloads", value: "284K", delta: "+18.4%", icon: Download, color: "#10b981", data: [5, 9, 8, 12, 15, 20, 24] },
-  { label: "Top Subject", value: "Physics", delta: "92K dl", icon: Flame, color: "#ef4444", data: [6, 8, 10, 12, 11, 14, 17] },
-  { label: "Engagement Rate", value: "87.4%", delta: "+3.1%", icon: TrendingUp, color: "#a78bfa", data: [3, 6, 7, 9, 10, 11, 13] },
-];
-
-function StatGrid() {
-  return (
-    <section className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-      {stats.map((s) => (
-        <div
-          key={s.label}
-          className="glass shadow-card-soft group relative overflow-hidden rounded-2xl p-4 transition-all hover:-translate-y-0.5 hover:shadow-glow"
-        >
-          <div
-            className="pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100"
-            style={{ background: `radial-gradient(circle at 20% 0%, ${s.color}22, transparent 60%)` }}
-          />
-          <div className="relative flex items-start justify-between">
-            <div
-              className="flex h-9 w-9 items-center justify-center rounded-xl"
-              style={{ background: `${s.color}22`, color: s.color, boxShadow: `0 0 18px ${s.color}33` }}
-            >
-              <s.icon className="h-4 w-4" />
-            </div>
-            <Badge variant="outline" className="border-white/10 text-[10px] text-muted-foreground">
-              {s.delta}
-            </Badge>
-          </div>
-          <p className="relative mt-3 text-[11px] uppercase tracking-wider text-muted-foreground">{s.label}</p>
-          <p className="relative font-display text-2xl font-bold tracking-tight">{s.value}</p>
-          <div className="relative mt-1">
-            <Spark data={s.data} color={s.color} />
-          </div>
-        </div>
-      ))}
-    </section>
-  );
-}
-
-const filterChips = ["All Levels", "Class 9", "Class 10", "HSC", "Admission"];
-const resourceTypes = [
-  { label: "Important Questions", icon: Star, color: "var(--neon-purple)" },
-  { label: "Previous Year Qns", icon: Archive, color: "var(--neon-blue)" },
-  { label: "Model Test Papers", icon: FileCheck2, color: "#10b981" },
-  { label: "PDF Notes", icon: FileText, color: "#ef4444" },
-  { label: "Text Documents", icon: FileType, color: "#f59e0b" },
-];
-
-function FilterPanel() {
-  return (
-    <section className="glass shadow-card-soft rounded-2xl p-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative min-w-[240px] flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search resources by title, tag or ID…" className="h-10 rounded-xl border-white/10 bg-background/60 pl-9" />
-        </div>
-        {["Level", "Subject", "Chapter", "Type", "Status"].map((l) => (
-          <Button key={l} variant="outline" className="h-10 rounded-xl border-white/10 bg-background/40">
-            <Filter className="mr-2 h-3.5 w-3.5" /> {l}
-            <ChevronRight className="ml-1 h-3 w-3 rotate-90 opacity-50" />
-          </Button>
-        ))}
-        <Button variant="outline" className="h-10 rounded-xl border-white/10 bg-background/40">
-          <ArrowUpDown className="mr-2 h-3.5 w-3.5" /> Latest
-        </Button>
-      </div>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        {filterChips.map((c, i) => (
-          <button
-            key={c}
-            className={`rounded-full border px-3 py-1.5 text-xs transition-all ${
-              i === 0
-                ? "border-transparent bg-cta-gradient text-white shadow-glow"
-                : "border-white/15 text-foreground/80 hover:border-white/30 hover:bg-muted/40"
-            }`}
-          >
-            {c}
-          </button>
-        ))}
-        <span className="mx-2 h-4 w-px bg-white/10" />
-        {resourceTypes.map((r) => (
-          <button
-            key={r.label}
-            className="group flex items-center gap-1.5 rounded-full border border-white/10 bg-background/40 px-3 py-1.5 text-xs transition-all hover:-translate-y-0.5"
-            style={{ boxShadow: `inset 0 0 0 1px ${r.color}22` }}
-          >
-            <r.icon className="h-3 w-3" style={{ color: r.color }} />
-            {r.label}
-          </button>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-const rows = [
-  { id: "QB-2041", title: "HSC Physics — Mechanics Important Qns 2025", subject: "Physics", chapter: "Mechanics", type: "Important", fmt: "PDF", dl: 12480, vw: 38210, status: "Published", date: "May 14" },
-  { id: "QB-2042", title: "SSC Chemistry — Last 10 Yrs Previous Papers", subject: "Chemistry", chapter: "All", type: "Previous Year", fmt: "PDF", dl: 9820, vw: 24190, status: "Published", date: "May 12" },
-  { id: "QB-2043", title: "Admission Math — Model Test #18", subject: "Mathematics", chapter: "Calculus", type: "Model Test", fmt: "PDF", dl: 6240, vw: 14920, status: "Scheduled", date: "May 22" },
-  { id: "QB-2044", title: "Biology — Genetics Short Notes & Diagrams", subject: "Biology", chapter: "Genetics", type: "PDF Notes", fmt: "PDF", dl: 4180, vw: 9210, status: "Draft", date: "May 10" },
-  { id: "QB-2045", title: "English — Comprehension Drill Pack", subject: "English", chapter: "Reading", type: "Text Doc", fmt: "DOCX", dl: 2940, vw: 7120, status: "Hidden", date: "May 08" },
-  { id: "QB-2046", title: "ICT — HSC Board Final Suggestions 2025", subject: "ICT", chapter: "All", type: "Important", fmt: "PDF", dl: 8140, vw: 19240, status: "Published", date: "May 06" },
-];
-
-function statusTone(s: string) {
-  const m: Record<string, string> = {
-    Published: "border-emerald-400/40 bg-emerald-500/10 text-emerald-400",
-    Draft: "border-amber-400/40 bg-amber-500/10 text-amber-400",
-    Scheduled: "border-sky-400/40 bg-sky-500/10 text-sky-400",
-    Hidden: "border-rose-400/40 bg-rose-500/10 text-rose-400",
-  };
-  return m[s] ?? "border-white/20 text-muted-foreground";
-}
-
-function ResourceTable() {
-  return (
-    <section className="glass shadow-card-soft overflow-hidden rounded-2xl">
-      <div className="flex items-center justify-between gap-2 p-4">
-        <div>
-          <p className="font-display text-lg font-bold">Resource Library</p>
-          <p className="text-xs text-muted-foreground">{rows.length} of 4,182 resources · live</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" className="border-white/15">
-            <Folder className="mr-2 h-3.5 w-3.5" /> Collections
-          </Button>
-          <Button size="sm" className="bg-cta-gradient text-white shadow-glow">
-            <FilePlus2 className="mr-2 h-3.5 w-3.5" /> New Resource
-          </Button>
-        </div>
-      </div>
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow className="border-white/10 hover:bg-transparent">
-              <TableHead className="text-[11px] uppercase tracking-wider">ID</TableHead>
-              <TableHead className="text-[11px] uppercase tracking-wider">Title</TableHead>
-              <TableHead className="text-[11px] uppercase tracking-wider">Subject</TableHead>
-              <TableHead className="text-[11px] uppercase tracking-wider">Chapter</TableHead>
-              <TableHead className="text-[11px] uppercase tracking-wider">Type</TableHead>
-              <TableHead className="text-[11px] uppercase tracking-wider">Format</TableHead>
-              <TableHead className="text-right text-[11px] uppercase tracking-wider">Downloads</TableHead>
-              <TableHead className="text-right text-[11px] uppercase tracking-wider">Views</TableHead>
-              <TableHead className="text-[11px] uppercase tracking-wider">Status</TableHead>
-              <TableHead className="text-[11px] uppercase tracking-wider">Upload</TableHead>
-              <TableHead className="text-right text-[11px] uppercase tracking-wider">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((r) => (
-              <TableRow key={r.id} className="border-white/5 transition-colors hover:bg-white/[0.03]">
-                <TableCell className="font-mono text-[11px] text-muted-foreground">{r.id}</TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--neon-purple)]/15 text-[var(--neon-purple)]">
-                      <FileText className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{r.title}</p>
-                      <p className="text-[11px] text-muted-foreground">
-                        <Hash className="mr-0.5 inline h-3 w-3" />
-                        {r.type.toLowerCase().replace(/\s+/g, "-")}
-                      </p>
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell className="text-sm">{r.subject}</TableCell>
-                <TableCell className="text-sm text-muted-foreground">{r.chapter}</TableCell>
-                <TableCell>
-                  <Badge variant="outline" className="border-white/15 text-[11px]">
-                    {r.type}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <span className="rounded-md border border-white/10 bg-background/40 px-2 py-0.5 font-mono text-[10px]">
-                    {r.fmt}
-                  </span>
-                </TableCell>
-                <TableCell className="text-right font-mono text-xs">{r.dl.toLocaleString()}</TableCell>
-                <TableCell className="text-right font-mono text-xs">{r.vw.toLocaleString()}</TableCell>
-                <TableCell>
-                  <Badge variant="outline" className={statusTone(r.status)}>{r.status}</Badge>
-                </TableCell>
-                <TableCell className="text-xs text-muted-foreground">{r.date}</TableCell>
-                <TableCell>
-                  <div className="flex items-center justify-end gap-1">
-                    {[
-                      { i: Edit3, k: "edit" }, { i: Eye, k: "preview" },
-                      { i: Copy, k: "duplicate" }, { i: Send, k: "publish" },
-                      { i: EyeOff, k: "hide" }, { i: Trash2, k: "delete" },
-                    ].map((a) => (
-                      <Button key={a.k} size="icon" variant="ghost" className="h-7 w-7 rounded-lg hover:bg-white/5">
-                        <a.i className="h-3.5 w-3.5" />
-                      </Button>
-                    ))}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-    </section>
-  );
-}
-
-function ResourceCreator() {
-  const steps = ["Setup", "Content Upload", "Preview", "Publish"];
-  return (
-    <section className="glass shadow-card-soft relative overflow-hidden rounded-2xl p-5">
-      <div className="pointer-events-none absolute -right-16 -top-16 h-52 w-52 rounded-full bg-[var(--neon-purple)]/20 blur-3xl" />
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-[11px] uppercase tracking-widest text-muted-foreground">Resource Creator</p>
-          <p className="font-display text-xl font-bold">Build a new resource bundle</p>
-        </div>
-        <Badge variant="outline" className="border-white/15">
-          <Sparkles className="mr-1 h-3 w-3 text-[var(--neon-purple)]" /> AI assisted
-        </Badge>
-      </div>
-
-      <div className="mt-4 flex items-center gap-2">
-        {steps.map((s, i) => (
-          <div key={s} className="flex items-center gap-2">
-            <div className={`flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold ${
-              i <= 1 ? "bg-cta-gradient text-white shadow-glow" : "border border-white/15 text-muted-foreground"
-            }`}>{i + 1}</div>
-            <span className={`text-xs ${i <= 1 ? "text-foreground" : "text-muted-foreground"}`}>{s}</span>
-            {i < steps.length - 1 && <ChevronRight className="h-3 w-3 text-muted-foreground" />}
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-5 grid gap-4 lg:grid-cols-2">
-        {/* STEP 1 - Setup */}
-        <div className="rounded-xl border border-white/10 bg-background/40 p-4">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Step 1 · Setup</p>
-          <div className="grid grid-cols-2 gap-3 text-xs">
-            {[
-              { l: "Level", v: "HSC · 2nd Year" },
-              { l: "Subject", v: "Physics" },
-              { l: "Chapter", v: "Electromagnetism" },
-              { l: "Resource Type", v: "Important Questions" },
-            ].map((f) => (
-              <div key={f.l} className="rounded-lg border border-white/10 bg-background/40 p-2.5">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{f.l}</p>
-                <p className="mt-1 truncate font-medium">{f.v}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* STEP 2 - Content Upload */}
-        <div className="rounded-xl border border-white/10 bg-background/40 p-4">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Step 2 · Content</p>
-          <div className="relative flex flex-col items-center justify-center rounded-xl border border-dashed border-white/20 bg-background/40 p-6 text-center">
-            <CloudUpload className="mb-2 h-8 w-8 text-[var(--neon-purple)]" />
-            <p className="text-sm font-medium">Drag & drop PDF / DOC / TXT</p>
-            <p className="text-[11px] text-muted-foreground">or click to browse · max 50 MB</p>
-            <div className="mt-3 flex gap-2">
-              <Button size="sm" variant="outline" className="border-white/15">
-                <FileText className="mr-2 h-3.5 w-3.5" /> PDF
-              </Button>
-              <Button size="sm" variant="outline" className="border-white/15">
-                <FileType className="mr-2 h-3.5 w-3.5" /> DOC/Text
-              </Button>
-              <Button size="sm" variant="outline" className="border-white/15">
-                <ImageIcon className="mr-2 h-3.5 w-3.5" /> Diagram
-              </Button>
-            </div>
-          </div>
-          <div className="mt-3 flex items-center gap-2 text-[11px]">
-            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-            <span className="text-muted-foreground">
-              <span className="font-mono text-foreground">physics-em-imp.pdf</span> · 4.2 MB · validated
-            </span>
-          </div>
-        </div>
-
-        {/* STEP 3 - Preview */}
-        <div className="rounded-xl border border-white/10 bg-background/40 p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Step 3 · Preview</p>
-            <div className="flex items-center gap-1">
-              <Button size="icon" variant="ghost" className="h-7 w-7"><ZoomIn className="h-3.5 w-3.5" /></Button>
-              <Button size="icon" variant="ghost" className="h-7 w-7"><FileSearch className="h-3.5 w-3.5" /></Button>
-              <Button size="icon" variant="ghost" className="h-7 w-7"><Sun className="h-3.5 w-3.5 dark:hidden" /><Moon className="hidden h-3.5 w-3.5 dark:block" /></Button>
-            </div>
-          </div>
-          <div className="relative aspect-[4/3] overflow-hidden rounded-lg border border-white/10 bg-gradient-to-br from-background/80 to-background/40 p-4">
-            <div className="absolute inset-x-0 top-0 flex items-center justify-between border-b border-white/10 bg-background/50 px-3 py-1.5 backdrop-blur">
-              <span className="text-[10px] font-mono text-muted-foreground">physics-em-imp.pdf · page 1 / 24</span>
-              <span className="text-[10px] text-muted-foreground">100%</span>
-            </div>
-            <div className="mt-6 space-y-1.5">
-              <div className="h-2.5 w-2/3 rounded bg-white/10" />
-              <div className="h-1.5 w-full rounded bg-white/5" />
-              <div className="h-1.5 w-11/12 rounded bg-white/5" />
-              <div className="h-1.5 w-3/4 rounded bg-white/5" />
-              <div className="mt-3 h-1.5 w-1/2 rounded bg-white/10" />
-              <div className="h-1.5 w-5/6 rounded bg-white/5" />
-              <div className="h-1.5 w-4/5 rounded bg-white/5" />
-              <div className="mt-4 h-16 rounded-lg border border-white/10 bg-gradient-to-br from-[var(--neon-purple)]/10 to-[var(--neon-blue)]/10" />
-            </div>
-          </div>
-        </div>
-
-        {/* STEP 4 - Publish */}
-        <div className="rounded-xl border border-white/10 bg-background/40 p-4">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Step 4 · Publish</p>
-          <div className="space-y-3 text-sm">
-            {[
-              { l: "Hide from Students", d: "Keep this resource private until ready" },
-              { l: "Featured Resource", d: "Pin to top of subject library" },
-              { l: "Allow Downloads", d: "Students can download offline" },
-            ].map((t, i) => (
-              <div key={t.l} className="flex items-center justify-between rounded-lg border border-white/10 bg-background/40 p-2.5">
-                <div>
-                  <p className="text-xs font-medium">{t.l}</p>
-                  <p className="text-[10px] text-muted-foreground">{t.d}</p>
-                </div>
-                <Switch defaultChecked={i !== 0} />
-              </div>
-            ))}
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Button variant="outline" className="border-white/15">
-              <Save className="mr-2 h-4 w-4" /> Save Draft
-            </Button>
-            <Button variant="outline" className="border-white/15">
-              <CalendarPlus className="mr-2 h-4 w-4" /> Schedule
-            </Button>
-            <Button className="bg-cta-gradient text-white shadow-glow hover:shadow-glow-strong">
-              <Rocket className="mr-2 h-4 w-4" /> Publish Now
-            </Button>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function BulkImport() {
-  const files = [
-    { n: "hsc-bio-prev-2020.pdf", s: "3.1 MB", p: 100, ok: true },
-    { n: "ssc-chem-model-04.pdf", s: "2.6 MB", p: 100, ok: true },
-    { n: "admission-math-pack.docx", s: "1.4 MB", p: 64, ok: true },
-    { n: "english-comprehension-corrupt.pdf", s: "—", p: 42, ok: false },
-  ];
-  return (
-    <section className="glass shadow-card-soft rounded-2xl p-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-[11px] uppercase tracking-widest text-muted-foreground">Bulk Import</p>
-          <p className="font-display text-lg font-bold">Mass upload PDF, DOC & Text resources</p>
-        </div>
-        <Button className="bg-cta-gradient text-white shadow-glow">
-          <CheckCircle2 className="mr-2 h-4 w-4" /> Approve Import
-        </Button>
-      </div>
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <div className="relative flex flex-col items-center justify-center rounded-xl border border-dashed border-white/20 bg-background/30 p-8 text-center">
-          <CloudUpload className="mb-3 h-10 w-10 text-[var(--neon-blue)]" />
-          <p className="text-sm font-medium">Drop multiple files here</p>
-          <p className="text-xs text-muted-foreground">PDF · DOCX · TXT · up to 200 files</p>
-          <Button size="sm" variant="outline" className="mt-3 border-white/15">
-            <Upload className="mr-2 h-3.5 w-3.5" /> Browse files
-          </Button>
-        </div>
-        <div className="space-y-2.5">
-          {files.map((f) => (
-            <div key={f.n} className="rounded-xl border border-white/10 bg-background/40 p-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  {f.ok ? (
-                    <FileCheck2 className="h-4 w-4 text-emerald-400" />
-                  ) : (
-                    <AlertTriangle className="h-4 w-4 text-rose-400" />
-                  )}
-                  <div>
-                    <p className="text-xs font-medium">{f.n}</p>
-                    <p className="text-[10px] text-muted-foreground">{f.s}</p>
-                  </div>
-                </div>
-                <Badge variant="outline" className={f.ok ? "border-emerald-400/40 text-emerald-400" : "border-rose-400/40 text-rose-400"}>
-                  {f.ok ? "Validated" : "Error"}
-                </Badge>
-              </div>
-              <Progress value={f.p} className="mt-2 h-1.5" />
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function AnalyticsWidget() {
-  const bars = [42, 58, 71, 48, 88, 96, 74];
-  return (
-    <div className="glass shadow-card-soft rounded-2xl p-4">
-      <div className="flex items-center justify-between">
-        <p className="font-display text-sm font-bold">Daily Downloads</p>
-        <BarChart3 className="h-4 w-4 text-[var(--neon-purple)]" />
-      </div>
-      <p className="mt-1 font-display text-2xl font-bold">
-        18.4K <span className="text-xs font-normal text-emerald-400">▲ 12.4%</span>
-      </p>
-      <div className="mt-3 flex h-24 items-end gap-1.5">
-        {bars.map((b, i) => (
-          <div
-            key={i}
-            className="flex-1 rounded-t-md bg-gradient-to-t from-[var(--neon-purple)]/30 to-[var(--neon-blue)]/80 transition-all hover:from-[var(--neon-purple)]/60 hover:to-[var(--neon-blue)]"
-            style={{ height: `${b}%` }}
-          />
-        ))}
-      </div>
-      <div className="mt-2 flex justify-between text-[10px] text-muted-foreground">
-        {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => <span key={i}>{d}</span>)}
-      </div>
-      <div className="mt-4 space-y-2">
-        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Most Viewed</p>
-        {[
-          { t: "HSC Physics Imp Qns 2025", v: "38.2K" },
-          { t: "SSC Chem Prev Papers", v: "24.1K" },
-          { t: "Math Model Test #18", v: "14.9K" },
-        ].map((r) => (
-          <div key={r.t} className="flex items-center justify-between rounded-lg border border-white/10 bg-background/40 px-2.5 py-1.5">
-            <span className="truncate text-xs">{r.t}</span>
-            <span className="font-mono text-[11px] text-muted-foreground">{r.v}</span>
-          </div>
-        ))}
-      </div>
-      <div className="mt-4">
-        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Avg reading completion</p>
-        <div className="mt-1 flex items-center gap-2">
-          <Progress value={74} className="h-1.5 flex-1" />
-          <span className="font-mono text-xs">74%</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ActivityFeed() {
-  const items = [
-    { i: Upload, c: "var(--neon-purple)", t: "New PDF uploaded", s: "Physics · Mechanics Imp Qns · 2m" },
-    { i: Edit3, c: "var(--neon-blue)", t: "Resource edited", s: "Chem · Last 10 Yrs Papers · 14m" },
-    { i: Send, c: "#10b981", t: "Published to library", s: "Math · Model Test #18 · 28m" },
-    { i: Eye, c: "#f59e0b", t: "Student access surge", s: "Biology · Genetics · +1.2K views · 1h" },
-    { i: EyeOff, c: "#ef4444", t: "Resource hidden", s: "English · Comprehension Pack · 2h" },
-  ];
-  return (
-    <div className="glass shadow-card-soft rounded-2xl p-4">
-      <div className="flex items-center justify-between">
-        <p className="font-display text-sm font-bold">Recent Activity</p>
-        <Activity className="h-4 w-4 text-[var(--neon-blue)]" />
-      </div>
-      <ul className="mt-3 space-y-2.5">
-        {items.map((a, i) => (
-          <li key={i} className="flex items-start gap-2.5 rounded-lg border border-white/10 bg-background/40 p-2.5">
-            <div
-              className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-lg"
-              style={{ background: `${a.c}22`, color: a.c, boxShadow: `0 0 12px ${a.c}33` }}
-            >
-              <a.i className="h-3.5 w-3.5" />
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-xs font-medium">{a.t}</p>
-              <p className="truncate text-[10px] text-muted-foreground">{a.s}</p>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function PopularCollections() {
-  const cols = [
-    { t: "HSC Physics Mastery Pack", q: 142, d: "62K", v: "184K", sub: "Physics", c: "var(--neon-purple)" },
-    { t: "SSC Chemistry Vault", q: 98, d: "48K", v: "121K", sub: "Chemistry", c: "var(--neon-blue)" },
-    { t: "Admission Math Drill", q: 76, d: "39K", v: "94K", sub: "Mathematics", c: "#10b981" },
-    { t: "Biology Diagram Atlas", q: 64, d: "28K", v: "72K", sub: "Biology", c: "#ef4444" },
-  ];
-  return (
-    <section className="glass shadow-card-soft rounded-2xl p-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-[11px] uppercase tracking-widest text-muted-foreground">Popular collections</p>
-          <p className="font-display text-lg font-bold">Top performing resource bundles</p>
-        </div>
-        <Button variant="outline" size="sm" className="border-white/15">
-          <BookOpen className="mr-2 h-3.5 w-3.5" /> Browse All
-        </Button>
-      </div>
-      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {cols.map((c) => (
-          <div
-            key={c.t}
-            className="group relative overflow-hidden rounded-xl border border-white/10 bg-background/40 p-4 transition-all hover:-translate-y-0.5 hover:shadow-glow"
-          >
-            <div
-              className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full blur-2xl"
-              style={{ background: `${c.c}33` }}
-            />
-            <div className="relative flex items-start justify-between">
-              <div
-                className="flex h-9 w-9 items-center justify-center rounded-xl"
-                style={{ background: `${c.c}22`, color: c.c, boxShadow: `0 0 14px ${c.c}33` }}
-              >
-                <Layers className="h-4 w-4" />
-              </div>
-              <Badge variant="outline" className="border-white/15 text-[10px]">{c.sub}</Badge>
-            </div>
-            <p className="relative mt-3 line-clamp-2 text-sm font-semibold">{c.t}</p>
-            <div className="relative mt-3 grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-lg border border-white/10 bg-background/40 p-1.5">
-                <p className="text-[9px] uppercase tracking-wider text-muted-foreground">Qty</p>
-                <p className="font-mono text-xs font-bold">{c.q}</p>
-              </div>
-              <div className="rounded-lg border border-white/10 bg-background/40 p-1.5">
-                <p className="text-[9px] uppercase tracking-wider text-muted-foreground">Dl</p>
-                <p className="font-mono text-xs font-bold">{c.d}</p>
-              </div>
-              <div className="rounded-lg border border-white/10 bg-background/40 p-1.5">
-                <p className="text-[9px] uppercase tracking-wider text-muted-foreground">Vw</p>
-                <p className="font-mono text-xs font-bold">{c.v}</p>
-              </div>
-            </div>
-            <div className="relative mt-3 flex items-center justify-between text-[10px] text-muted-foreground">
-              <span className="inline-flex items-center gap-1"><Users className="h-3 w-3" /> 2.4K active</span>
-              <span className="inline-flex items-center gap-1 text-emerald-400"><TrendingUp className="h-3 w-3" /> +12%</span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
+const TYPE_LABEL: Record<ResourceType, string> = {
+  important: "Important Qns",
+  pyq: "Previous Year",
+  model: "Model Test",
+  notes: "PDF Notes",
+  text: "Text Doc",
+};
 
 export function QuestionBankManagerFlow() {
+  const qc = useQueryClient();
+
+  const treeFn = useServerFn(adminGetAcademicTree);
+  const listFn = useServerFn(adminListQuestionBank);
+
+  const [search, setSearch] = useState("");
+  const [level, setLevel] = useState("all");
+  const [subjectId, setSubjectId] = useState("all");
+  const [chapterId, setChapterId] = useState("all");
+  const [kindFilter, setKindFilter] = useState<"all" | Kind>("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | ResourceType>("all");
+  const [statusFilter, setStatusFilter] =
+    useState<"all" | Status | "hidden">("all");
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
+
+  const [editor, setEditor] = useState<EditState>({ open: false });
+
+  const tree = useQuery({
+    queryKey: ["admin-academic-tree"],
+    queryFn: () => treeFn(),
+    staleTime: 60_000,
+  });
+
+  const levels = (tree.data?.levels ?? []) as { code: string; name: string }[];
+  const allSubjects = (tree.data?.subjects ?? []) as { id: string; name: string; level: string }[];
+  const allChapters = (tree.data?.chapters ?? []) as { id: string; name: string; subject_id: string }[];
+
+  const subjects = useMemo(
+    () => (level === "all" ? allSubjects : allSubjects.filter((s) => s.level === level)),
+    [allSubjects, level],
+  );
+  const chapters = useMemo(
+    () => (subjectId === "all" ? allChapters : allChapters.filter((c) => c.subject_id === subjectId)),
+    [allChapters, subjectId],
+  );
+
+  useEffect(() => { setSubjectId("all"); setChapterId("all"); setPage(1); }, [level]);
+  useEffect(() => { setChapterId("all"); setPage(1); }, [subjectId]);
+
+  const listQuery = useQuery({
+    queryKey: ["qbank-admin", { search, level, subjectId, chapterId, kindFilter, typeFilter, statusFilter, page }],
+    queryFn: () =>
+      listFn({
+        data: {
+          search: search.trim() || undefined,
+          level: level === "all" ? undefined : level,
+          subjectId: subjectId === "all" ? undefined : subjectId,
+          chapterId: chapterId === "all" ? undefined : chapterId,
+          kind: kindFilter,
+          resourceType: typeFilter,
+          status: statusFilter,
+          page,
+          pageSize,
+        },
+      }),
+  });
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["qbank-admin"] });
+    qc.invalidateQueries({ queryKey: ["qbank-public"] });
+  };
+
+  useEffect(() => {
+    const ch = supabase
+      .channel("qbank-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "question_bank_resources" }, invalidate)
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const delFn = useServerFn(adminDeleteQuestionBank);
+  const dupFn = useServerFn(adminDuplicateQuestionBank);
+  const statusFn = useServerFn(adminSetQuestionBankStatus);
+  const hideFn = useServerFn(adminSetQuestionBankHidden);
+
+  const remove = useMutation({
+    mutationFn: (id: string) => delFn({ data: { id } }),
+    onSuccess: () => { toast.success("Deleted"); invalidate(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const duplicate = useMutation({
+    mutationFn: (id: string) => dupFn({ data: { id } }),
+    onSuccess: () => { toast.success("Duplicated"); invalidate(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const setStatus = useMutation({
+    mutationFn: (p: { id: string; status: Status }) => statusFn({ data: p }),
+    onSuccess: (_d, p) => { toast.success(`Marked ${p.status}`); invalidate(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const setHidden = useMutation({
+    mutationFn: (p: { id: string; is_hidden: boolean }) => hideFn({ data: p }),
+    onSuccess: (_d, p) => { toast.success(p.is_hidden ? "Hidden from students" : "Visible again"); invalidate(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const rows: QB[] = (listQuery.data?.rows ?? []) as QB[];
+  const total = listQuery.data?.count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const subjectName = (id: string | null) => allSubjects.find((s) => s.id === id)?.name ?? "—";
+  const chapterName = (id: string | null) => allChapters.find((c) => c.id === id)?.name ?? "—";
+
+  const stats = useMemo(() => {
+    const published = rows.filter((r) => r.status === "published" && !r.is_hidden).length;
+    const hidden = rows.filter((r) => r.is_hidden).length;
+    return { total, published, hidden };
+  }, [rows, total]);
+
   return (
     <div className="space-y-4">
-      <Topbar />
-      <PageHeader />
-      <StatGrid />
-      <FilterPanel />
-      <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
-        <div className="space-y-4">
-          <ResourceTable />
-          <ResourceCreator />
-          <BulkImport />
+      {/* Header */}
+      <div className="glass shadow-card-soft relative overflow-hidden rounded-3xl p-6">
+        <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-[var(--neon-purple)]/25 blur-3xl" />
+        <div className="pointer-events-none absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[var(--neon-blue)]/25 blur-3xl" />
+        <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <Badge className="bg-cta-gradient border-0 text-white shadow-glow">
+                <Database className="mr-1 h-3 w-3" /> Resource Vault
+              </Badge>
+              <span className="text-xs text-muted-foreground">/ Admin / Question Bank Manager</span>
+            </div>
+            <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">
+              Question Bank <span className="text-gradient">Management Center</span>
+            </h1>
+            <p className="max-w-2xl text-sm text-muted-foreground">
+              Upload, organise and publish chapter-wise important questions, previous year papers and study resources — text, PDF or DOC.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              onClick={() => setEditor({ open: true, row: null })}
+              className="bg-cta-gradient rounded-xl text-white shadow-glow hover:opacity-95"
+            >
+              <Plus className="h-4 w-4" /> Upload Resource
+            </Button>
+          </div>
         </div>
-        <aside className="space-y-4">
-          <AnalyticsWidget />
-          <ActivityFeed />
-        </aside>
       </div>
-      <PopularCollections />
+
+      {/* Filters */}
+      <div className="glass shadow-card-soft rounded-2xl p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-[220px] flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              placeholder="Search resources by title or summary…"
+              className="h-9 rounded-xl border-white/10 bg-background/60 pl-9"
+            />
+          </div>
+          <SelectFilter icon={<Filter className="h-3 w-3" />} label="Level" value={level} onValueChange={setLevel}
+            options={[{ value: "all", label: "All levels" }, ...levels.map((l) => ({ value: l.code, label: l.name }))]} />
+          <SelectFilter icon={<Filter className="h-3 w-3" />} label="Subject" value={subjectId} onValueChange={setSubjectId}
+            options={[{ value: "all", label: "All subjects" }, ...subjects.map((s) => ({ value: s.id, label: s.name }))]} />
+          <SelectFilter icon={<Filter className="h-3 w-3" />} label="Chapter" value={chapterId} onValueChange={setChapterId}
+            options={[{ value: "all", label: "All chapters" }, ...chapters.map((c) => ({ value: c.id, label: c.name }))]} />
+          <SelectFilter icon={<Filter className="h-3 w-3" />} label="Type" value={typeFilter}
+            onValueChange={(v) => { setTypeFilter(v as typeof typeFilter); setPage(1); }}
+            options={[
+              { value: "all", label: "All types" },
+              { value: "important", label: "Important Qns" },
+              { value: "pyq", label: "Previous Year" },
+              { value: "model", label: "Model Test" },
+              { value: "notes", label: "PDF Notes" },
+              { value: "text", label: "Text Doc" },
+            ]} />
+          <SelectFilter icon={<Filter className="h-3 w-3" />} label="Format" value={kindFilter}
+            onValueChange={(v) => { setKindFilter(v as typeof kindFilter); setPage(1); }}
+            options={[
+              { value: "all", label: "All formats" },
+              { value: "text", label: "Text" },
+              { value: "pdf", label: "PDF" },
+              { value: "doc", label: "DOC/DOCX" },
+            ]} />
+          <SelectFilter icon={<ArrowUpDown className="h-3 w-3" />} label="Status" value={statusFilter}
+            onValueChange={(v) => { setStatusFilter(v as typeof statusFilter); setPage(1); }}
+            options={[
+              { value: "all", label: "All" },
+              { value: "published", label: "Published" },
+              { value: "draft", label: "Draft" },
+              { value: "archived", label: "Archived" },
+              { value: "hidden", label: "Hidden" },
+            ]} />
+        </div>
+      </div>
+
+      <VisibilityPanel
+        levels={levels}
+        subjects={allSubjects}
+        chapters={allChapters}
+      />
+
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+        <StatTile label="Total Resources" value={stats.total} icon={Database} color="var(--neon-purple)" />
+        <StatTile label="Published & Visible" value={stats.published} icon={FileCheck2} color="#22c55e" />
+        <StatTile label="Hidden on this page" value={stats.hidden} icon={EyeOff} color="#f59e0b" />
+      </div>
+
+      {/* Table */}
+      <div className="glass shadow-card-soft overflow-hidden rounded-3xl">
+        <div className="flex items-center justify-between border-b border-white/10 p-4">
+          <div>
+            <h3 className="font-display text-lg font-bold">Resource Library</h3>
+            <p className="text-xs text-muted-foreground">
+              {listQuery.isLoading ? "Loading…" : `Showing ${rows.length} of ${total}`} — live sync enabled
+            </p>
+          </div>
+          <Badge variant="outline" className="border-white/10 bg-background/40">
+            <CircleDot className="mr-1 h-2.5 w-2.5 animate-pulse text-emerald-400" /> Live
+          </Badge>
+        </div>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-white/10 hover:bg-transparent">
+                <TableHead className="pl-4">Title</TableHead>
+                <TableHead>Subject</TableHead>
+                <TableHead>Chapter</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Format</TableHead>
+                <TableHead>Qns</TableHead>
+                <TableHead>Downloads</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="pr-4 text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((r) => {
+                const I = kindIcon(r.kind);
+                return (
+                  <TableRow key={r.id} className="border-white/5 hover:bg-white/[0.03]">
+                    <TableCell className="max-w-[280px] truncate pl-4 font-medium">{r.title}</TableCell>
+                    <TableCell className="text-muted-foreground">{subjectName(r.subject_id)}</TableCell>
+                    <TableCell className="text-muted-foreground">{chapterName(r.chapter_id)}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="border-white/15 text-[10px]">
+                        {TYPE_LABEL[r.resource_type] ?? r.resource_type}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <span className="inline-flex items-center gap-1 rounded-md bg-[var(--neon-purple)]/10 px-2 py-0.5 text-[10px] text-[var(--neon-purple)]">
+                        <I className="h-3 w-3" /> {r.kind.toUpperCase()}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-xs">{r.question_count}</TableCell>
+                    <TableCell className="text-xs">{r.download_count.toLocaleString()}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={`${statusTone(r.status, r.is_hidden)} border text-[10px]`}>
+                        {r.is_hidden ? "Hidden" : r.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="pr-4">
+                      <div className="flex items-center justify-end gap-0.5">
+                        <RowBtn title="Edit" onClick={() => setEditor({ open: true, row: r })}>
+                          <Edit3 className="h-3.5 w-3.5" />
+                        </RowBtn>
+                        {r.file_url && (
+                          <RowBtn title="Open file" onClick={() => window.open(r.file_url!, "_blank")}>
+                            <Eye className="h-3.5 w-3.5" />
+                          </RowBtn>
+                        )}
+                        <RowBtn title="Duplicate" onClick={() => duplicate.mutate(r.id)}>
+                          <Copy className="h-3.5 w-3.5" />
+                        </RowBtn>
+                        <RowBtn
+                          title={r.status === "published" ? "Unpublish" : "Publish"}
+                          onClick={() => setStatus.mutate({ id: r.id, status: r.status === "published" ? "draft" : "published" })}
+                        >
+                          <Send className={`h-3.5 w-3.5 ${r.status === "published" ? "text-emerald-400" : ""}`} />
+                        </RowBtn>
+                        <RowBtn
+                          title={r.is_hidden ? "Unhide" : "Hide from students"}
+                          onClick={() => setHidden.mutate({ id: r.id, is_hidden: !r.is_hidden })}
+                        >
+                          {r.is_hidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                        </RowBtn>
+                        <RowBtn
+                          title="Delete"
+                          onClick={() => {
+                            if (confirm(`Delete "${r.title}"?`)) remove.mutate(r.id);
+                          }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                        </RowBtn>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              {!listQuery.isLoading && rows.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={9} className="py-10 text-center text-sm text-muted-foreground">
+                    <Sparkles className="mx-auto mb-2 h-5 w-5" />
+                    No resources match your filters. Upload your first resource.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+        <div className="flex items-center justify-between border-t border-white/10 px-4 py-3 text-xs text-muted-foreground">
+          <span>Page {page} of {totalPages}</span>
+          <div className="flex gap-1">
+            <Button size="sm" variant="outline" className="h-7 rounded-lg border-white/10"
+              disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Prev</Button>
+            <Button size="sm" variant="outline" className="h-7 rounded-lg border-white/10"
+              disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>Next</Button>
+          </div>
+        </div>
+      </div>
+
+      <EditorDialog
+        state={editor}
+        onClose={() => setEditor({ open: false })}
+        onSaved={invalidate}
+        levels={levels}
+        allSubjects={allSubjects}
+        allChapters={allChapters}
+      />
+    </div>
+  );
+}
+
+// ===============================================
+function StatTile({ label, value, icon: Icon, color }: { label: string; value: number; icon: React.ComponentType<{ className?: string }>; color: string }) {
+  return (
+    <div className="glass relative overflow-hidden rounded-2xl p-4">
+      <div className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full opacity-30 blur-2xl" style={{ background: color }} />
+      <div className="flex items-center justify-between">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10" style={{ background: `color-mix(in oklab, ${color} 15%, transparent)` }}>
+          <Icon className="h-4 w-4" />
+        </div>
+        <Flame className="h-3.5 w-3.5 text-muted-foreground" />
+      </div>
+      <p className="mt-3 text-[11px] text-muted-foreground">{label}</p>
+      <p className="font-display text-2xl font-bold tracking-tight">{value.toLocaleString()}</p>
+    </div>
+  );
+}
+
+function RowBtn({ title, onClick, children }: { title: string; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button type="button" title={title} onClick={onClick}
+      className="rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-white/5 hover:text-foreground">
+      {children}
+    </button>
+  );
+}
+
+function SelectFilter({
+  icon, label, value, onValueChange, options,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  onValueChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <div className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-background/50 px-2 py-1 text-xs">
+      {icon}
+      <span className="text-muted-foreground">{label}:</span>
+      <Select value={value} onValueChange={onValueChange}>
+        <SelectTrigger className="h-7 w-[140px] border-0 bg-transparent px-1 text-xs focus:ring-0">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+// ===============================================
+// Editor
+// ===============================================
+function EditorDialog({
+  state, onClose, onSaved, levels, allSubjects, allChapters,
+}: {
+  state: EditState;
+  onClose: () => void;
+  onSaved: () => void;
+  levels: { code: string; name: string }[];
+  allSubjects: { id: string; name: string; level: string }[];
+  allChapters: { id: string; name: string; subject_id: string }[];
+}) {
+  const createFn = useServerFn(adminCreateQuestionBank);
+  const updateFn = useServerFn(adminUpdateQuestionBank);
+  const isEdit = !!state.row;
+
+  const [form, setForm] = useState<Partial<QB>>({});
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!state.open) return;
+    setForm(
+      state.row
+        ? { ...state.row }
+        : {
+            title: "",
+            summary: "",
+            level: "professional",
+            kind: "text",
+            resource_type: "important",
+            body: "",
+            file_url: null,
+            file_name: null,
+            file_size_bytes: null,
+            question_count: 0,
+            tags: [],
+            status: "draft",
+            is_hidden: false,
+            subject_id: null,
+            chapter_id: null,
+          },
+    );
+  }, [state]);
+
+  const subjectsForLevel = useMemo(
+    () => (form.level ? allSubjects.filter((s) => s.level === form.level) : allSubjects),
+    [allSubjects, form.level],
+  );
+  const chaptersForSubject = useMemo(
+    () => (form.subject_id ? allChapters.filter((c) => c.subject_id === form.subject_id) : []),
+    [allChapters, form.subject_id],
+  );
+
+  const set = <K extends keyof QB>(k: K, v: QB[K] | null) =>
+    setForm((f) => ({ ...f, [k]: v as never }));
+
+  async function handleFileUpload(file: File) {
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+      const detectedKind: Kind =
+        ext === "pdf" ? "pdf" : ext === "doc" || ext === "docx" ? "doc" : "text";
+      const path = `${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+      const { error } = await supabase.storage.from("question-bank").upload(path, file, {
+        upsert: false,
+        contentType: file.type || undefined,
+      });
+      if (error) throw error;
+      const { data: pub } = supabase.storage.from("question-bank").getPublicUrl(path);
+      setForm((f) => ({
+        ...f,
+        kind: detectedKind,
+        file_url: pub.publicUrl,
+        file_name: file.name,
+        file_size_bytes: file.size,
+      }));
+      toast.success("File uploaded");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  const save = useMutation({
+    mutationFn: async () => {
+      if (!form.title?.trim()) throw new Error("Title is required");
+      if (form.kind !== "text" && !form.file_url) throw new Error("Upload a file for PDF/DOC resources");
+      if (form.kind === "text" && !form.body?.trim()) throw new Error("Body is required for text resources");
+      const payload = {
+        title: form.title!,
+        summary: form.summary || null,
+        level: form.level ?? "professional",
+        subject_id: form.subject_id ?? null,
+        chapter_id: form.chapter_id ?? null,
+        kind: form.kind ?? "text",
+        resource_type: (form.resource_type ?? "important") as ResourceType,
+        body: form.body || null,
+        file_url: form.file_url || null,
+        file_name: form.file_name || null,
+        file_size_bytes: form.file_size_bytes ?? null,
+        question_count: form.question_count ?? 0,
+        tags: form.tags ?? [],
+        status: (form.status ?? "draft") as Status,
+        is_hidden: form.is_hidden ?? false,
+        scheduled_at: form.scheduled_at ?? null,
+      };
+      if (isEdit && state.row) return updateFn({ data: { id: state.row.id, ...payload } });
+      return createFn({ data: payload });
+    },
+    onSuccess: () => { toast.success(isEdit ? "Resource updated" : "Resource created"); onSaved(); onClose(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Dialog open={state.open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{isEdit ? "Edit Resource" : "Upload Resource"}</DialogTitle>
+          <DialogDescription>Resources sync to all students instantly once published.</DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          <Field label="Level">
+            <Select value={form.level ?? "professional"} onValueChange={(v) => { set("level", v); set("subject_id", null); set("chapter_id", null); }}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>{levels.map((l) => <SelectItem key={l.code} value={l.code}>{l.name}</SelectItem>)}</SelectContent>
+            </Select>
+          </Field>
+          <Field label="Resource Type">
+            <Select value={form.resource_type ?? "important"} onValueChange={(v) => set("resource_type", v as ResourceType)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="important"><Star className="mr-2 inline h-3 w-3" /> Important Questions</SelectItem>
+                <SelectItem value="pyq"><Archive className="mr-2 inline h-3 w-3" /> Previous Year</SelectItem>
+                <SelectItem value="model"><FileCheck2 className="mr-2 inline h-3 w-3" /> Model Test</SelectItem>
+                <SelectItem value="notes"><FileText className="mr-2 inline h-3 w-3" /> PDF Notes</SelectItem>
+                <SelectItem value="text"><NotebookPen className="mr-2 inline h-3 w-3" /> Text Doc</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Subject">
+            <Select value={form.subject_id ?? ""} onValueChange={(v) => { set("subject_id", v); set("chapter_id", null); }}>
+              <SelectTrigger><SelectValue placeholder="Select subject" /></SelectTrigger>
+              <SelectContent>
+                {subjectsForLevel.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Chapter">
+            <Select value={form.chapter_id ?? ""} onValueChange={(v) => set("chapter_id", v)} disabled={!form.subject_id}>
+              <SelectTrigger><SelectValue placeholder={form.subject_id ? "Select chapter" : "Pick subject first"} /></SelectTrigger>
+              <SelectContent>
+                {chaptersForSubject.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </Field>
+        </div>
+
+        <Field label="Title *">
+          <Input value={form.title ?? ""} onChange={(e) => set("title", e.target.value)} placeholder="HSC Physics — Mechanics Important Qns 2025" />
+        </Field>
+        <Field label="Summary">
+          <Input value={form.summary ?? ""} onChange={(e) => set("summary", e.target.value)} placeholder="One-line summary shown to students" />
+        </Field>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          <Field label="Format">
+            <Select value={form.kind ?? "text"} onValueChange={(v) => set("kind", v as Kind)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="text">Text MCQs / Rich Content</SelectItem>
+                <SelectItem value="pdf">PDF Upload</SelectItem>
+                <SelectItem value="doc">DOC / DOCX Upload</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Question count">
+            <Input
+              type="number"
+              min={0}
+              value={form.question_count ?? 0}
+              onChange={(e) => set("question_count", Math.max(0, parseInt(e.target.value || "0")) as never)}
+            />
+          </Field>
+        </div>
+
+        {form.kind === "text" ? (
+          <Field label="Body / MCQ content *">
+            <Textarea
+              rows={10}
+              value={form.body ?? ""}
+              onChange={(e) => set("body", e.target.value)}
+              placeholder={"Q1. State Newton's Second Law…\nAns: …"}
+              className="font-mono text-xs"
+            />
+          </Field>
+        ) : (
+          <Field label={`Upload ${form.kind === "pdf" ? "PDF" : "DOC/DOCX"} *`}>
+            <div className="rounded-xl border border-dashed border-white/15 bg-background/40 p-4">
+              <input
+                ref={fileRef}
+                type="file"
+                accept={form.kind === "pdf" ? "application/pdf,.pdf" : ".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"}
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleFileUpload(f);
+                }}
+              />
+              {form.file_url ? (
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-medium">{form.file_name}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {form.file_size_bytes ? `${(form.file_size_bytes / 1024).toFixed(1)} KB` : ""}
+                    </p>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button size="sm" variant="outline" className="rounded-lg"
+                      onClick={() => window.open(form.file_url!, "_blank")}>
+                      <Eye className="h-3 w-3" /> Preview
+                    </Button>
+                    <Button size="sm" variant="outline" className="rounded-lg"
+                      onClick={() => fileRef.current?.click()} disabled={uploading}>
+                      <Upload className="h-3 w-3" /> Replace
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  disabled={uploading}
+                  className="flex w-full flex-col items-center gap-2 py-6 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <CloudUpload className="h-6 w-6 text-[var(--neon-purple)]" />
+                  {uploading ? "Uploading…" : `Click to upload ${form.kind === "pdf" ? "PDF" : "DOC/DOCX"}`}
+                </button>
+              )}
+            </div>
+          </Field>
+        )}
+
+        <div className="grid gap-3 md:grid-cols-3">
+          <Field label="Status">
+            <Select value={form.status ?? "draft"} onValueChange={(v) => set("status", v as Status)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="published">Published</SelectItem>
+                <SelectItem value="archived">Archived</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+          <div className="flex items-center justify-between rounded-xl border border-white/10 bg-background/40 px-3 py-2 text-xs">
+            <span>Hide from students</span>
+            <Switch checked={!!form.is_hidden} onCheckedChange={(v) => set("is_hidden", v)} />
+          </div>
+          <Field label="Tags (comma-separated)">
+            <Input
+              value={(form.tags ?? []).join(", ")}
+              onChange={(e) => set("tags", e.target.value.split(",").map((t) => t.trim()).filter(Boolean) as never)}
+              placeholder="hsc, mechanics, 2025"
+            />
+          </Field>
+        </div>
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button onClick={() => save.mutate()} disabled={save.isPending || uploading}>
+            {save.isPending ? "Saving…" : isEdit ? "Save changes" : "Create"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1">
+      <Label className="text-xs font-medium">{label}</Label>
+      {children}
+    </div>
+  );
+}
+
+// ===============================================
+// Visibility
+// ===============================================
+function VisibilityPanel({
+  levels, subjects, chapters,
+}: {
+  levels: { code: string; name: string }[];
+  subjects: { id: string; name: string; level: string }[];
+  chapters: { id: string; name: string; subject_id: string }[];
+}) {
+  const qc = useQueryClient();
+  const getFn = useServerFn(getQuestionBankVisibility);
+  const setFn = useServerFn(adminSetQuestionBankVisibility);
+
+  const vq = useQuery({
+    queryKey: ["qbank-visibility"],
+    queryFn: () => getFn(),
+    staleTime: 30_000,
+  });
+
+  useEffect(() => {
+    const ch = supabase
+      .channel("qbv-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "question_bank_visibility" }, () => {
+        qc.invalidateQueries({ queryKey: ["qbank-visibility"] });
+        qc.invalidateQueries({ queryKey: ["qbank-public"] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [qc]);
+
+  const [section, setSection] = useState(false);
+  const [hLevels, setHLevels] = useState<string[]>([]);
+  const [hSubjects, setHSubjects] = useState<string[]>([]);
+  const [hChapters, setHChapters] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!vq.data) return;
+    setSection(vq.data.section_hidden);
+    setHLevels(vq.data.hidden_levels ?? []);
+    setHSubjects(vq.data.hidden_subject_ids ?? []);
+    setHChapters(vq.data.hidden_chapter_ids ?? []);
+  }, [vq.data]);
+
+  const save = useMutation({
+    mutationFn: () =>
+      setFn({
+        data: {
+          section_hidden: section,
+          hidden_levels: hLevels,
+          hidden_subject_ids: hSubjects,
+          hidden_chapter_ids: hChapters,
+        },
+      }),
+    onSuccess: () => {
+      toast.success("Visibility updated — students sync instantly");
+      qc.invalidateQueries({ queryKey: ["qbank-visibility"] });
+      qc.invalidateQueries({ queryKey: ["qbank-public"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const toggle = (arr: string[], v: string, set: (n: string[]) => void) =>
+    set(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
+
+  return (
+    <div className="glass shadow-card-soft rounded-3xl p-5">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 className="font-display text-lg font-bold flex items-center gap-2">
+            <EyeOff className="h-4 w-4" /> Section Visibility
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            Hide the entire Question Bank, or hide by level / subject / chapter — applies live to all students, homepage, dashboard and recommendations.
+          </p>
+        </div>
+        <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-background/40 px-3 py-2 text-xs">
+          <span className="font-medium">Hide entire section</span>
+          <Switch checked={section} onCheckedChange={setSection} />
+        </div>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        <VisGroup title="Hidden levels" empty="No levels"
+          items={levels.map((l) => ({ id: l.code, name: l.name }))}
+          selected={hLevels} onToggle={(v) => toggle(hLevels, v, setHLevels)} />
+        <VisGroup title="Hidden subjects" empty="No subjects"
+          items={subjects.map((s) => ({ id: s.id, name: s.name }))}
+          selected={hSubjects} onToggle={(v) => toggle(hSubjects, v, setHSubjects)} />
+        <VisGroup title="Hidden chapters" empty="No chapters"
+          items={chapters.map((c) => ({ id: c.id, name: c.name }))}
+          selected={hChapters} onToggle={(v) => toggle(hChapters, v, setHChapters)} />
+      </div>
+
+      <div className="mt-3 flex justify-end">
+        <Button onClick={() => save.mutate()} disabled={save.isPending} className="bg-cta-gradient text-white shadow-glow">
+          <CheckCircle2 className="mr-2 h-4 w-4" />
+          {save.isPending ? "Saving…" : "Save visibility"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function VisGroup({
+  title, empty, items, selected, onToggle,
+}: {
+  title: string;
+  empty: string;
+  items: { id: string; name: string }[];
+  selected: string[];
+  onToggle: (id: string) => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-background/40 p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-xs font-semibold">{title}</span>
+        <Badge variant="outline" className="border-white/10 bg-background/40 text-[10px]">
+          {selected.length} hidden
+        </Badge>
+      </div>
+      <div className="max-h-44 space-y-1 overflow-y-auto pr-1">
+        {items.length === 0 && <p className="text-[11px] text-muted-foreground">{empty}</p>}
+        {items.map((it) => {
+          const on = selected.includes(it.id);
+          return (
+            <button key={it.id} type="button" onClick={() => onToggle(it.id)}
+              className={`flex w-full items-center justify-between rounded-lg border px-2 py-1.5 text-left text-xs transition ${
+                on ? "border-rose-500/40 bg-rose-500/10 text-rose-300"
+                   : "border-white/10 bg-background/40 hover:bg-white/5"
+              }`}>
+              <span className="truncate">{it.name}</span>
+              {on ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3 opacity-50" />}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
