@@ -8,15 +8,24 @@ import learningRouter from "./routes/learning.js";
 import adminRouter    from "./routes/admin.js";
 
 const app  = express();
-const PORT = parseInt(process.env.API_PORT ?? "3001", 10);
+const PORT = parseInt(process.env.PORT ?? process.env.API_PORT ?? "3001", 10);
 
-app.use(cors({
-  origin: [
+function buildCorsOrigins(): (string | RegExp)[] {
+  const origins: (string | RegExp)[] = [
     "http://localhost:5000",
     "http://0.0.0.0:5000",
     /\.replit\.dev$/,
     /\.replit\.app$/,
-  ],
+  ];
+  const envOrigin = process.env.CORS_ORIGIN;
+  if (envOrigin) {
+    envOrigin.split(",").map(o => o.trim()).filter(Boolean).forEach(o => origins.push(o));
+  }
+  return origins;
+}
+
+app.use(cors({
+  origin: buildCorsOrigins(),
   credentials: true,
 }));
 
@@ -37,7 +46,7 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
   res.status(500).json({ error: "Internal server error" });
 });
 
-app.listen(PORT, "localhost", () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`\n  EduMaster Pro API  ready`);
   console.log(`  ➜  http://localhost:${PORT}/api/health\n`);
 });
