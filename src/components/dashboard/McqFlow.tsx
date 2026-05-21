@@ -375,6 +375,8 @@ export function McqFlow() {
       qc.invalidateQueries({ queryKey: ["exam-attempts"] });
       qc.invalidateQueries({ queryKey: ["mcq-wrong"] });
       qc.invalidateQueries({ queryKey: ["mcq-review-counts"] });
+      qc.invalidateQueries({ queryKey: ["subject-progress"] });
+      qc.invalidateQueries({ queryKey: ["chapter-progress"] });
     } catch (e) {
       debugMcq("DB save failed", e);
       toast.error("Could not save attempt", {
