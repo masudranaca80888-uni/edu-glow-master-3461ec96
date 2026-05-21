@@ -120,7 +120,7 @@ export const adminListMocks = createServerFn({ method: "POST" })
     status?: string;
     level?: string;
     subjectId?: string;
-    mockType?: "all" | "full" | "chapter";
+    mockType?: "all" | "full" | "chapter" | "level";
     date?: "all" | "scheduled" | "unscheduled" | "upcoming" | "expired";
     sortBy?: "updated_at" | "title" | "starts_at" | "total_questions";
     sortDir?: "asc" | "desc";
