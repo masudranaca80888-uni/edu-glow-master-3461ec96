@@ -326,6 +326,98 @@ export type Database = {
           },
         ]
       }
+      notification_reads: {
+        Row: {
+          notification_id: string
+          read_at: string
+          user_id: string
+        }
+        Insert: {
+          notification_id: string
+          read_at?: string
+          user_id: string
+        }
+        Update: {
+          notification_id?: string
+          read_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_reads_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          audience: Database["public"]["Enums"]["notification_audience"]
+          audience_level: string | null
+          audience_role: Database["public"]["Enums"]["app_role"] | null
+          audience_subject_id: string | null
+          audience_user_ids: string[]
+          body: string
+          created_at: string
+          created_by: string | null
+          delivered_count: number
+          id: string
+          link: string | null
+          open_count: number
+          priority: Database["public"]["Enums"]["notification_priority"]
+          scheduled_at: string | null
+          sent_at: string | null
+          status: Database["public"]["Enums"]["notification_status"]
+          title: string
+          type: Database["public"]["Enums"]["notification_type"]
+          updated_at: string
+        }
+        Insert: {
+          audience?: Database["public"]["Enums"]["notification_audience"]
+          audience_level?: string | null
+          audience_role?: Database["public"]["Enums"]["app_role"] | null
+          audience_subject_id?: string | null
+          audience_user_ids?: string[]
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          delivered_count?: number
+          id?: string
+          link?: string | null
+          open_count?: number
+          priority?: Database["public"]["Enums"]["notification_priority"]
+          scheduled_at?: string | null
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["notification_status"]
+          title: string
+          type?: Database["public"]["Enums"]["notification_type"]
+          updated_at?: string
+        }
+        Update: {
+          audience?: Database["public"]["Enums"]["notification_audience"]
+          audience_level?: string | null
+          audience_role?: Database["public"]["Enums"]["app_role"] | null
+          audience_subject_id?: string | null
+          audience_user_ids?: string[]
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          delivered_count?: number
+          id?: string
+          link?: string | null
+          open_count?: number
+          priority?: Database["public"]["Enums"]["notification_priority"]
+          scheduled_at?: string | null
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["notification_status"]
+          title?: string
+          type?: Database["public"]["Enums"]["notification_type"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -334,6 +426,7 @@ export type Database = {
           display_name: string
           id: string
           level: string
+          status: Database["public"]["Enums"]["profile_status"]
           updated_at: string
         }
         Insert: {
@@ -343,6 +436,7 @@ export type Database = {
           display_name: string
           id: string
           level?: string
+          status?: Database["public"]["Enums"]["profile_status"]
           updated_at?: string
         }
         Update: {
@@ -352,6 +446,7 @@ export type Database = {
           display_name?: string
           id?: string
           level?: string
+          status?: Database["public"]["Enums"]["profile_status"]
           updated_at?: string
         }
         Relationships: []
@@ -588,6 +683,11 @@ export type Database = {
         | "definition"
         | "other"
       mcq_difficulty: "easy" | "medium" | "hard"
+      notification_audience: "all" | "level" | "subject" | "role" | "users"
+      notification_priority: "low" | "medium" | "high" | "critical"
+      notification_status: "draft" | "scheduled" | "sent" | "failed" | "paused"
+      notification_type: "announcement" | "push" | "email" | "in_app"
+      profile_status: "active" | "suspended" | "pending"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -727,6 +827,11 @@ export const Constants = {
         "other",
       ],
       mcq_difficulty: ["easy", "medium", "hard"],
+      notification_audience: ["all", "level", "subject", "role", "users"],
+      notification_priority: ["low", "medium", "high", "critical"],
+      notification_status: ["draft", "scheduled", "sent", "failed", "paused"],
+      notification_type: ["announcement", "push", "email", "in_app"],
+      profile_status: ["active", "suspended", "pending"],
     },
   },
 } as const
