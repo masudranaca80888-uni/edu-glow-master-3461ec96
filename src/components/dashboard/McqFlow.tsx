@@ -102,6 +102,8 @@ export function McqFlow() {
   const listSubjectsFn = useServerFn(listSubjects);
   const listChaptersFn = useServerFn(listChapters);
   const listMcqsFn = useServerFn(listMcqs);
+  const listSubjectProgressFn = useServerFn(listSubjectProgress);
+  const listChapterProgressFn = useServerFn(listChapterProgress);
   const saveAttemptFn = useServerFn(saveSessionAttempt);
   const toggleBookmarkFn = useServerFn(toggleMcqBookmark);
   const listBookmarkIdsFn = useServerFn(listMyBookmarkIds);
