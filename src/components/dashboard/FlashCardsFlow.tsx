@@ -400,7 +400,7 @@ function Viewer({ subject, chapter }: { subject: string; chapter: string }) {
             </span>
           </div>
           <div className="text-xs text-muted-foreground">
-            Card <span className="font-display font-bold text-foreground">{String(idx + 1).padStart(2, "0")}</span> / {cardsDeck.length}
+            Card <span className="font-display font-bold text-foreground">{String(idx + 1).padStart(2, "0")}</span> / {deck.length}
           </div>
         </div>
 
