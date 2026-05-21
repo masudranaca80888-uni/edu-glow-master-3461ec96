@@ -90,6 +90,7 @@ export function McqFlow() {
   const [current, setCurrent] = useState(0);
   const [showExp, setShowExp] = useState(false);
   const [answers, setAnswers] = useState<AnswerRec[]>([]);
+  const [selectedOption, setSelectedOption] = useState<Choice | null>(null);
   const [sessionStart, setSessionStart] = useState<number>(0);
   const questionStartRef = useRef<number>(Date.now());
   const [finished, setFinished] = useState(false);
@@ -158,10 +159,10 @@ export function McqFlow() {
   const total = mcqs.length;
   const q = mcqs[current];
   const currentAnswer = answers[current];
-  const submittedNow = !!currentAnswer; // answered, but in practice we don't reveal correctness
+  const submittedNow = !!currentAnswer; // true once student clicks Submit (or Skip) for this question
   // Reveal correct/wrong + explanations ONLY in review or after finish.
   const revealResults = reviewMode || finished;
-  const picked = currentAnswer?.chosen ?? null;
+  const picked: Choice | null = submittedNow ? (currentAnswer?.chosen ?? null) : selectedOption;
 
   const options = q
     ? [
@@ -192,10 +193,12 @@ export function McqFlow() {
 
   const allSubmitted = total > 0 && stats.submitted === total;
 
-  // reset question timer on navigation
+  // reset question timer on navigation; rehydrate selectedOption from prior answer
   useEffect(() => {
     questionStartRef.current = Date.now();
     setShowExp(false);
+    setSelectedOption(answers[current]?.chosen ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current, chapterId]);
 
   function gotoChapter(id: string, name: string) {
@@ -205,6 +208,7 @@ export function McqFlow() {
     setCurrent(0);
     setShowExp(false);
     setAnswers([]);
+    setSelectedOption(null);
     setFinished(false);
     setReviewMode(false);
     setSavedAttemptId(null);
@@ -237,13 +241,9 @@ export function McqFlow() {
 
   function submitAnswer(chosen: Choice | null) {
     if (!q || reviewMode) return;
-    // In practice mode: record answer silently and auto-advance.
+    // Manual submit only — records answer, NO auto-advance.
     debugMcq("submit trigger", { currentIndex: current, chosen, isLastQuestion: current === total - 1 });
     recordAnswer(chosen);
-    if (current < total - 1) {
-      // Defer to next tick so state update flushes before navigation.
-      setTimeout(() => setCurrent((c) => Math.min(c + 1, total - 1)), 120);
-    }
   }
 
   function nextQ() {
@@ -368,14 +368,8 @@ export function McqFlow() {
     });
   }, [allSubmitted, current, finished, reviewMode, saving, stats.submitted, step, total]);
 
-  useEffect(() => {
-    if (step !== 3 || total === 0 || !allSubmitted || finished || reviewMode || saving) return;
-    const key = `${chapterId ?? "chapter"}:${total}:${answers.map((a) => a?.chosen ?? "_").join("|")}`;
-    if (autoFinishKeyRef.current === key) return;
-    autoFinishKeyRef.current = key;
-    debugMcq("auto finish condition met", { answeredCount: stats.submitted, totalQuestions: total, currentIndex: current });
-    void finishPractice({ auto: true });
-  }, [allSubmitted, answers, chapterId, current, finishPractice, finished, reviewMode, saving, stats.submitted, step, total]);
+
+
 
   function restartSame() {
     if (!chapterId || !chapterName) return;
@@ -619,13 +613,13 @@ export function McqFlow() {
                           : state === "selected" ? "border-primary bg-primary/10"
                           : "border-border hover:border-primary/50 hover:bg-muted/40";
 
-                        // During practice: click locks selection & auto-advances.
-                        // In review: options are read-only.
-                        const clickable = !reviewMode;
+                        // During practice: clicking picks an option (temporary). Submit is manual.
+                        // Once submitted for this question, options lock until Previous/Next.
+                        const clickable = !reviewMode && !submittedNow;
                         return (
                           <button
                             key={o.k}
-                            onClick={() => clickable && submitAnswer(o.k as "A" | "B" | "C" | "D")}
+                            onClick={() => clickable && setSelectedOption(o.k as Choice)}
                             disabled={!clickable}
                             className={`group relative flex items-center gap-4 rounded-2xl border p-4 text-left transition-all ${tone} disabled:cursor-default`}
                           >
@@ -668,17 +662,27 @@ export function McqFlow() {
                       </button>
                       <div className="flex flex-wrap gap-3">
                         {!reviewMode && !submittedNow && (
-                          <button
-                            onClick={() => submitAnswer(null)}
-                            className="rounded-xl border border-border bg-background/40 px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
-                          >
-                            Skip
-                          </button>
+                          <>
+                            <button
+                              onClick={() => submitAnswer(null)}
+                              className="rounded-xl border border-border bg-background/40 px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
+                            >
+                              Skip
+                            </button>
+                            <button
+                              onClick={() => selectedOption && submitAnswer(selectedOption)}
+                              disabled={!selectedOption}
+                              className="bg-cta-gradient inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-glow transition-transform hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+                            >
+                              <Check className="h-4 w-4" /> Submit Answer
+                            </button>
+                          </>
                         )}
                         {current < total - 1 ? (
                           <button
                             onClick={nextQ}
-                            className="bg-cta-gradient inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-glow transition-transform hover:scale-[1.02]"
+                            disabled={!reviewMode && !submittedNow}
+                            className="bg-cta-gradient inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-glow transition-transform hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
                           >
                             Next <ArrowRight className="h-4 w-4" />
                           </button>
@@ -692,8 +696,8 @@ export function McqFlow() {
                         ) : (
                           <button
                             onClick={() => finishPractice()}
-                            disabled={saving}
-                            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-glow transition-transform hover:scale-[1.02] disabled:opacity-60"
+                            disabled={saving || !submittedNow}
+                            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-glow transition-transform hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trophy className="h-4 w-4" />}
                             {saving ? "Saving…" : allSubmitted ? "Finish Practice" : `Finish (${stats.submitted}/${total})`}
