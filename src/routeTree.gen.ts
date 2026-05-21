@@ -33,6 +33,7 @@ import { Route as AdminFlashCardsRouteImport } from './routes/admin.flash-cards'
 import { Route as AdminClassesRouteImport } from './routes/admin.classes'
 import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
 import { Route as AdminAcademicManagerRouteImport } from './routes/admin.academic-manager'
+import { Route as StudentWrongQuestionsRouteImport } from './routes/_student.wrong-questions'
 import { Route as StudentShortNotesRouteImport } from './routes/_student.short-notes'
 import { Route as StudentQuizRouteImport } from './routes/_student.quiz'
 import { Route as StudentQnsBankRouteImport } from './routes/_student.qns-bank'
@@ -44,6 +45,7 @@ import { Route as StudentFlashCardsRouteImport } from './routes/_student.flash-c
 import { Route as StudentDashboardRouteImport } from './routes/_student.dashboard'
 import { Route as StudentCustomExamRouteImport } from './routes/_student.custom-exam'
 import { Route as StudentClassesRouteImport } from './routes/_student.classes'
+import { Route as StudentBookmarksRouteImport } from './routes/_student.bookmarks'
 
 const VerifyOtpRoute = VerifyOtpRouteImport.update({
   id: '/verify-otp',
@@ -164,6 +166,11 @@ const AdminAcademicManagerRoute = AdminAcademicManagerRouteImport.update({
   path: '/academic-manager',
   getParentRoute: () => AdminRoute,
 } as any)
+const StudentWrongQuestionsRoute = StudentWrongQuestionsRouteImport.update({
+  id: '/wrong-questions',
+  path: '/wrong-questions',
+  getParentRoute: () => StudentRoute,
+} as any)
 const StudentShortNotesRoute = StudentShortNotesRouteImport.update({
   id: '/short-notes',
   path: '/short-notes',
@@ -219,6 +226,11 @@ const StudentClassesRoute = StudentClassesRouteImport.update({
   path: '/classes',
   getParentRoute: () => StudentRoute,
 } as any)
+const StudentBookmarksRoute = StudentBookmarksRouteImport.update({
+  id: '/bookmarks',
+  path: '/bookmarks',
+  getParentRoute: () => StudentRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -231,6 +243,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/verify-otp': typeof VerifyOtpRoute
+  '/bookmarks': typeof StudentBookmarksRoute
   '/classes': typeof StudentClassesRoute
   '/custom-exam': typeof StudentCustomExamRoute
   '/dashboard': typeof StudentDashboardRoute
@@ -242,6 +255,7 @@ export interface FileRoutesByFullPath {
   '/qns-bank': typeof StudentQnsBankRoute
   '/quiz': typeof StudentQuizRoute
   '/short-notes': typeof StudentShortNotesRoute
+  '/wrong-questions': typeof StudentWrongQuestionsRoute
   '/admin/academic-manager': typeof AdminAcademicManagerRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/classes': typeof AdminClassesRoute
@@ -266,6 +280,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/verify-otp': typeof VerifyOtpRoute
+  '/bookmarks': typeof StudentBookmarksRoute
   '/classes': typeof StudentClassesRoute
   '/custom-exam': typeof StudentCustomExamRoute
   '/dashboard': typeof StudentDashboardRoute
@@ -277,6 +292,7 @@ export interface FileRoutesByTo {
   '/qns-bank': typeof StudentQnsBankRoute
   '/quiz': typeof StudentQuizRoute
   '/short-notes': typeof StudentShortNotesRoute
+  '/wrong-questions': typeof StudentWrongQuestionsRoute
   '/admin/academic-manager': typeof AdminAcademicManagerRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/classes': typeof AdminClassesRoute
@@ -304,6 +320,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
   '/verify-otp': typeof VerifyOtpRoute
+  '/_student/bookmarks': typeof StudentBookmarksRoute
   '/_student/classes': typeof StudentClassesRoute
   '/_student/custom-exam': typeof StudentCustomExamRoute
   '/_student/dashboard': typeof StudentDashboardRoute
@@ -315,6 +332,7 @@ export interface FileRoutesById {
   '/_student/qns-bank': typeof StudentQnsBankRoute
   '/_student/quiz': typeof StudentQuizRoute
   '/_student/short-notes': typeof StudentShortNotesRoute
+  '/_student/wrong-questions': typeof StudentWrongQuestionsRoute
   '/admin/academic-manager': typeof AdminAcademicManagerRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/classes': typeof AdminClassesRoute
@@ -342,6 +360,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/verify-otp'
+    | '/bookmarks'
     | '/classes'
     | '/custom-exam'
     | '/dashboard'
@@ -353,6 +372,7 @@ export interface FileRouteTypes {
     | '/qns-bank'
     | '/quiz'
     | '/short-notes'
+    | '/wrong-questions'
     | '/admin/academic-manager'
     | '/admin/analytics'
     | '/admin/classes'
@@ -377,6 +397,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/verify-otp'
+    | '/bookmarks'
     | '/classes'
     | '/custom-exam'
     | '/dashboard'
@@ -388,6 +409,7 @@ export interface FileRouteTypes {
     | '/qns-bank'
     | '/quiz'
     | '/short-notes'
+    | '/wrong-questions'
     | '/admin/academic-manager'
     | '/admin/analytics'
     | '/admin/classes'
@@ -414,6 +436,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/signup'
     | '/verify-otp'
+    | '/_student/bookmarks'
     | '/_student/classes'
     | '/_student/custom-exam'
     | '/_student/dashboard'
@@ -425,6 +448,7 @@ export interface FileRouteTypes {
     | '/_student/qns-bank'
     | '/_student/quiz'
     | '/_student/short-notes'
+    | '/_student/wrong-questions'
     | '/admin/academic-manager'
     | '/admin/analytics'
     | '/admin/classes'
@@ -624,6 +648,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAcademicManagerRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/_student/wrong-questions': {
+      id: '/_student/wrong-questions'
+      path: '/wrong-questions'
+      fullPath: '/wrong-questions'
+      preLoaderRoute: typeof StudentWrongQuestionsRouteImport
+      parentRoute: typeof StudentRoute
+    }
     '/_student/short-notes': {
       id: '/_student/short-notes'
       path: '/short-notes'
@@ -701,10 +732,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StudentClassesRouteImport
       parentRoute: typeof StudentRoute
     }
+    '/_student/bookmarks': {
+      id: '/_student/bookmarks'
+      path: '/bookmarks'
+      fullPath: '/bookmarks'
+      preLoaderRoute: typeof StudentBookmarksRouteImport
+      parentRoute: typeof StudentRoute
+    }
   }
 }
 
 interface StudentRouteChildren {
+  StudentBookmarksRoute: typeof StudentBookmarksRoute
   StudentClassesRoute: typeof StudentClassesRoute
   StudentCustomExamRoute: typeof StudentCustomExamRoute
   StudentDashboardRoute: typeof StudentDashboardRoute
@@ -716,9 +755,11 @@ interface StudentRouteChildren {
   StudentQnsBankRoute: typeof StudentQnsBankRoute
   StudentQuizRoute: typeof StudentQuizRoute
   StudentShortNotesRoute: typeof StudentShortNotesRoute
+  StudentWrongQuestionsRoute: typeof StudentWrongQuestionsRoute
 }
 
 const StudentRouteChildren: StudentRouteChildren = {
+  StudentBookmarksRoute: StudentBookmarksRoute,
   StudentClassesRoute: StudentClassesRoute,
   StudentCustomExamRoute: StudentCustomExamRoute,
   StudentDashboardRoute: StudentDashboardRoute,
@@ -730,6 +771,7 @@ const StudentRouteChildren: StudentRouteChildren = {
   StudentQnsBankRoute: StudentQnsBankRoute,
   StudentQuizRoute: StudentQuizRoute,
   StudentShortNotesRoute: StudentShortNotesRoute,
+  StudentWrongQuestionsRoute: StudentWrongQuestionsRoute,
 }
 
 const StudentRouteWithChildren =

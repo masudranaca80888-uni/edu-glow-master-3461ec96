@@ -10,6 +10,11 @@ import {
 import { toast } from "sonner";
 import { listSubjects, listChapters, listMcqs } from "@/lib/learning.functions";
 import { saveSessionAttempt } from "@/lib/student-performance.functions";
+import {
+  toggleMcqBookmark,
+  listMyBookmarkIds,
+  recordMcqOutcomes,
+} from "@/lib/mcq-review.functions";
 
 type Step = 0 | 1 | 2 | 3;
 
@@ -97,7 +102,42 @@ export function McqFlow() {
   const listChaptersFn = useServerFn(listChapters);
   const listMcqsFn = useServerFn(listMcqs);
   const saveAttemptFn = useServerFn(saveSessionAttempt);
+  const toggleBookmarkFn = useServerFn(toggleMcqBookmark);
+  const listBookmarkIdsFn = useServerFn(listMyBookmarkIds);
+  const recordOutcomesFn = useServerFn(recordMcqOutcomes);
   const qc = useQueryClient();
+
+  const bookmarksQ = useQuery({
+    queryKey: ["my-bookmark-ids"],
+    queryFn: () => listBookmarkIdsFn(),
+    staleTime: 60_000,
+  });
+  const bookmarkSet = useMemo(
+    () => new Set<string>(bookmarksQ.data ?? []),
+    [bookmarksQ.data],
+  );
+
+  async function toggleBookmark(mcqId: string) {
+    const wasBookmarked = bookmarkSet.has(mcqId);
+    try {
+      await toggleBookmarkFn({
+        data: {
+          mcqId,
+          bookmarked: !wasBookmarked,
+          chapterId: chapterId ?? null,
+          subjectId: subjectId ?? null,
+          level: level ?? null,
+        },
+      });
+      qc.invalidateQueries({ queryKey: ["my-bookmark-ids"] });
+      qc.invalidateQueries({ queryKey: ["mcq-bookmarks"] });
+      qc.invalidateQueries({ queryKey: ["mcq-review-counts"] });
+      toast.success(wasBookmarked ? "Bookmark removed" : "Bookmarked for review");
+    } catch (e) {
+      debugMcq("bookmark failed", e);
+      toast.error("Could not update bookmark");
+    }
+  }
 
   const subjectsQ = useQuery({
     queryKey: ["subjects"],
@@ -118,7 +158,9 @@ export function McqFlow() {
   const total = mcqs.length;
   const q = mcqs[current];
   const currentAnswer = answers[current];
-  const revealed = !!currentAnswer; // submitted once
+  const submittedNow = !!currentAnswer; // answered, but in practice we don't reveal correctness
+  // Reveal correct/wrong + explanations ONLY in review or after finish.
+  const revealResults = reviewMode || finished;
   const picked = currentAnswer?.chosen ?? null;
 
   const options = q
@@ -194,9 +236,14 @@ export function McqFlow() {
   }
 
   function submitAnswer(chosen: Choice | null) {
-    if (!q || revealed) return;
+    if (!q || reviewMode) return;
+    // In practice mode: record answer silently and auto-advance.
     debugMcq("submit trigger", { currentIndex: current, chosen, isLastQuestion: current === total - 1 });
     recordAnswer(chosen);
+    if (current < total - 1) {
+      // Defer to next tick so state update flushes before navigation.
+      setTimeout(() => setCurrent((c) => Math.min(c + 1, total - 1)), 120);
+    }
   }
 
   function nextQ() {
@@ -269,10 +316,35 @@ export function McqFlow() {
       toast.success(opts?.auto ? "Practice auto-submitted" : "Practice complete!", {
         description: `Score ${res.score}% · ${res.correct}/${res.total} correct`,
       });
+      // Record wrong/mastered outcomes for the Wrong Questions section
+      try {
+        const outcomes = mcqs.map((m, i) => {
+          const a = finalizedAnswers[i];
+          const correctOpt = normalizeChoice(m.correct_option);
+          return {
+            mcqId: m.id,
+            chosen: a?.chosen ?? null,
+            isCorrect: a?.chosen !== null && a?.chosen === correctOpt,
+            correctOption: correctOpt,
+          };
+        });
+        await recordOutcomesFn({
+          data: {
+            level: level ?? null,
+            subjectId: subjectId ?? null,
+            chapterId: chapterId ?? null,
+            outcomes,
+          },
+        });
+      } catch (e) {
+        debugMcq("record outcomes failed", e);
+      }
       // Refresh dashboard views immediately
       qc.invalidateQueries({ queryKey: ["student-performance-center"] });
       qc.invalidateQueries({ queryKey: ["student-completion-tracker"] });
       qc.invalidateQueries({ queryKey: ["exam-attempts"] });
+      qc.invalidateQueries({ queryKey: ["mcq-wrong"] });
+      qc.invalidateQueries({ queryKey: ["mcq-review-counts"] });
     } catch (e) {
       debugMcq("DB save failed", e);
       toast.error("Could not save attempt", {
@@ -281,7 +353,7 @@ export function McqFlow() {
     } finally {
       setSaving(false);
     }
-  }, [answers, buildCompletedAnswers, chapterId, chapterName, current, finished, level, mcqs, qc, saveAttemptFn, savedAttemptId, saving, sessionStart, subjectId, total]);
+  }, [answers, buildCompletedAnswers, chapterId, chapterName, current, finished, level, mcqs, qc, recordOutcomesFn, saveAttemptFn, savedAttemptId, saving, sessionStart, subjectId, total]);
 
   useEffect(() => {
     if (step !== 3 || total === 0) return;
@@ -512,8 +584,17 @@ export function McqFlow() {
                           </span>
                         )}
                       </div>
-                      <button className="glass flex h-9 w-9 items-center justify-center rounded-xl transition-transform hover:scale-105">
-                        <Bookmark className="h-4 w-4" />
+                      <button
+                        onClick={() => q && toggleBookmark(q.id)}
+                        title={bookmarkSet.has(q.id) ? "Remove bookmark" : "Bookmark this question"}
+                        className={`glass flex h-9 w-9 items-center justify-center rounded-xl transition-transform hover:scale-105 ${
+                          bookmarkSet.has(q.id) ? "text-[var(--neon-purple)]" : ""
+                        }`}
+                      >
+                        <Bookmark
+                          className="h-4 w-4"
+                          fill={bookmarkSet.has(q.id) ? "currentColor" : "none"}
+                        />
                       </button>
                     </div>
 
@@ -526,7 +607,8 @@ export function McqFlow() {
                         const isPicked = picked === o.k;
                         const isCorrect = normalizeChoice(q.correct_option) === o.k;
                         let state: "idle" | "correct" | "wrong" | "selected" = "idle";
-                        if (revealed) {
+                        if (revealResults) {
+                          // Only in review/finished: reveal right vs wrong
                           if (isCorrect) state = "correct";
                           else if (isPicked) state = "wrong";
                         } else if (isPicked) state = "selected";
@@ -537,11 +619,14 @@ export function McqFlow() {
                           : state === "selected" ? "border-primary bg-primary/10"
                           : "border-border hover:border-primary/50 hover:bg-muted/40";
 
+                        // During practice: click locks selection & auto-advances.
+                        // In review: options are read-only.
+                        const clickable = !reviewMode;
                         return (
                           <button
                             key={o.k}
-                            onClick={() => !revealed && submitAnswer(o.k as "A" | "B" | "C" | "D")}
-                            disabled={revealed}
+                            onClick={() => clickable && submitAnswer(o.k as "A" | "B" | "C" | "D")}
+                            disabled={!clickable}
                             className={`group relative flex items-center gap-4 rounded-2xl border p-4 text-left transition-all ${tone} disabled:cursor-default`}
                           >
                             <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-display text-base font-bold transition-all ${
@@ -558,7 +643,7 @@ export function McqFlow() {
                       })}
                     </div>
 
-                    {revealed && q.explanation && (
+                    {revealResults && q.explanation && (
                       <div className="relative mt-5">
                         <button onClick={() => setShowExp((s) => !s)} className="glass inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-transform hover:scale-[1.02]">
                           <Lightbulb className="h-3.5 w-3.5 text-[var(--neon-purple)]" />
@@ -582,7 +667,7 @@ export function McqFlow() {
                         <ArrowLeft className="h-4 w-4" /> Previous
                       </button>
                       <div className="flex flex-wrap gap-3">
-                        {!reviewMode && !revealed && (
+                        {!reviewMode && !submittedNow && (
                           <button
                             onClick={() => submitAnswer(null)}
                             className="rounded-xl border border-border bg-background/40 px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
