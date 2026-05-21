@@ -237,8 +237,29 @@ export function McqAdminConsole() {
         </div>
       </div>
 
+      {/* Level chips */}
+      {(levelsQ.data?.length ?? 0) > 0 && (
+        <div className="glass shadow-card-soft flex flex-wrap items-center gap-2 rounded-2xl p-3">
+          <span className="px-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Level</span>
+          {(levelsQ.data ?? []).map((lv) => (
+            <button
+              key={lv.code}
+              onClick={() => { setLevelCode(lv.code); setSubjectId(null); setChapterId(null); setPage(1); }}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                levelCode === lv.code
+                  ? "bg-cta-gradient text-white shadow-glow"
+                  : "border border-border bg-background/40 text-foreground hover:bg-muted/50"
+              }`}
+              style={levelCode === lv.code && lv.color ? { background: `linear-gradient(135deg, ${lv.color}, ${lv.color}aa)` } : undefined}
+            >
+              {lv.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       <SubjectChapterBar
-        subjects={subjectsQ.data ?? []}
+        subjects={filteredSubjects}
         chapters={chaptersQ.data ?? []}
         subjectId={subjectId}
         chapterId={chapterId}
@@ -249,6 +270,7 @@ export function McqAdminConsole() {
         createSubject={createSubjectFn}
         createChapter={createChapterFn}
       />
+
 
       {/* Filters */}
       <div className="glass shadow-card-soft flex flex-wrap items-center gap-2 rounded-2xl p-3">
