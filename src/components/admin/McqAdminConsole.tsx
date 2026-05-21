@@ -524,13 +524,25 @@ function BulkImportDialog({ chapterId, existingQuestions, onClose, onDone, run }
   onDone: () => void;
   run: (opts: { data: { chapter_id: string; items: BulkImportItem[] } }) => Promise<{ inserted: number }>;
 }) {
-  const [text, setText] = useState(SAMPLE_JSON);
+  const [text, setText] = useState("");
   const [rows, setRows] = useState<ParsedImportRow[]>([]);
   const [progress, setProgress] = useState(0);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
+  // Live auto-parse as user types/pastes (debounced)
+  useEffect(() => {
+    if (!text.trim()) { setRows([]); return; }
+    const t = setTimeout(() => {
+      const parsed = parseMcqText(text, "pasted");
+      setRows(dedupe(parsed, existingQuestions));
+    }, 200);
+    return () => clearTimeout(t);
+  }, [text, existingQuestions]);
+
   const validRows = rows.filter((r) => !r.error && !r.duplicate);
+  const invalidCount = rows.filter((r) => r.error).length;
+  const dupCount = rows.filter((r) => r.duplicate).length;
 
   async function handleFiles(files: FileList | File[]) {
     const list = Array.from(files);
@@ -546,16 +558,8 @@ function BulkImportDialog({ chapterId, existingQuestions, onClose, onDone, run }
         parsed.push(...parseMcqText(sourceText, file.name));
         setProgress(Math.round(((i + 1) / list.length) * 100));
       }
-      const seen = new Set(existingQuestions.map(normalizeQuestion));
-      const withDuplicates = parsed.map((row) => {
-        const key = normalizeQuestion(row.question);
-        const duplicate = seen.has(key);
-        if (!duplicate) seen.add(key);
-        return { ...row, duplicate, error: row.error ?? validateImportRow(row) };
-      });
-      setRows(withDuplicates);
-      setText(JSON.stringify(withDuplicates.map(({ source, duplicate, error, ...item }) => item), null, 2));
-      toast.success(`Parsed ${withDuplicates.length} MCQs from ${list.length} file${list.length > 1 ? "s" : ""}`);
+      setRows(dedupe(parsed, existingQuestions));
+      toast.success(`Parsed ${parsed.length} MCQs from ${list.length} file${list.length > 1 ? "s" : ""}`);
     } catch (e) {
       const message = e instanceof Error ? e.message : "Could not parse upload";
       setMsg({ kind: "err", text: message });
@@ -566,12 +570,11 @@ function BulkImportDialog({ chapterId, existingQuestions, onClose, onDone, run }
   }
 
   async function go() {
+    if (!validRows.length) { toast.error("Nothing valid to import"); return; }
     setBusy(true); setMsg(null);
     try {
-      const parsed = rows.length ? validRows : JSON.parse(text);
-      const items = Array.isArray(parsed) ? parsed : parsed.items;
-      if (!Array.isArray(items)) throw new Error("JSON must be an array (or { items: [...] })");
-      const res = await run({ data: { chapter_id: chapterId, items: items as BulkImportItem[] } });
+      const items: BulkImportItem[] = validRows.map(({ source: _s, duplicate: _d, error: _e, ...item }) => item);
+      const res = await run({ data: { chapter_id: chapterId, items } });
       setMsg({ kind: "ok", text: `Inserted ${res.inserted} MCQs` });
       toast.success(`Imported ${res.inserted} MCQs`);
       setTimeout(onDone, 600);
@@ -587,44 +590,66 @@ function BulkImportDialog({ chapterId, existingQuestions, onClose, onDone, run }
   return (
     <Modal onClose={onClose} title="Bulk import MCQs" wide>
       <p className="text-xs text-muted-foreground">
-        Drop PDF, DOCX, DOC or TXT files, or paste JSON. Parsed rows are validated before import.
+        Paste MCQs in any common format, or drop PDF/DOCX/DOC/TXT files. We auto-detect question, options (A–D or a–d), answer (Answer/Ans/Correct) and explanation.
       </p>
       <label
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => { e.preventDefault(); void handleFiles(e.dataTransfer.files); }}
-        className="mt-3 flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[var(--neon-blue)]/40 bg-background/30 p-6 text-center transition-colors hover:border-[var(--neon-purple)]/60"
+        className="mt-3 flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[var(--neon-blue)]/40 bg-background/30 p-5 text-center transition-colors hover:border-[var(--neon-purple)]/60"
       >
-        <Upload className="h-6 w-6 text-[var(--neon-blue)]" />
-        <span className="mt-2 text-sm font-semibold">Choose or drag multiple files</span>
+        <Upload className="h-5 w-5 text-[var(--neon-blue)]" />
+        <span className="mt-1 text-sm font-semibold">Drop files or click to choose</span>
         <span className="text-[11px] text-muted-foreground">PDF · DOCX · DOC · TXT</span>
         <input type="file" multiple accept=".pdf,.doc,.docx,.txt,text/plain,application/pdf" className="sr-only" onChange={(e) => e.target.files && void handleFiles(e.target.files)} />
       </label>
-      {progress > 0 && (
+      {progress > 0 && progress < 100 && (
         <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted/40">
           <div className="h-full rounded-full bg-cta-gradient transition-all" style={{ width: `${progress}%` }} />
         </div>
       )}
+
+      <div className="mt-3">
+        <div className="mb-1 flex items-center justify-between text-[11px] text-muted-foreground">
+          <span>Paste MCQs here (auto-parses as you type)</span>
+          {rows.length > 0 && (
+            <span>
+              <span className="text-emerald-400">{validRows.length} valid</span>
+              {invalidCount > 0 && <> · <span className="text-red-400">{invalidCount} invalid</span></>}
+              {dupCount > 0 && <> · <span className="text-amber-400">{dupCount} duplicate</span></>}
+            </span>
+          )}
+        </div>
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder={SAMPLE_TEXT}
+          className="w-full rounded-xl border border-border/60 bg-background/40 p-3 font-mono text-xs outline-none focus:border-[var(--neon-blue)]/60 min-h-[200px]"
+        />
+      </div>
+
       {rows.length > 0 && (
         <div className="mt-3 max-h-56 overflow-auto rounded-2xl border border-border/60 bg-background/30">
           {rows.map((row, i) => (
-            <div key={`${row.source}-${i}`} className={`border-b border-border/40 p-3 text-xs last:border-b-0 ${row.error || row.duplicate ? "bg-destructive/10" : ""}`}>
+            <div key={`${row.source}-${i}`} className={`border-b border-border/40 p-3 text-xs last:border-b-0 ${row.error ? "bg-destructive/10" : row.duplicate ? "bg-amber-500/10" : ""}`}>
               <div className="flex items-start justify-between gap-3">
-                <p className="font-medium">{row.question || "Untitled question"}</p>
-                <span className={row.error || row.duplicate ? "text-destructive" : "text-emerald-400"}>{row.error ?? (row.duplicate ? "Duplicate" : "Valid")}</span>
+                <p className="line-clamp-2 font-medium">{row.question || "Untitled question"}</p>
+                <span className={row.error ? "text-destructive" : row.duplicate ? "text-amber-400" : "text-emerald-400"}>{row.error ?? (row.duplicate ? "Duplicate" : "Valid")}</span>
               </div>
-              <p className="mt-1 text-[10px] text-muted-foreground">{row.source} · Answer {row.correct_option}</p>
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                A: {row.option_a?.slice(0, 30)} · B: {row.option_b?.slice(0, 30)} · C: {row.option_c?.slice(0, 30)} · D: {row.option_d?.slice(0, 30)} · Ans <b>{row.correct_option}</b>
+              </p>
             </div>
           ))}
         </div>
       )}
-      <textarea value={text} onChange={(e) => setText(e.target.value)} className="mt-3 w-full rounded-xl border border-border/60 bg-background/40 p-3 font-mono text-xs outline-none focus:border-[var(--neon-blue)]/60 min-h-[260px]" />
+
       {msg && (
         <p className={`mt-3 text-xs ${msg.kind === "ok" ? "text-emerald-400" : "text-red-400"}`}>{msg.text}</p>
       )}
       <div className="mt-4 flex justify-end gap-2">
         <button onClick={onClose} className="rounded-xl border border-border bg-background/40 px-4 py-2 text-sm">Cancel</button>
-        <button onClick={go} disabled={busy} className="bg-cta-gradient inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-glow disabled:opacity-50">
-          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Import {rows.length ? `${validRows.length} valid` : ""}
+        <button onClick={go} disabled={busy || validRows.length === 0} className="bg-cta-gradient inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-glow disabled:opacity-50">
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Import {validRows.length || ""}
         </button>
       </div>
     </Modal>
@@ -650,35 +675,114 @@ async function extractFileText(file: File) {
   throw new Error(`Unsupported file format: ${file.name}`);
 }
 
+/**
+ * Tolerant MCQ parser. Handles:
+ *  - Question lead-ins: "Question:", "Q1.", "1.", "1)", or none
+ *  - Options: "A.", "A)", "A:", "a)", "(A)" — case-insensitive
+ *  - Answer: "Answer: B", "Ans: b", "Correct: B", "Correct Answer - B"
+ *  - Explanation: "Explanation:", "Reason:", "Solution:" (multi-line until next question)
+ */
 function parseMcqText(raw: string, source: string): ParsedImportRow[] {
-  const normalized = raw.replace(/\r/g, "").replace(/[ \t]+/g, " ").trim();
-  const blocks = normalized
-    .split(/\n\s*\n|(?=\n?\s*(?:Q\.?\s*)?\d+[).]\s+)/gi)
-    .map((b) => b.trim())
-    .filter((b) => /(?:^|\n|\s)(?:A|B|C|D)[).:-]/i.test(b));
+  const text = raw.replace(/\r\n?/g, "\n").trim();
+  if (!text) return [];
 
-  return blocks.map((block) => {
-    const clean = block.replace(/^\s*(?:Q\.?\s*)?\d+[).]\s*/i, "");
-    const answer = /(?:answer|correct(?:\s+answer)?)[\s:.-]*([ABCD])/i.exec(clean)?.[1]?.toUpperCase() as BulkImportItem["correct_option"] | undefined;
-    const explanation = /(?:explanation|reason)[\s:.-]*([\s\S]*)/i.exec(clean)?.[1]?.trim();
-    const option = (letter: "A" | "B" | "C" | "D") => {
-      const next = letter === "A" ? "B" : letter === "B" ? "C" : letter === "C" ? "D" : "Answer|Correct|Explanation|Reason|$";
-      return new RegExp(`${letter}[).:-]\\s*([\\s\\S]*?)(?=\\n?\\s*(?:${next})[).:-]?\\s*)`, "i").exec(clean)?.[1]?.trim() ?? "";
-    };
-    const question = clean.split(/\n?\s*A[).:-]\s*/i)[0]?.trim() ?? "";
-    return {
-      source,
-      question,
-      option_a: option("A"),
-      option_b: option("B"),
-      option_c: option("C"),
-      option_d: option("D"),
-      correct_option: answer ?? "A",
-      explanation: explanation || null,
-      difficulty: "medium",
-      status: "published",
-      tags: [source.split(".")[0].slice(0, 40)],
-    };
+  // Split into question blocks. New block starts at numbered/Q-prefixed line or "Question:" lead-in.
+  const lines = text.split("\n");
+  const blocks: string[] = [];
+  let current: string[] = [];
+  const isQuestionStart = (line: string) =>
+    /^\s*(?:Q(?:uestion)?\s*\.?\s*)?\d{1,3}[).:-]\s+\S/.test(line) ||
+    /^\s*Question\s*[:.-]/i.test(line);
+
+  for (const line of lines) {
+    if (isQuestionStart(line) && current.length) {
+      blocks.push(current.join("\n"));
+      current = [line];
+    } else {
+      current.push(line);
+    }
+  }
+  if (current.length) blocks.push(current.join("\n"));
+
+  // Fallback: no numbering at all — treat whole text as one block, or split on blank lines if multiple A. markers
+  let working = blocks.length > 1 ? blocks : [text];
+  if (working.length === 1 && (text.match(/(?:^|\n)\s*\(?A\)?[).:]/gi)?.length ?? 0) > 1) {
+    working = text.split(/\n\s*\n+/).map((b) => b.trim()).filter(Boolean);
+  }
+
+  const out: ParsedImportRow[] = [];
+  for (const block of working) {
+    const row = parseSingleBlock(block, source);
+    if (row) out.push(row);
+  }
+  return out;
+}
+
+function parseSingleBlock(block: string, source: string): ParsedImportRow | null {
+  const stripped = block
+    .replace(/^\s*Question\s*[:.-]\s*/i, "")
+    .replace(/^\s*Q(?:uestion)?\s*\.?\s*\d{1,3}[).:-]?\s*/i, "")
+    .replace(/^\s*\d{1,3}[).:-]\s*/i, "")
+    .trim();
+
+  // Find option markers — accept A./A)/A:/(A)/a)
+  const optRe = /(^|\n)[ \t]*\(?([A-Da-d])\)?[ \t]*[).:.\-][ \t]*/g;
+  const markers: { letter: "A" | "B" | "C" | "D"; index: number; matchLen: number }[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = optRe.exec(stripped)) !== null) {
+    const letter = m[2].toUpperCase() as "A" | "B" | "C" | "D";
+    const start = m.index + m[1].length;
+    markers.push({ letter, index: start, matchLen: m[0].length - m[1].length });
+  }
+  if (markers.length < 4) return null;
+
+  const firstOf = (l: "A" | "B" | "C" | "D") => markers.find((x) => x.letter === l);
+  const mA = firstOf("A"), mB = firstOf("B"), mC = firstOf("C"), mD = firstOf("D");
+  if (!mA || !mB || !mC || !mD) return null;
+
+  const question = stripped.slice(0, mA.index).trim();
+
+  const afterD = stripped.slice(mD.index + mD.matchLen);
+  const ansRe = /\n?\s*(?:Answer|Ans|Correct(?:\s*Answer)?|Correct\s*Option)\s*[:.\-]?\s*\(?([A-Da-d])\)?/i;
+  const expRe = /\n?\s*(?:Explanation|Reason|Solution)\s*[:.\-]\s*([\s\S]*)$/i;
+  const ansMatch = ansRe.exec(afterD);
+  const expMatch = expRe.exec(afterD);
+  const cuts = [ansMatch?.index, expMatch?.index].filter((x): x is number => typeof x === "number");
+  const cut = cuts.length ? Math.min(...cuts) : afterD.length;
+  const optionD = afterD.slice(0, cut).trim();
+
+  const between = (a: typeof mA, b: typeof mA) => stripped.slice(a.index + a.matchLen, b.index).trim();
+
+  const answer = (ansMatch?.[1]?.toUpperCase() ?? "A") as "A" | "B" | "C" | "D";
+  const explanation = expMatch?.[1]?.trim() || null;
+  const cleanOpt = (s: string) => s.replace(/^[\s).:.\-]+/, "").replace(/[\s.]+$/, "").trim();
+
+  return {
+    source,
+    question: cleanText(question),
+    option_a: cleanOpt(between(mA, mB)),
+    option_b: cleanOpt(between(mB, mC)),
+    option_c: cleanOpt(between(mC, mD)),
+    option_d: cleanOpt(optionD),
+    correct_option: answer,
+    explanation,
+    difficulty: "medium",
+    status: "published",
+    tags: [],
+  };
+}
+
+function cleanText(s: string) {
+  return s.replace(/\s+/g, " ").trim();
+}
+
+function dedupe(parsed: ParsedImportRow[], existing: string[]): ParsedImportRow[] {
+  const seen = new Set(existing.map(normalizeQuestion));
+  return parsed.map((row) => {
+    const key = normalizeQuestion(row.question);
+    const duplicate = !!key && seen.has(key);
+    if (!duplicate && key) seen.add(key);
+    return { ...row, duplicate, error: row.error ?? validateImportRow(row) };
   });
 }
 
@@ -693,23 +797,21 @@ function validateImportRow(row: BulkImportItem) {
   return undefined;
 }
 
-const SAMPLE_JSON = JSON.stringify(
-  [
-    {
-      question: "Which gas do plants absorb during photosynthesis?",
-      option_a: "Oxygen",
-      option_b: "Carbon dioxide",
-      option_c: "Nitrogen",
-      option_d: "Hydrogen",
-      correct_option: "B",
-      explanation: "Plants absorb CO₂ and release O₂.",
-      difficulty: "easy",
-      tags: ["biology", "photosynthesis"],
-    },
-  ],
-  null,
-  2,
-);
+const SAMPLE_TEXT = `1. What is HTML?
+A. Programming Language
+B. Markup Language
+C. Database
+D. Operating System
+Answer: B
+Explanation: HTML is a markup language used to build web pages.
+
+2. What is CSS?
+a) Database
+b) Styling Language
+c) Server
+d) Browser
+Ans: b
+Explanation: CSS is used for styling.`;
 
 /* ---------------- Atoms ---------------- */
 function Modal({ children, onClose, title, wide }: { children: React.ReactNode; onClose: () => void; title: string; wide?: boolean }) {
