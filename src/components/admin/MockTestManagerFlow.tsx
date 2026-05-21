@@ -43,6 +43,10 @@ import {
 
 type Level = "certificate" | "professional" | "advanced";
 type Status = "draft" | "published" | "archived";
+type MockType = "all" | "full" | "chapter";
+type DateFilter = "all" | "scheduled" | "unscheduled" | "upcoming" | "expired";
+type SortBy = "updated_at" | "title" | "starts_at" | "total_questions";
+type SortDir = "asc" | "desc";
 
 type Mock = {
   id: string;
@@ -79,6 +83,33 @@ const LEVELS: { value: Level; label: string }[] = [
   { value: "professional", label: "Professional" },
   { value: "advanced", label: "Advanced" },
 ];
+
+function stopRowAction(e: React.MouseEvent<HTMLElement>) {
+  e.preventDefault();
+  e.stopPropagation();
+}
+
+function downloadCsv(filename: string, rows: Mock[]) {
+  const header = ["Title", "Level", "Status", "Questions", "Duration", "Starts", "Ends"];
+  const body = rows.map((r) => [
+    r.title,
+    r.level,
+    r.status,
+    String(r.total_questions),
+    String(Math.round(r.duration_seconds / 60)),
+    r.starts_at ?? "",
+    r.ends_at ?? "",
+  ]);
+  const csv = [header, ...body]
+    .map((line) => line.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(","))
+    .join("\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 export function MockTestManagerFlow() {
   const qc = useQueryClient();
