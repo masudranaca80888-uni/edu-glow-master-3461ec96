@@ -800,30 +800,33 @@ function MockBuilderDialog({
               </div>
             </div>
 
-            <div>
-              <Label className="mb-2 block text-xs">
-                Subject {subjectsQ.isFetching && <Loader2 className="ml-1 inline h-3 w-3 animate-spin" />}
-              </Label>
-              {subjects.length === 0 && !subjectsQ.isFetching ? (
-                <p className="text-xs text-muted-foreground">No subjects under <strong>{level}</strong>. Create one in the MCQ Manager and set its level.</p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {subjects.map((s) => (
-                    <button
-                      key={s.id}
-                    onClick={() => { setSubjectId(s.id); setChapterIds([]); setSelectedMcqIds([]); }}
-                      className={`rounded-lg border px-3 py-1.5 text-xs transition ${
-                        subjectId === s.id
-                          ? "border-[var(--neon-purple)]/50 bg-[var(--neon-purple)]/10 text-[var(--neon-purple)]"
-                          : "border-white/10 hover:border-white/30"
-                      }`}
-                    >
-                      {s.name}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            {scope !== "level" && (
+              <div>
+                <Label className="mb-2 block text-xs">
+                  Subject {subjectsQ.isFetching && <Loader2 className="ml-1 inline h-3 w-3 animate-spin" />}
+                </Label>
+                {subjects.length === 0 && !subjectsQ.isFetching ? (
+                  <p className="text-xs text-muted-foreground">No subjects under <strong>{level}</strong>. Create one in the MCQ Manager and set its level.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {subjects.map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={() => { setSubjectId(s.id); setChapterIds([]); setSelectedMcqIds([]); }}
+                        className={`rounded-lg border px-3 py-1.5 text-xs transition ${
+                          subjectId === s.id
+                            ? "border-[var(--neon-purple)]/50 bg-[var(--neon-purple)]/10 text-[var(--neon-purple)]"
+                            : "border-white/10 hover:border-white/30"
+                        }`}
+                      >
+                        {s.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
 
             <div>
               <Label className="mb-2 block text-xs">
