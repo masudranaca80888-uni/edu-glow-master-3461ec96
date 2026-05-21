@@ -872,8 +872,11 @@ function MockBuilderDialog({
         {/* STEP 2: Questions */}
         {step === 2 && (
           <div className="space-y-3">
-            {chapterIds.length === 0 ? (
+            {scope === "chapter" && chapterIds.length === 0 ? (
               <p className="text-sm text-muted-foreground">Select at least one chapter in Step 1.</p>
+            ) : scope === "subject" && !subjectId ? (
+              <p className="text-sm text-muted-foreground">Select a subject in Step 1.</p>
+
             ) : (
               <>
                 <div className="flex flex-wrap items-center gap-2">
