@@ -351,6 +351,8 @@ function QuizEditorDialog({
   const createFn = useServerFn(adminCreateQuiz);
   const updateFn = useServerFn(adminUpdateQuiz);
   const chaptersFn = useServerFn(adminListChapters);
+  const mcqListFn = useServerFn(adminListMcqs);
+  const setQuestionsFn = useServerFn(adminSetQuizQuestions);
 
   const [form, setForm] = useState({
     title: quiz?.title ?? "",
@@ -361,9 +363,11 @@ function QuizEditorDialog({
     difficulty: quiz?.difficulty ?? "medium",
     total_questions: quiz?.total_questions ?? 10,
     duration_minutes: Math.round((quiz?.duration_seconds ?? 600) / 60),
+    passing_marks: 0,
     is_public: quiz?.is_public ?? true,
     randomize_questions: true,
     status: quiz?.status ?? "draft",
+    auto_attach: !quiz, // default ON when creating
   });
 
   const filteredSubjects = useMemo(
@@ -376,6 +380,14 @@ function QuizEditorDialog({
     queryFn: () => chaptersFn({ data: { subjectId: form.subject_id } }),
     enabled: !!form.subject_id,
   });
+
+  // Live preview count of available MCQs in the selected chapter
+  const poolPreview = useQuery({
+    queryKey: ["editor-pool-count", form.chapter_id],
+    queryFn: () => mcqListFn({ data: { chapterId: form.chapter_id, status: "published", page: 1, pageSize: 1 } }),
+    enabled: !!form.chapter_id,
+  });
+  const availableCount = poolPreview.data?.count ?? 0;
 
   const save = useMutation({
     mutationFn: async () => {
@@ -393,13 +405,43 @@ function QuizEditorDialog({
         is_public: form.is_public,
         randomize_questions: form.randomize_questions,
         randomize_options: false,
-        passing_marks: 0,
+        passing_marks: form.passing_marks,
         negative_marking: 0,
       };
-      if (quiz) await updateFn({ data: { id: quiz.id, ...payload } });
-      else await createFn({ data: payload });
+      let quizId = quiz?.id;
+      if (quiz) {
+        await updateFn({ data: { id: quiz.id, ...payload } });
+      } else {
+        const created = await createFn({ data: payload });
+        quizId = (created as { id: string }).id;
+      }
+      // Auto-attach chapter MCQs on create
+      if (!quiz && form.auto_attach && form.chapter_id && quizId) {
+        const pool = await mcqListFn({
+          data: { chapterId: form.chapter_id, status: "published", page: 1, pageSize: 200 },
+        });
+        const ids = (pool.rows as Array<{ id: string }>).map((m) => m.id);
+        if (ids.length) {
+          // shuffle for "random pick"
+          for (let i = ids.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [ids[i], ids[j]] = [ids[j], ids[i]];
+          }
+          const picked = ids.slice(0, Math.min(form.total_questions, ids.length));
+          await setQuestionsFn({ data: { quizId, mcqIds: picked } });
+        }
+      }
+      return { quizId, attached: !quiz && form.auto_attach };
     },
-    onSuccess: () => { toast.success(quiz ? "Quiz updated" : "Quiz created"); onSaved(); onClose(); },
+    onSuccess: (r) => {
+      toast.success(
+        quiz ? "Quiz updated"
+          : r.attached ? "Quiz created · MCQs auto-attached from chapter"
+          : "Quiz created",
+      );
+      onSaved();
+      onClose();
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
