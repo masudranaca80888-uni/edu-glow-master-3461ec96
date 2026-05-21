@@ -41,8 +41,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   hydrate: () => {
     if (typeof window === "undefined") return;
     const rawTheme = window.localStorage.getItem(THEME_KEY) as "dark" | "light" | null;
-    const theme = rawTheme ?? get().theme;
-    document.documentElement.classList.toggle("dark", theme === "dark");
+    const theme: "dark" | "light" = rawTheme ?? "dark";
+    const root = document.documentElement;
+    root.classList.toggle("dark", theme === "dark");
+    root.style.colorScheme = theme;
+    if (!rawTheme) {
+      window.localStorage.setItem(THEME_KEY, theme);
+    }
     set({ theme });
 
     set({ hydrated: true });
@@ -85,7 +90,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     const theme = get().theme === "dark" ? "light" : "dark";
     if (typeof window !== "undefined") {
       window.localStorage.setItem(THEME_KEY, theme);
-      document.documentElement.classList.toggle("dark", theme === "dark");
+      const root = document.documentElement;
+      root.classList.toggle("dark", theme === "dark");
+      root.style.colorScheme = theme;
     }
     set({ theme });
   },
