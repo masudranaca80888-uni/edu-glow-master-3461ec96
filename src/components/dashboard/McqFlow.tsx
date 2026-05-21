@@ -559,8 +559,17 @@ export function McqFlow() {
                           </span>
                         )}
                       </div>
-                      <button className="glass flex h-9 w-9 items-center justify-center rounded-xl transition-transform hover:scale-105">
-                        <Bookmark className="h-4 w-4" />
+                      <button
+                        onClick={() => q && toggleBookmark(q.id)}
+                        title={bookmarkSet.has(q.id) ? "Remove bookmark" : "Bookmark this question"}
+                        className={`glass flex h-9 w-9 items-center justify-center rounded-xl transition-transform hover:scale-105 ${
+                          bookmarkSet.has(q.id) ? "text-[var(--neon-purple)]" : ""
+                        }`}
+                      >
+                        <Bookmark
+                          className="h-4 w-4"
+                          fill={bookmarkSet.has(q.id) ? "currentColor" : "none"}
+                        />
                       </button>
                     </div>
 
@@ -573,7 +582,8 @@ export function McqFlow() {
                         const isPicked = picked === o.k;
                         const isCorrect = normalizeChoice(q.correct_option) === o.k;
                         let state: "idle" | "correct" | "wrong" | "selected" = "idle";
-                        if (revealed) {
+                        if (revealResults) {
+                          // Only in review/finished: reveal right vs wrong
                           if (isCorrect) state = "correct";
                           else if (isPicked) state = "wrong";
                         } else if (isPicked) state = "selected";
@@ -584,11 +594,14 @@ export function McqFlow() {
                           : state === "selected" ? "border-primary bg-primary/10"
                           : "border-border hover:border-primary/50 hover:bg-muted/40";
 
+                        // During practice: click locks selection & auto-advances.
+                        // In review: options are read-only.
+                        const clickable = !reviewMode;
                         return (
                           <button
                             key={o.k}
-                            onClick={() => !revealed && submitAnswer(o.k as "A" | "B" | "C" | "D")}
-                            disabled={revealed}
+                            onClick={() => clickable && submitAnswer(o.k as "A" | "B" | "C" | "D")}
+                            disabled={!clickable}
                             className={`group relative flex items-center gap-4 rounded-2xl border p-4 text-left transition-all ${tone} disabled:cursor-default`}
                           >
                             <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-display text-base font-bold transition-all ${
@@ -605,7 +618,7 @@ export function McqFlow() {
                       })}
                     </div>
 
-                    {revealed && q.explanation && (
+                    {revealResults && q.explanation && (
                       <div className="relative mt-5">
                         <button onClick={() => setShowExp((s) => !s)} className="glass inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-transform hover:scale-[1.02]">
                           <Lightbulb className="h-3.5 w-3.5 text-[var(--neon-purple)]" />
