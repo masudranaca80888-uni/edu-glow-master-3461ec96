@@ -10,6 +10,11 @@ import {
 import { toast } from "sonner";
 import { listSubjects, listChapters, listMcqs } from "@/lib/learning.functions";
 import { saveSessionAttempt } from "@/lib/student-performance.functions";
+import {
+  toggleMcqBookmark,
+  listMyBookmarkIds,
+  recordMcqOutcomes,
+} from "@/lib/mcq-review.functions";
 
 type Step = 0 | 1 | 2 | 3;
 
