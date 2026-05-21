@@ -642,7 +642,7 @@ export function McqFlow() {
                         <ArrowLeft className="h-4 w-4" /> Previous
                       </button>
                       <div className="flex flex-wrap gap-3">
-                        {!reviewMode && !revealed && (
+                        {!reviewMode && !submittedNow && (
                           <button
                             onClick={() => submitAnswer(null)}
                             className="rounded-xl border border-border bg-background/40 px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
