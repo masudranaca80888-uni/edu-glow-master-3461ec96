@@ -255,6 +255,7 @@ export function DashContent() {
 
       {/* Continue learning + notifications */}
       <section className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+        {!classesHidden && (
         <div className="lg:col-span-2">
           <div className="flex items-center justify-between">
             <h3 className="font-display text-lg font-bold">Continue Learning</h3>
@@ -295,6 +296,7 @@ export function DashContent() {
             ))}
           </div>
         </div>
+        )}
 
         {/* Notifications */}
         <div className="glass shadow-card-soft rounded-3xl p-5">
