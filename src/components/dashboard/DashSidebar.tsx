@@ -7,6 +7,7 @@ import {
 import { toast } from "sonner";
 import { studentNavItems } from "@/lib/app-data";
 import { useAppStore } from "@/stores/app-store";
+import { useModuleVisibility } from "@/hooks/use-module-visibility";
 
 export function DashSidebar() {
   const currentPath = useRouterState({ select: (s) => s.location.pathname });
