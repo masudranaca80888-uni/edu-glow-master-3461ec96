@@ -483,6 +483,8 @@ export function McqFlow() {
                 onRetry={restartSame}
                 onNewChapter={() => setStep(2)}
                 savedAttemptId={savedAttemptId}
+                saving={saving}
+                onSaveRetry={() => finishPractice()}
               />
             ) : (
               <div className="glass shadow-glow relative overflow-hidden rounded-3xl p-6">
@@ -707,7 +709,7 @@ export function McqFlow() {
 
 function ResultScreen({
   stats, total, chapterName, subjectName, level, durationSec,
-  mcqs, answers, onReview, onRetry, onNewChapter, savedAttemptId,
+  mcqs, answers, onReview, onRetry, onNewChapter, savedAttemptId, saving, onSaveRetry,
 }: {
   stats: { correct: number; wrong: number; skipped: number; attempted: number; accuracy: number; score: number; submitted: number };
   total: number;
@@ -721,6 +723,8 @@ function ResultScreen({
   onRetry: () => void;
   onNewChapter: () => void;
   savedAttemptId: string | null;
+  saving: boolean;
+  onSaveRetry: () => void;
 }) {
   const passed = stats.score >= 60;
 
@@ -815,6 +819,15 @@ function ResultScreen({
           >
             Pick Another Chapter
           </button>
+          {!savedAttemptId && (
+            <button
+              onClick={onSaveRetry}
+              disabled={saving}
+              className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-2.5 text-sm font-semibold text-amber-400 transition-colors hover:bg-amber-400/15 disabled:opacity-60"
+            >
+              {saving ? "Saving…" : "Save Attempt"}
+            </button>
+          )}
         </div>
       </div>
 
