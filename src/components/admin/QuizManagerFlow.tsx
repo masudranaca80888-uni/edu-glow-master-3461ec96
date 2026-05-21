@@ -594,10 +594,7 @@ const PickerRow = ({
     </div>
   </label>
 );
-const MemoPickerRow = (
-  // eslint-disable-next-line react/display-name
-  (function () { return require("react").memo(PickerRow); })()
-) as typeof PickerRow;
+const MemoPickerRow = memo(PickerRow);
 
 function QuestionPickerDialog({
   quiz, onClose, onSaved,
