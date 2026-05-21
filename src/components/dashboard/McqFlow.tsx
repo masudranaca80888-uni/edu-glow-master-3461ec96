@@ -762,13 +762,10 @@ export function McqFlow() {
                 let cls = "border border-border bg-card/40 text-muted-foreground";
                 if (isCurrent) cls = "bg-cta-gradient text-white shadow-glow";
                 else if (a) {
-                  if (finished || reviewMode) {
-                    if (a.chosen === null) cls = "bg-amber-500/15 text-amber-400 border border-amber-400/30";
-                    else if (a.chosen === normalizeChoice(m.correct_option)) cls = "bg-emerald-500/15 text-emerald-400 border border-emerald-400/30";
-                    else cls = "bg-rose-500/15 text-rose-400 border border-rose-400/30";
-                  } else {
-                    cls = "bg-[var(--neon-blue)]/15 text-[var(--neon-blue)] border border-[var(--neon-blue)]/30";
-                  }
+                  // Reveal correctness immediately after each submit (and in review/finish).
+                  if (a.chosen === null) cls = "bg-amber-500/15 text-amber-400 border border-amber-400/30";
+                  else if (a.chosen === normalizeChoice(m.correct_option)) cls = "bg-emerald-500/15 text-emerald-400 border border-emerald-400/30";
+                  else cls = "bg-rose-500/15 text-rose-400 border border-rose-400/30";
                 }
                 return (
                   <button
