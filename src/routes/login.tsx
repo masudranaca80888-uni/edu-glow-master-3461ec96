@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { Mail, ArrowRight, ShieldCheck } from "lucide-react";
+import { Mail, ArrowRight, ShieldCheck, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { AuthShell } from "@/components/auth/AuthShell";
 import {
@@ -44,11 +44,10 @@ function StudentLogin() {
   const refreshAuth = useAppStore((s) => s.refreshAuth);
   const navigate = useNavigate();
 
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSignIn = async (emailVal: string, pwVal: string) => {
     setLoading(true);
     try {
-      await signInWithEmail(email.trim(), pw);
+      await signInWithEmail(emailVal.trim(), pwVal);
       const user = await refreshAuth();
       if (!user) throw new Error("Session not found");
       toast.success(`Welcome back, ${user.name}!`);
@@ -58,6 +57,17 @@ function StudentLogin() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleSignIn(email, pw);
+  };
+
+  const onDemoLogin = () => {
+    setEmail("demo@student.com");
+    setPw("Demo@1234");
+    handleSignIn("demo@student.com", "Demo@1234");
   };
 
   const onGoogle = async () => {
@@ -82,7 +92,19 @@ function StudentLogin() {
         Continue your smart learning journey.
       </p>
 
-      <form className="mt-7 space-y-4" onSubmit={onSubmit}>
+      <button
+        type="button"
+        onClick={onDemoLogin}
+        disabled={loading}
+        className="mt-5 w-full flex items-center justify-center gap-2 rounded-xl border border-[var(--neon-blue)]/50 bg-[var(--neon-blue)]/10 px-4 py-2.5 text-sm font-semibold text-[var(--neon-blue)] hover:bg-[var(--neon-blue)]/20 transition-colors disabled:opacity-50"
+      >
+        <Sparkles className="h-4 w-4" />
+        Try Demo — Student Login
+      </button>
+
+      <Divider>Or sign in with email</Divider>
+
+      <form className="space-y-4" onSubmit={onSubmit}>
         <div>
           <FieldLabel>Email</FieldLabel>
           <NeoInput

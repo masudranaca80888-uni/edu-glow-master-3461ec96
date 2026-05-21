@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { Mail, ShieldCheck, Fingerprint, Lock, Activity } from "lucide-react";
+import { Mail, ShieldCheck, Fingerprint, Lock, Activity, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { AuthShell } from "@/components/auth/AuthShell";
 import {
@@ -33,11 +33,10 @@ function AdminLogin() {
   const refreshAuth = useAppStore((s) => s.refreshAuth);
   const navigate = useNavigate();
 
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSignIn = async (emailVal: string, pwVal: string) => {
     setLoading(true);
     try {
-      await signInWithEmail(email, pw);
+      await signInWithEmail(emailVal, pwVal);
       const user = await refreshAuth();
       if (!user) throw new Error("Session not found");
       if (user.role !== "admin") {
@@ -52,6 +51,15 @@ function AdminLogin() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleSignIn(email, pw);
+  };
+
+  const onDemoAdmin = () => {
+    handleSignIn("admin@edumaster.pro", "Admin@1234");
   };
 
   return (
@@ -69,7 +77,23 @@ function AdminLogin() {
       <h2 className="mt-3 font-display text-3xl font-bold tracking-tight">Admin secure access</h2>
       <p className="mt-1.5 text-sm text-muted-foreground">Authorized personnel only.</p>
 
-      <form className="mt-6 space-y-4" onSubmit={onSubmit}>
+      <button
+        type="button"
+        onClick={onDemoAdmin}
+        disabled={loading}
+        className="mt-5 w-full flex items-center justify-center gap-2 rounded-xl border border-[var(--neon-purple)]/50 bg-[var(--neon-purple)]/10 px-4 py-2.5 text-sm font-semibold text-[var(--neon-purple)] hover:bg-[var(--neon-purple)]/20 transition-colors disabled:opacity-50"
+      >
+        <Sparkles className="h-4 w-4" />
+        Try Demo — Admin Login
+      </button>
+
+      <div className="mt-4 rounded-xl border border-border bg-muted/20 px-4 py-3 text-xs text-muted-foreground space-y-0.5">
+        <p><span className="font-semibold text-foreground">Email:</span> admin@edumaster.pro</p>
+        <p><span className="font-semibold text-foreground">Password:</span> Admin@1234</p>
+        <p className="text-[11px] opacity-60">2FA field is ignored in demo mode</p>
+      </div>
+
+      <form className="mt-4 space-y-4" onSubmit={onSubmit}>
         <div>
           <FieldLabel>Admin email</FieldLabel>
           <NeoInput type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@edumaster.pro" icon={<Mail className="h-4 w-4" />} />
@@ -92,7 +116,6 @@ function AdminLogin() {
       </form>
 
       <div className="mt-5 grid grid-cols-3 gap-2 rounded-2xl border border-border bg-muted/30 p-3 text-[11px]">
-
         <div>
           <p className="uppercase tracking-wider text-muted-foreground">Server</p>
           <p className="flex items-center gap-1.5 font-semibold text-emerald-400">

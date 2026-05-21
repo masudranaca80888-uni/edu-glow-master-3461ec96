@@ -1,6 +1,7 @@
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { AppRole } from "@/lib/app-data";
+import { getDemoSession, clearDemoSession, demoSignIn } from "@/lib/demo-auth";
 
 export type AuthUser = {
   id: string;
@@ -10,6 +11,13 @@ export type AuthUser = {
 };
 
 export async function signInWithEmail(email: string, password: string) {
+  // Try demo auth first
+  try {
+    const user = demoSignIn(email, password);
+    return { user, session: null };
+  } catch {
+    // not a demo user — fall through to Supabase
+  }
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw error;
   return data;
@@ -45,11 +53,16 @@ export async function updatePassword(newPassword: string) {
 }
 
 export async function signOut() {
+  clearDemoSession();
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
 }
 
 export async function fetchSessionUser(session?: Session | null): Promise<AuthUser | null> {
+  // Check demo session first
+  const demoUser = getDemoSession();
+  if (demoUser) return demoUser;
+
   const resolvedSession = session ?? (await supabase.auth.getSession()).data.session;
   if (!resolvedSession?.user) return null;
 
