@@ -348,7 +348,7 @@ function MockCard({
   delay,
   onStart,
 }: {
-  mock: (typeof mocks)[number];
+  mock: StudentMock;
   delay: number;
   onStart: () => void;
 }) {
@@ -446,7 +446,7 @@ function ExamStage({
   onSubmit,
   onExit,
 }: {
-  mock: (typeof mocks)[number];
+  mock: StudentMock;
   onSubmit: () => void;
   onExit: () => void;
 }) {
@@ -679,7 +679,7 @@ function ResultStage({
   onRetry,
   onBack,
 }: {
-  mock: (typeof mocks)[number];
+  mock: StudentMock;
   onRetry: () => void;
   onBack: () => void;
 }) {
