@@ -39,7 +39,7 @@ export const listSubjectProgress = createServerFn({ method: "POST" })
     const userId = context.userId;
     // 1. Subjects in scope
     let sq = supabase.from("subjects").select("id").eq("status", "published");
-    if (data?.level) sq = sq.eq("level", data.level);
+    if (data?.level) sq = sq.ilike("level", data.level);
     const { data: subjects, error: se } = await sq;
     if (se) throw se;
     const subjectIds = (subjects ?? []).map((s) => s.id);
