@@ -417,7 +417,14 @@ export function FlashCardManagerFlow() {
         allSubjects={allSubjects as never}
         allChapters={allChapters as never}
       />
-      <BulkImportDialog open={importer} onClose={() => setImporter(false)} onSaved={invalidate} />
+      <BulkImportDialog
+        open={importer}
+        onClose={() => setImporter(false)}
+        onSaved={invalidate}
+        levels={levels}
+        allSubjects={(tree.data?.subjects ?? []) as { id: string; name: string; level: string }[]}
+        allChapters={allChapters as { id: string; name: string; subject_id: string }[]}
+      />
     </div>
   );
 }
