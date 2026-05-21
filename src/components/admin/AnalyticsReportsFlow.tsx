@@ -330,7 +330,7 @@ export function AnalyticsReportsFlow() {
                     </div>
                     <div className="flex-1">
                       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{r.l}</p>
-                      <p className="font-display text-lg font-bold tracking-tight">{r.v.toLocaleString()}</p>
+                      <p className="font-display text-lg font-bold tracking-tight"><CountUp value={r.v} /></p>
                     </div>
                   </div>
                 </div>
