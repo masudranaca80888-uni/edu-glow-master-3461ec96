@@ -160,8 +160,8 @@ export function McqFlow() {
   const q = mcqs[current];
   const currentAnswer = answers[current];
   const submittedNow = !!currentAnswer; // true once student clicks Submit (or Skip) for this question
-  // Reveal correct/wrong + explanations ONLY in review or after finish.
-  const revealResults = reviewMode || finished;
+  // Reveal correct/wrong + explanation as soon as this question is submitted, plus in review/finish.
+  const revealResults = reviewMode || finished || submittedNow;
   const picked: Choice | null = submittedNow ? (currentAnswer?.chosen ?? null) : selectedOption;
 
   const options = q
