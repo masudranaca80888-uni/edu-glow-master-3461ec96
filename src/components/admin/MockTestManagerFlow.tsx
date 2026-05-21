@@ -43,7 +43,7 @@ import {
 
 type Level = "certificate" | "professional" | "advanced";
 type Status = "draft" | "published" | "archived";
-type MockType = "all" | "full" | "chapter";
+type MockType = "all" | "full" | "chapter" | "level";
 type DateFilter = "all" | "scheduled" | "unscheduled" | "upcoming" | "expired";
 type SortBy = "updated_at" | "title" | "starts_at" | "total_questions";
 type SortDir = "asc" | "desc";
