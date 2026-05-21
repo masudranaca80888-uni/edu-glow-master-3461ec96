@@ -329,7 +329,7 @@ export function DashContent() {
       <section>
         <h3 className="font-display text-lg font-bold">Quick Actions</h3>
         <div className="mt-3 grid grid-cols-2 gap-4 md:grid-cols-4">
-          {actions.map((a) => (
+          {visibleActions.map((a) => (
             <Link
               key={a.t}
               to={a.to}
