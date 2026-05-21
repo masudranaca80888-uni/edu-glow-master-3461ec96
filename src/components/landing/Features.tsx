@@ -9,6 +9,7 @@ import {
   PlayCircle,
   type LucideIcon,
 } from "lucide-react";
+import { useModuleVisibility, MODULE_BY_FEATURE_TITLE } from "@/hooks/use-module-visibility";
 
 type Feature = {
   icon: LucideIcon;
