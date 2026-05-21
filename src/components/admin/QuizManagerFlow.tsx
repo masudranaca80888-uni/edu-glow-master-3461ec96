@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { Link } from "@tanstack/react-router";
 import {
   Search, Plus, Sparkles, Send, EyeOff, Eye, Trash2, Copy, Filter,
   ListChecks, Timer, CheckCircle2, Activity, Trophy, Loader2, X, Save,
-  Clock, Shuffle, Edit3, ArrowUp, ArrowDown,
+  Clock, Shuffle, Edit3, ArrowUp, ArrowDown, Wand2, CheckSquare, ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
