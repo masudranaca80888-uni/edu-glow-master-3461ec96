@@ -696,3 +696,160 @@ function Field({ label, required, children }: { label: string; required?: boolea
     </div>
   );
 }
+
+// ============================================================
+// Chapter MCQs dialog — full management for one chapter
+// ============================================================
+type ChapterMcq = {
+  id: string;
+  question: string;
+  correct_option: string;
+  difficulty: "easy" | "medium" | "hard";
+  status: "draft" | "published" | "archived";
+  tags: string[];
+};
+
+function ChapterMcqsDialog({ chapter, onClose }: { chapter: Chapter; onClose: () => void }) {
+  const qc = useQueryClient();
+  const listFn = useServerFn(adminListMcqs);
+  const delFn = useServerFn(adminDeleteMcq);
+  const statusFn = useServerFn(adminSetMcqStatus);
+
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 25;
+
+  const q = useQuery({
+    queryKey: ["academic-chapter-mcqs", chapter.id, search, page],
+    queryFn: () =>
+      listFn({
+        data: { chapterId: chapter.id, search: search || undefined, page, pageSize },
+      }),
+  });
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["academic-chapter-mcqs", chapter.id] });
+
+  const del = useMutation({
+    mutationFn: (id: string) => delFn({ data: { id } }),
+    onSuccess: () => { toast.success("MCQ deleted"); invalidate(); qc.invalidateQueries({ queryKey: ["admin-academic-tree"] }); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const statusMut = useMutation({
+    mutationFn: (vars: { id: string; status: "published" | "draft" }) => statusFn({ data: vars }),
+    onSuccess: (_d, v) => { toast.success(v.status === "published" ? "Published" : "Unpublished"); invalidate(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const rows = (q.data?.rows ?? []) as ChapterMcq[];
+  const total = q.data?.count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-4xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ListChecks className="h-5 w-5 text-primary" />
+            MCQs · {chapter.name}
+          </DialogTitle>
+          <DialogDescription>
+            Manage all MCQs in this chapter. Changes go live instantly.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              placeholder="Search question text…"
+              className="pl-9"
+            />
+          </div>
+          <Badge variant="outline" className="text-[10px]">{total} total</Badge>
+        </div>
+
+        <div className="max-h-[55vh] overflow-auto rounded-xl border border-border/60">
+          {q.isLoading ? (
+            <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading MCQs…
+            </div>
+          ) : rows.length === 0 ? (
+            <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+              No MCQs in this chapter yet.
+            </div>
+          ) : (
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-muted/60 text-left text-[10px] uppercase tracking-wider text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2">Question</th>
+                  <th className="px-3 py-2 w-16">Ans</th>
+                  <th className="px-3 py-2 w-20">Difficulty</th>
+                  <th className="px-3 py-2 w-24">Status</th>
+                  <th className="px-3 py-2 w-28 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((m) => (
+                  <tr key={m.id} className="border-t border-border/40 hover:bg-muted/30">
+                    <td className="max-w-[360px] px-3 py-2">
+                      <p className="line-clamp-2 font-medium">{m.question}</p>
+                      {m.tags?.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {m.tags.slice(0, 3).map((t) => (
+                            <span key={t} className="rounded-full bg-muted px-1.5 py-0.5 text-[9px] text-muted-foreground">{t}</span>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 font-display font-bold text-primary">{m.correct_option}</td>
+                    <td className="px-3 py-2 capitalize">{m.difficulty}</td>
+                    <td className="px-3 py-2">
+                      <Badge variant={m.status === "published" ? "default" : "secondary"} className="text-[10px] capitalize">
+                        {m.status}
+                      </Badge>
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex justify-end gap-1">
+                        <IconBtn
+                          title={m.status === "published" ? "Unpublish" : "Publish"}
+                          onClick={() => statusMut.mutate({ id: m.id, status: m.status === "published" ? "draft" : "published" })}
+                        >
+                          {m.status === "published" ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                        </IconBtn>
+                        <IconBtn
+                          title="Delete MCQ"
+                          onClick={() => { if (confirm("Delete this MCQ?")) del.mutate(m.id); }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                        </IconBtn>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {total > 0 && (
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>Page {page} of {totalPages}</span>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Prev</Button>
+              <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>Next</Button>
+            </div>
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}><X className="mr-1 h-4 w-4" /> Close</Button>
+          <Button asChild>
+            <a href={`/admin/mcq`} onClick={onClose}>Open MCQ Manager →</a>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
