@@ -363,10 +363,10 @@ function ModulesPanel() {
   const qc = useQueryClient();
   const setFn = useServerFn(adminSetModuleHidden);
   type Row = (typeof rows)[number];
-  const mut = useMutation({
-    mutationFn: (v: { key: Row["key"]; hidden: boolean }) =>
-      setFn({ data: { key: v.key, hidden: v.hidden } }),
-    onMutate: async (v: { key: Row["key"]; hidden: boolean }) => {
+  type Vars = { key: Row["key"]; hidden: boolean };
+  const mut = useMutation<unknown, Error, Vars, { prev?: Row[] }>({
+    mutationFn: (v) => setFn({ data: { key: v.key, hidden: v.hidden } }),
+    onMutate: async (v) => {
       await qc.cancelQueries({ queryKey: ["module-visibility"] });
       const prev = qc.getQueryData<Row[]>(["module-visibility"]);
       if (prev) {
@@ -377,11 +377,11 @@ function ModulesPanel() {
       }
       return { prev };
     },
-    onError: (_e: unknown, _v: unknown, ctx: { prev?: Row[] } | undefined) => {
+    onError: (_e, _v, ctx) => {
       if (ctx?.prev) qc.setQueryData(["module-visibility"], ctx.prev);
       toast.error("Could not update module");
     },
-    onSuccess: (_d: unknown, v: { key: Row["key"]; hidden: boolean }) => {
+    onSuccess: (_d, v) => {
       toast.success(`${v.hidden ? "Hidden" : "Visible"} for students`);
       qc.invalidateQueries({ queryKey: ["module-visibility"] });
     },
