@@ -360,10 +360,32 @@ function Viewer({ subject, chapter }: { subject: string; chapter: string }) {
   const [bookmarks, setBookmarks] = useState<Set<number>>(new Set([0, 2]));
   const [learned, setLearned] = useState<Set<number>>(new Set([2]));
 
-  const card = cardsDeck[idx];
+  const qc = useQueryClient();
+  const fetchPublic = useServerFn(listPublicFlashCards);
+  const live = useQuery({
+    queryKey: ["public-flash-cards", { subject, chapter }],
+    queryFn: () => fetchPublic({ data: { limit: 60 } }),
+  });
 
-  const next = () => { setFlipped(false); setIdx((i) => Math.min(cardsDeck.length - 1, i + 1)); };
+  useEffect(() => {
+    const ch = supabase
+      .channel("public-flash-cards-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "flash_cards" }, () => {
+        qc.invalidateQueries({ queryKey: ["public-flash-cards"] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [qc]);
+
+  const liveDeck = (live.data ?? []).map((c) => ({
+    front: c.front, back: c.back, formula: c.formula ?? "", tag: c.card_type,
+  }));
+  const deck = liveDeck.length > 0 ? liveDeck : cardsDeck;
+  const card = deck[Math.min(idx, deck.length - 1)] ?? deck[0];
+
+  const next = () => { setFlipped(false); setIdx((i) => Math.min(deck.length - 1, i + 1)); };
   const prev = () => { setFlipped(false); setIdx((i) => Math.max(0, i - 1)); };
+
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
