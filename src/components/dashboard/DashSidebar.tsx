@@ -15,6 +15,14 @@ export function DashSidebar() {
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
   const setSidebarOpen = useAppStore((s) => s.setSidebarOpen);
   const navigate = useNavigate();
+  const { isPathHidden } = useModuleVisibility();
+  const visibleItems = studentNavItems.filter((item) => !isPathHidden(item.to));
+  const learningItems = visibleItems.filter(
+    (i) => !["Notifications", "Profile"].includes(i.title),
+  );
+  const accountItems = visibleItems.filter((i) =>
+    ["Notifications", "Profile"].includes(i.title),
+  );
   const handleLogout = async () => {
     await logout();
     setSidebarOpen(false);
