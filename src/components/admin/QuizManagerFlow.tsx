@@ -63,6 +63,7 @@ export function QuizManagerFlow() {
   const [editing, setEditing] = useState<Quiz | null>(null);
   const [creating, setCreating] = useState(false);
   const [builderFor, setBuilderFor] = useState<Quiz | null>(null);
+  const [previewFor, setPreviewFor] = useState<Quiz | null>(null);
 
   // realtime: invalidate on any quiz change
   useEffect(() => {
