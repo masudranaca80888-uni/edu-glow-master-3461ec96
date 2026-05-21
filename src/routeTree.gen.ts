@@ -32,6 +32,7 @@ import { Route as AdminMcqRouteImport } from './routes/admin.mcq'
 import { Route as AdminFlashCardsRouteImport } from './routes/admin.flash-cards'
 import { Route as AdminClassesRouteImport } from './routes/admin.classes'
 import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
+import { Route as AdminAcademicManagerRouteImport } from './routes/admin.academic-manager'
 import { Route as StudentShortNotesRouteImport } from './routes/_student.short-notes'
 import { Route as StudentQuizRouteImport } from './routes/_student.quiz'
 import { Route as StudentQnsBankRouteImport } from './routes/_student.qns-bank'
@@ -158,6 +159,11 @@ const AdminAnalyticsRoute = AdminAnalyticsRouteImport.update({
   path: '/analytics',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminAcademicManagerRoute = AdminAcademicManagerRouteImport.update({
+  id: '/academic-manager',
+  path: '/academic-manager',
+  getParentRoute: () => AdminRoute,
+} as any)
 const StudentShortNotesRoute = StudentShortNotesRouteImport.update({
   id: '/short-notes',
   path: '/short-notes',
@@ -236,6 +242,7 @@ export interface FileRoutesByFullPath {
   '/qns-bank': typeof StudentQnsBankRoute
   '/quiz': typeof StudentQuizRoute
   '/short-notes': typeof StudentShortNotesRoute
+  '/admin/academic-manager': typeof AdminAcademicManagerRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/classes': typeof AdminClassesRoute
   '/admin/flash-cards': typeof AdminFlashCardsRoute
@@ -270,6 +277,7 @@ export interface FileRoutesByTo {
   '/qns-bank': typeof StudentQnsBankRoute
   '/quiz': typeof StudentQuizRoute
   '/short-notes': typeof StudentShortNotesRoute
+  '/admin/academic-manager': typeof AdminAcademicManagerRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/classes': typeof AdminClassesRoute
   '/admin/flash-cards': typeof AdminFlashCardsRoute
@@ -307,6 +315,7 @@ export interface FileRoutesById {
   '/_student/qns-bank': typeof StudentQnsBankRoute
   '/_student/quiz': typeof StudentQuizRoute
   '/_student/short-notes': typeof StudentShortNotesRoute
+  '/admin/academic-manager': typeof AdminAcademicManagerRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/classes': typeof AdminClassesRoute
   '/admin/flash-cards': typeof AdminFlashCardsRoute
@@ -344,6 +353,7 @@ export interface FileRouteTypes {
     | '/qns-bank'
     | '/quiz'
     | '/short-notes'
+    | '/admin/academic-manager'
     | '/admin/analytics'
     | '/admin/classes'
     | '/admin/flash-cards'
@@ -378,6 +388,7 @@ export interface FileRouteTypes {
     | '/qns-bank'
     | '/quiz'
     | '/short-notes'
+    | '/admin/academic-manager'
     | '/admin/analytics'
     | '/admin/classes'
     | '/admin/flash-cards'
@@ -414,6 +425,7 @@ export interface FileRouteTypes {
     | '/_student/qns-bank'
     | '/_student/quiz'
     | '/_student/short-notes'
+    | '/admin/academic-manager'
     | '/admin/analytics'
     | '/admin/classes'
     | '/admin/flash-cards'
@@ -605,6 +617,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAnalyticsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/academic-manager': {
+      id: '/admin/academic-manager'
+      path: '/academic-manager'
+      fullPath: '/admin/academic-manager'
+      preLoaderRoute: typeof AdminAcademicManagerRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/_student/short-notes': {
       id: '/_student/short-notes'
       path: '/short-notes'
@@ -717,6 +736,7 @@ const StudentRouteWithChildren =
   StudentRoute._addFileChildren(StudentRouteChildren)
 
 interface AdminRouteChildren {
+  AdminAcademicManagerRoute: typeof AdminAcademicManagerRoute
   AdminAnalyticsRoute: typeof AdminAnalyticsRoute
   AdminClassesRoute: typeof AdminClassesRoute
   AdminFlashCardsRoute: typeof AdminFlashCardsRoute
@@ -732,6 +752,7 @@ interface AdminRouteChildren {
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminAcademicManagerRoute: AdminAcademicManagerRoute,
   AdminAnalyticsRoute: AdminAnalyticsRoute,
   AdminClassesRoute: AdminClassesRoute,
   AdminFlashCardsRoute: AdminFlashCardsRoute,
