@@ -134,6 +134,9 @@ function RootInner() {
   const { queryClient } = Route.useRouteContext();
   const { hydrate, hydrated, sessionReady, user } = useAppStore();
 
+  // Apply user prefs (accent color, font size) to <html> on every mount.
+  usePrefs();
+
   // Must be inside QueryClientProvider — uses useQueryClient internally.
   useRealtimeInvalidator(Boolean(user));
 
