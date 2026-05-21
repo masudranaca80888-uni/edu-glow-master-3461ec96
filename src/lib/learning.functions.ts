@@ -18,7 +18,7 @@ export const listSubjects = createServerFn({ method: "POST" })
       .select("id,name,slug,description,icon,color,sort_order,level")
       .eq("status", "published")
       .order("sort_order", { ascending: true });
-    if (data?.level) q = q.eq("level", data.level);
+    if (data?.level) q = q.ilike("level", data.level);
     const { data: rows, error } = await q;
     if (error) throw error;
     return rows ?? [];
@@ -39,7 +39,7 @@ export const listSubjectProgress = createServerFn({ method: "POST" })
     const userId = context.userId;
     // 1. Subjects in scope
     let sq = supabase.from("subjects").select("id").eq("status", "published");
-    if (data?.level) sq = sq.eq("level", data.level);
+    if (data?.level) sq = sq.ilike("level", data.level);
     const { data: subjects, error: se } = await sq;
     if (se) throw se;
     const subjectIds = (subjects ?? []).map((s) => s.id);
