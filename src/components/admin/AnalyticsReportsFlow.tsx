@@ -241,7 +241,7 @@ export function AnalyticsReportsFlow() {
               </Badge>
             </div>
             <p className="mt-3 text-[11px] uppercase tracking-wider text-muted-foreground">{s.l}</p>
-            <p className="font-display text-2xl font-bold tracking-tight">{typeof s.v === "number" ? s.v.toLocaleString() : s.v}</p>
+            <p className="font-display text-2xl font-bold tracking-tight">{typeof s.v === "number" ? <CountUp value={s.v} /> : s.v}</p>
           </div>
         ))}
       </section>
