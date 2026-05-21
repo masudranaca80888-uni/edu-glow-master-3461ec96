@@ -539,6 +539,8 @@ export function McqFlow() {
                 <ul className="divide-y divide-border">
                   {(chaptersQ.data ?? []).map((c) => {
                     const open = openChapter === c.id;
+                    const cprog = chapterProgressMap.get(c.id);
+                    const cpct = cprog?.percent ?? 0;
                     return (
                       <li key={c.id}>
                         <button
@@ -551,6 +553,16 @@ export function McqFlow() {
                           <div className="min-w-0 flex-1">
                             <p className="font-display font-bold">{c.name}</p>
                             <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{c.description ?? "Tap to expand"}</p>
+                            {cprog && cprog.total > 0 && (
+                              <div className="mt-2 flex items-center gap-2">
+                                <div className="h-1.5 w-32 overflow-hidden rounded-full bg-muted/60">
+                                  <div className="h-full rounded-full bg-gradient-to-r from-[var(--neon-purple)] to-[var(--neon-blue)] transition-all duration-500" style={{ width: `${cpct}%` }} />
+                                </div>
+                                <span className="text-[10px] font-semibold text-muted-foreground">
+                                  {cprog.completed}/{cprog.total} · {cpct}%{cprog.completed > 0 ? ` · ${cprog.accuracy}% acc` : ""}
+                                </span>
+                              </div>
+                            )}
                           </div>
                           <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
                         </button>
