@@ -49,7 +49,9 @@ import {
   adminListFlashCards,
   adminSetFlashCardHidden,
   adminSetFlashCardStatus,
+  adminSetFlashCardVisibility,
   adminUpdateFlashCard,
+  getFlashCardVisibility,
 } from "@/lib/admin-flash-cards.functions";
 
 type FlashCard = {
