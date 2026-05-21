@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   Search, Plus, Sparkles, Send, EyeOff, Eye, Trash2, Copy, Filter,
   ListChecks, Timer, CheckCircle2, Activity, Trophy, Loader2, X, Save,
-  Clock, Shuffle, Edit3,
+  Clock, Shuffle, Edit3, ArrowUp, ArrowDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
