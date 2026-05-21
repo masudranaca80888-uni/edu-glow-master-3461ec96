@@ -522,7 +522,11 @@ function EditorDialog({
       const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
       const detectedKind: ShortNote["kind"] =
         ext === "pdf" ? "pdf" : ext === "doc" || ext === "docx" ? "doc" : "text";
-      const path = `${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+      const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const lvl = (form.level || "unsorted").toString().toLowerCase();
+      const subj = form.subject_id || "unsorted";
+      const chap = form.chapter_id || "unsorted";
+      const path = `${lvl}/${subj}/${chap}/${crypto.randomUUID()}-${safe}`;
       const { error } = await supabase.storage.from("short-notes").upload(path, file, {
         upsert: false,
         contentType: file.type || undefined,
