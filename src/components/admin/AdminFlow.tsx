@@ -36,12 +36,15 @@ import {
 import { Link } from "@tanstack/react-router";
 import { useAppStore } from "@/stores/app-store";
 import { LiveIndicator } from "@/components/realtime/LiveIndicator";
+import { AdminQuickControls } from "@/components/admin/AdminQuickControls";
+import { FloatingQuickActions } from "@/components/admin/FloatingQuickActions";
 
 export function AdminFlow() {
   return (
     <div className="space-y-4">
       <AdminTopbar />
       <Header />
+      <AdminQuickControls />
       <StatGrid />
 
       <div className="grid gap-4 xl:grid-cols-[1fr_340px]">
@@ -64,6 +67,7 @@ export function AdminFlow() {
       </div>
 
       <SystemOverview />
+      <FloatingQuickActions />
     </div>
   );
 }
