@@ -19,14 +19,14 @@ import {
   Loader2,
   BookOpen,
 } from "lucide-react";
-import { listQuizzes, getQuiz, submitAttempt } from "@/lib/learning.functions";
+import { listQuizzes, getQuiz, submitAttempt, listSubjects, listChapters } from "@/lib/learning.functions";
 
-type Step = 0 | 1 | 2;
+type Step = 0 | 1 | 2 | 3 | 4;
 
 const levels = [
-  { t: "Certificate", d: "Beginner level", icon: Sparkles, tone: "var(--neon-purple)", match: "easy" },
-  { t: "Professional", d: "Intermediate level", icon: Award, tone: "var(--neon-blue)", match: "medium" },
-  { t: "Advanced", d: "Expert level", icon: Crown, tone: "oklch(0.82 0.16 85)", match: "hard" },
+  { t: "Certificate", d: "Beginner level", icon: Sparkles, tone: "var(--neon-purple)", code: "certificate" },
+  { t: "Professional", d: "Intermediate level", icon: Award, tone: "var(--neon-blue)", code: "professional" },
+  { t: "Advanced", d: "Expert level", icon: Crown, tone: "oklch(0.82 0.16 85)", code: "advanced" },
 ];
 
 const diffColor: Record<string, string> = {
@@ -35,7 +35,7 @@ const diffColor: Record<string, string> = {
   hard: "var(--neon-pink)",
 };
 
-const stepLabels = ["Level", "Quiz", "Play"];
+const stepLabels = ["Level", "Subject", "Chapter", "Quiz", "Play"];
 
 type QuizQ = {
   position: number;
@@ -53,6 +53,8 @@ type QuizQ = {
 export function QuizFlow() {
   const [step, setStep] = useState<Step>(0);
   const [level, setLevel] = useState<typeof levels[number] | null>(null);
+  const [subjectId, setSubjectId] = useState<string | null>(null);
+  const [chapterId, setChapterId] = useState<string | null>(null);
   const [quizId, setQuizId] = useState<string | null>(null);
   const [current, setCurrent] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
@@ -65,6 +67,8 @@ export function QuizFlow() {
   const listQuizzesFn = useServerFn(listQuizzes);
   const getQuizFn = useServerFn(getQuiz);
   const submitFn = useServerFn(submitAttempt);
+  const listSubjectsFn = useServerFn(listSubjects);
+  const listChaptersFn = useServerFn(listChapters);
   const qc = useQueryClient();
 
   // Realtime: any quiz/question change on admin side refreshes student view
@@ -74,22 +78,43 @@ export function QuizFlow() {
       .on("postgres_changes", { event: "*", schema: "public", table: "quizzes" }, () => {
         qc.invalidateQueries({ queryKey: ["quizzes"] });
         qc.invalidateQueries({ queryKey: ["quiz"] });
+        qc.invalidateQueries({ queryKey: ["student-dashboard"] });
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "quiz_questions" }, () => {
+        qc.invalidateQueries({ queryKey: ["quizzes"] });
         qc.invalidateQueries({ queryKey: ["quiz"] });
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [qc]);
 
+  const subjectsQ = useQuery({
+    queryKey: ["subjects", "student"],
+    queryFn: () => listSubjectsFn(),
+    enabled: step >= 1,
+  });
+  const chaptersQ = useQuery({
+    queryKey: ["chapters", subjectId],
+    queryFn: () => listChaptersFn({ data: { subjectId: subjectId! } }),
+    enabled: !!subjectId && step >= 2,
+  });
   const quizzesQ = useQuery({
-    queryKey: ["quizzes"],
-    queryFn: () => listQuizzesFn(),
+    queryKey: ["quizzes", level?.code ?? null, subjectId, chapterId],
+    queryFn: () =>
+      listQuizzesFn({
+        data: {
+          level: level?.code,
+          subjectId: subjectId ?? undefined,
+          chapterId: chapterId ?? undefined,
+          kind: "quiz",
+        },
+      }),
+    enabled: step >= 3,
   });
   const quizQ = useQuery({
     queryKey: ["quiz", quizId],
     queryFn: () => getQuizFn({ data: { quizId: quizId! } }),
-    enabled: !!quizId && step === 2,
+    enabled: !!quizId && step === 4,
   });
 
   const questions = ((quizQ.data?.questions ?? []) as unknown) as QuizQ[];
@@ -98,20 +123,20 @@ export function QuizFlow() {
   const q = questions[current];
 
   useEffect(() => {
-    if (step !== 2 || submitted || !meta) return;
+    if (step !== 4 || submitted || !meta) return;
     const id = setInterval(() => setTimeLeft((t) => Math.max(0, t - 1)), 1000);
     return () => clearInterval(id);
   }, [step, submitted, meta]);
 
   useEffect(() => {
-    if (quizQ.data?.quiz && step === 2) {
+    if (quizQ.data?.quiz && step === 4) {
       setTimeLeft(quizQ.data.quiz.duration_seconds ?? 600);
       setStartedAt(Date.now());
     }
   }, [quizQ.data, step]);
 
   useEffect(() => {
-    if (step === 2 && !submitted && timeLeft === 0 && total > 0) {
+    if (step === 4 && !submitted && timeLeft === 0 && total > 0) {
       void doSubmit();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -138,6 +163,9 @@ export function QuizFlow() {
     onSuccess: (r) => {
       setResult({ correct: r.correct, total: r.total, score: r.score });
       setSubmitted(true);
+      qc.invalidateQueries({ queryKey: ["student-dashboard"] });
+      qc.invalidateQueries({ queryKey: ["student-performance-center"] });
+      qc.invalidateQueries({ queryKey: ["student-completion-tracker"] });
     },
   });
 
@@ -156,9 +184,7 @@ export function QuizFlow() {
     setStartedAt(Date.now());
   }
 
-  const filteredQuizzes = (quizzesQ.data ?? []).filter((q2) =>
-    !level ? true : q2.difficulty === level.match,
-  );
+  const filteredQuizzes = quizzesQ.data ?? [];
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_320px]">
@@ -197,14 +223,14 @@ export function QuizFlow() {
         {step === 0 && (
           <section className="animate-fade-up">
             <h2 className="font-display text-2xl font-bold">Choose Quiz Level</h2>
-            <p className="text-sm text-muted-foreground">Select a difficulty band to begin.</p>
+            <p className="text-sm text-muted-foreground">Select your level to begin.</p>
             <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-3">
               {levels.map((l) => {
                 const Icon = l.icon;
                 return (
                   <button
                     key={l.t}
-                    onClick={() => { setLevel(l); setStep(1); }}
+                    onClick={() => { setLevel(l); setSubjectId(null); setChapterId(null); setStep(1); }}
                     className="group relative rounded-3xl p-px text-left transition-transform hover:-translate-y-1"
                     style={{ background: `linear-gradient(135deg, ${l.tone}, transparent 65%)` }}
                   >
@@ -216,7 +242,7 @@ export function QuizFlow() {
                       <h3 className="font-display mt-5 text-xl font-bold">{l.t}</h3>
                       <p className="mt-1 text-sm text-muted-foreground">{l.d}</p>
                       <div className="mt-5 inline-flex items-center gap-1 text-xs font-semibold text-gradient">
-                        Browse Quizzes <ArrowRight className="h-3.5 w-3.5" />
+                        Browse Subjects <ArrowRight className="h-3.5 w-3.5" />
                       </div>
                     </div>
                   </button>
@@ -226,21 +252,87 @@ export function QuizFlow() {
           </section>
         )}
 
-        {/* STEP 2 — QUIZ PICKER */}
+        {/* STEP 2 — SUBJECT */}
         {step === 1 && (
+          <section className="animate-fade-up">
+            <h2 className="font-display text-2xl font-bold">Pick a Subject</h2>
+            <p className="text-sm text-muted-foreground">{level?.t} Level · choose a subject.</p>
+            {subjectsQ.isLoading ? (
+              <Loading />
+            ) : (subjectsQ.data ?? []).length === 0 ? (
+              <Empty text="No subjects available yet." />
+            ) : (
+              <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
+                {(subjectsQ.data ?? []).map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => { setSubjectId(s.id); setChapterId(null); setStep(2); }}
+                    className="glass shadow-card-soft group rounded-3xl p-5 text-left transition-transform hover:-translate-y-1"
+                  >
+                    <div className="bg-cta-gradient flex h-11 w-11 items-center justify-center rounded-2xl text-white shadow-glow" style={s.color ? { background: s.color } : undefined}>
+                      <BookOpen className="h-5 w-5" />
+                    </div>
+                    <h3 className="font-display mt-4 text-lg font-bold">{s.name}</h3>
+                    <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{s.description ?? "Tap to see chapters"}</p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* STEP 3 — CHAPTER */}
+        {step === 2 && (
+          <section className="animate-fade-up">
+            <h2 className="font-display text-2xl font-bold">Pick a Chapter</h2>
+            <p className="text-sm text-muted-foreground">Or skip to see all quizzes for this subject.</p>
+            <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
+              <button
+                onClick={() => { setChapterId(null); setStep(3); }}
+                className="glass shadow-card-soft group rounded-3xl p-5 text-left transition-transform hover:-translate-y-1"
+              >
+                <div className="bg-cta-gradient flex h-11 w-11 items-center justify-center rounded-2xl text-white shadow-glow">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <h3 className="font-display mt-4 text-lg font-bold">All Chapters</h3>
+                <p className="mt-1 text-xs text-muted-foreground">Show every quiz in this subject</p>
+              </button>
+              {chaptersQ.isLoading ? (
+                <Loading />
+              ) : (
+                (chaptersQ.data ?? []).map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => { setChapterId(c.id); setStep(3); }}
+                    className="glass shadow-card-soft group rounded-3xl p-5 text-left transition-transform hover:-translate-y-1"
+                  >
+                    <div className="bg-cta-gradient flex h-11 w-11 items-center justify-center rounded-2xl text-white shadow-glow">
+                      <BookOpen className="h-5 w-5" />
+                    </div>
+                    <h3 className="font-display mt-4 text-lg font-bold">{c.name}</h3>
+                    <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{c.description ?? ""}</p>
+                  </button>
+                ))
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* STEP 4 — QUIZ PICKER */}
+        {step === 3 && (
           <section className="animate-fade-up">
             <h2 className="font-display text-2xl font-bold">Pick a Quiz</h2>
             <p className="text-sm text-muted-foreground">{level?.t} Level · choose a quiz to attempt.</p>
             {quizzesQ.isLoading ? (
               <Loading />
             ) : filteredQuizzes.length === 0 ? (
-              <Empty text="No quizzes for this level yet. Try another." />
+              <Empty text="No quizzes published here yet. Try another chapter or subject." />
             ) : (
               <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
                 {filteredQuizzes.map((qz) => (
                   <button
                     key={qz.id}
-                    onClick={() => { setQuizId(qz.id); setStep(2); resetAll(); }}
+                    onClick={() => { setQuizId(qz.id); setStep(4); resetAll(); }}
                     className="glass shadow-card-soft group rounded-3xl p-5 text-left transition-transform hover:-translate-y-1"
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -254,7 +346,7 @@ export function QuizFlow() {
                     <h3 className="font-display mt-4 text-lg font-bold">{qz.title}</h3>
                     <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{qz.description ?? "Tap to start"}</p>
                     <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{qz.total_questions} questions</span>
+                      <span>{(qz as { mcq_count?: number }).mcq_count ?? qz.total_questions} questions</span>
                       <span>{Math.round((qz.duration_seconds ?? 600) / 60)} min</span>
                     </div>
                   </button>
@@ -264,8 +356,8 @@ export function QuizFlow() {
           </section>
         )}
 
-        {/* STEP 3 — PLAY */}
-        {step === 2 && !submitted && (
+        {/* STEP 5 — PLAY */}
+        {step === 4 && !submitted && (
           <section className="animate-fade-up space-y-4">
             <div className="glass shadow-card-soft rounded-2xl p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -277,7 +369,7 @@ export function QuizFlow() {
                   <div className={`glass flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm font-bold ${timeLeft < 60 ? "text-red-400" : "text-gradient"}`}>
                     <Clock className="h-4 w-4" /> {m}:{s}
                   </div>
-                  <button onClick={() => setStep(1)} className="glass inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-semibold text-red-400 transition-colors hover:bg-destructive/10">
+                  <button onClick={() => setStep(3)} className="glass inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-semibold text-red-400 transition-colors hover:bg-destructive/10">
                     <LogOut className="h-3.5 w-3.5" /> Exit
                   </button>
                 </div>
@@ -376,7 +468,7 @@ export function QuizFlow() {
       </div>
 
       {/* RIGHT PANEL */}
-      {step === 2 && !submitted && total > 0 && (
+      {step === 4 && !submitted && total > 0 && (
         <aside className="space-y-4">
           <div className="glass shadow-card-soft rounded-3xl p-5">
             <h3 className="font-display text-base font-bold">Question Navigator</h3>

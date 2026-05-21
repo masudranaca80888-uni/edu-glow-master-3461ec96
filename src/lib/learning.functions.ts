@@ -55,18 +55,50 @@ export const listMcqs = createServerFn({ method: "POST" })
   });
 
 // ---- Quizzes ----
-export const listQuizzes = createServerFn({ method: "GET" })
+const listQuizzesSchema = z
+  .object({
+    level: z.string().trim().max(40).optional(),
+    subjectId: z.string().uuid().nullable().optional(),
+    chapterId: z.string().uuid().nullable().optional(),
+    kind: z.enum(["quiz", "mock"]).default("quiz"),
+  })
+  .partial();
+
+export const listQuizzes = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const { data, error } = await context.supabase
+  .inputValidator((i: z.infer<typeof listQuizzesSchema> | undefined) =>
+    listQuizzesSchema.parse(i ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    const kind = data.kind ?? "quiz";
+    let q = context.supabase
       .from("quizzes")
       .select(
-        "id,title,description,difficulty,total_questions,duration_seconds,subject_id,chapter_id",
+        "id,title,description,difficulty,total_questions,duration_seconds,subject_id,chapter_id,level,kind,created_at",
       )
       .eq("status", "published")
+      .eq("kind", kind)
       .order("created_at", { ascending: false });
+    if (data.level) q = q.eq("level", data.level);
+    if (data.subjectId) q = q.eq("subject_id", data.subjectId);
+    if (data.chapterId) q = q.eq("chapter_id", data.chapterId);
+    const { data: rows, error } = await q;
     if (error) throw error;
-    return data ?? [];
+    const quizIds = (rows ?? []).map((r) => r.id);
+    if (!quizIds.length) return [];
+    // Only surface quizzes that have at least one assigned question
+    const { data: qq, error: qqErr } = await context.supabase
+      .from("quiz_questions")
+      .select("quiz_id")
+      .in("quiz_id", quizIds);
+    if (qqErr) throw qqErr;
+    const counts = new Map<string, number>();
+    for (const r of qq ?? []) {
+      counts.set(r.quiz_id, (counts.get(r.quiz_id) ?? 0) + 1);
+    }
+    return (rows ?? [])
+      .filter((r) => (counts.get(r.id) ?? 0) > 0)
+      .map((r) => ({ ...r, mcq_count: counts.get(r.id) ?? 0 }));
   });
 
 const quizSchema = z.object({ quizId: z.string().uuid() });
