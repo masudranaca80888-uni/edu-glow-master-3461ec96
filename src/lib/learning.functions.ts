@@ -18,7 +18,7 @@ export const listSubjects = createServerFn({ method: "POST" })
       .select("id,name,slug,description,icon,color,sort_order,level")
       .eq("status", "published")
       .order("sort_order", { ascending: true });
-    if (data?.level) q = q.eq("level", data.level);
+    if (data?.level) q = q.ilike("level", data.level);
     const { data: rows, error } = await q;
     if (error) throw error;
     return rows ?? [];
