@@ -8,7 +8,7 @@ import {
   CheckCircle2, XCircle, MinusCircle, BarChart3,
 } from "lucide-react";
 import { toast } from "sonner";
-import { listSubjects, listChapters, listMcqs } from "@/lib/learning.functions";
+import { listSubjects, listChapters, listMcqs, listSubjectProgress, listChapterProgress } from "@/lib/learning.functions";
 import { saveSessionAttempt } from "@/lib/student-performance.functions";
 import {
   toggleMcqBookmark,
