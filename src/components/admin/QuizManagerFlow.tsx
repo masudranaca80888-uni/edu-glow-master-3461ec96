@@ -510,6 +510,10 @@ function QuizEditorDialog({
             <Input type="number" value={form.duration_minutes} onChange={(e) => setForm({ ...form, duration_minutes: Math.max(1, Number(e.target.value) || 0) })} />
           </div>
           <div>
+            <Label><Trophy className="mr-1 inline h-3 w-3" />Passing marks</Label>
+            <Input type="number" value={form.passing_marks} onChange={(e) => setForm({ ...form, passing_marks: Math.max(0, Number(e.target.value) || 0) })} />
+          </div>
+          <div>
             <Label>Status</Label>
             <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as Quiz["status"] })}>
               <SelectTrigger><SelectValue /></SelectTrigger>
@@ -528,6 +532,30 @@ function QuizEditorDialog({
             <div className="flex items-center gap-2 text-xs"><CheckCircle2 className="h-3.5 w-3.5" /> Public to students</div>
             <Switch checked={form.is_public} onCheckedChange={(v) => setForm({ ...form, is_public: v })} />
           </div>
+          {!quiz && (
+            <div className="md:col-span-2 flex items-center justify-between rounded-xl border border-[var(--neon-purple)]/30 bg-[var(--neon-purple)]/10 px-3 py-2">
+              <div className="flex items-center gap-2 text-xs">
+                <Wand2 className="h-3.5 w-3.5 text-[var(--neon-purple)]" />
+                <span>
+                  Auto-attach MCQs from this chapter on create
+                  {form.chapter_id && (
+                    <span className="ml-2 text-muted-foreground">
+                      · {availableCount} available · will pick {Math.min(form.total_questions, availableCount)}
+                    </span>
+                  )}
+                </span>
+              </div>
+              <Switch checked={form.auto_attach} onCheckedChange={(v) => setForm({ ...form, auto_attach: v })} />
+            </div>
+          )}
+          {!quiz && form.chapter_id && availableCount === 0 && (
+            <div className="md:col-span-2 flex items-center justify-between rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs">
+              <span>No MCQs available in this chapter yet.</span>
+              <Link to="/admin/mcq" className="inline-flex items-center gap-1 font-semibold text-amber-300 hover:underline">
+                Go to MCQ Manager <ExternalLink className="h-3 w-3" />
+              </Link>
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}><X className="mr-1 h-4 w-4" />Cancel</Button>
