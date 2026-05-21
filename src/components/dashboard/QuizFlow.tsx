@@ -468,7 +468,7 @@ export function QuizFlow() {
       </div>
 
       {/* RIGHT PANEL */}
-      {step === 2 && !submitted && total > 0 && (
+      {step === 4 && !submitted && total > 0 && (
         <aside className="space-y-4">
           <div className="glass shadow-card-soft rounded-3xl p-5">
             <h3 className="font-display text-base font-bold">Question Navigator</h3>
