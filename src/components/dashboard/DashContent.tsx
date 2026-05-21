@@ -5,6 +5,7 @@ import { useEffect, useMemo } from "react";
 import { useModuleVisibility } from "@/hooks/use-module-visibility";
 import { studentDashboardSnapshot } from "@/lib/student-dashboard.functions";
 import { PerformanceCenter } from "./PerformanceCenter";
+import { CompletionTracker } from "./CompletionTracker";
 import { useRealtimeActivity } from "@/hooks/use-realtime-invalidator";
 import { CountUp } from "@/components/realtime/CountUp";
 import {
@@ -421,6 +422,9 @@ export function DashContent() {
 
       {/* Performance Center */}
       <PerformanceCenter />
+
+      {/* Subject & Chapter Completion Tracker */}
+      <CompletionTracker />
 
       {/* Quick actions */}
       <section>

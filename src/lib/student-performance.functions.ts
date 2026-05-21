@@ -414,3 +414,222 @@ export const listAttemptHistory = createServerFn({ method: "POST" })
     if (error) throw error;
     return rows ?? [];
   });
+
+/* ------------------------------------------------------------------ */
+/*  Subject + Chapter completion tracker                               */
+/* ------------------------------------------------------------------ */
+
+export const studentCompletionTracker = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("level")
+      .eq("id", userId)
+      .maybeSingle();
+    const level = profile?.level ?? "professional";
+
+    const [subjectsR, quizzesR] = await Promise.all([
+      supabase
+        .from("subjects")
+        .select("id,name,color,sort_order")
+        .eq("status", "published")
+        .eq("level", level)
+        .order("sort_order", { ascending: true }),
+      supabase
+        .from("quizzes")
+        .select("id,chapter_id,subject_id,kind")
+        .eq("status", "published"),
+    ]);
+
+    const subjects = subjectsR.data ?? [];
+    const quizzes = quizzesR.data ?? [];
+    const subjectIds = subjects.map((s) => s.id);
+
+    type SubjectRow = {
+      id: string; name: string; color: string | null;
+      mcqsTotal: number; mcqsDone: number; completionPct: number;
+      accuracy: number; quizzes: number; mocks: number; customExams: number;
+      chaptersTotal: number; chaptersDone: number; chaptersInProgress: number;
+      pendingChapters: number;
+    };
+    type ChapterRow = {
+      id: string; name: string; subjectId: string; subjectName: string;
+      mcqsTotal: number; mcqsDone: number; completionPct: number;
+      accuracy: number; attempts: number;
+      status: "completed" | "in_progress" | "not_started";
+    };
+    type Rec = { chapterId: string; subjectId: string; subjectName: string; title: string; reason: string };
+
+    if (!subjectIds.length) {
+      return {
+        level,
+        subjects: [] as SubjectRow[],
+        chapters: [] as ChapterRow[],
+        recommendations: [] as Rec[],
+        overall: { completionPct: 0, chaptersDone: 0, chaptersTotal: 0 },
+      };
+    }
+
+    const { data: chapters } = await supabase
+      .from("chapters")
+      .select("id,name,subject_id,sort_order")
+      .in("subject_id", subjectIds)
+      .eq("status", "published")
+      .order("sort_order", { ascending: true });
+    const chs = chapters ?? [];
+    const chapterIds = chs.map((c) => c.id);
+
+    const mcqsRes = chapterIds.length
+      ? await supabase
+          .from("mcqs")
+          .select("id,chapter_id")
+          .in("chapter_id", chapterIds)
+          .eq("status", "published")
+      : { data: [] as { id: string; chapter_id: string }[] };
+    const mcqs = mcqsRes.data ?? [];
+
+    const mcqById = new Map<string, string>();
+    const mcqsByChapter = new Map<string, number>();
+    for (const m of mcqs) {
+      mcqById.set(m.id, m.chapter_id);
+      mcqsByChapter.set(m.chapter_id, (mcqsByChapter.get(m.chapter_id) ?? 0) + 1);
+    }
+
+    const { data: attempts } = await supabase
+      .from("exam_attempts")
+      .select("id,kind,chapter_id,subject_id,quiz_id,score,status")
+      .eq("user_id", userId)
+      .eq("status", "completed")
+      .limit(1000);
+
+    const quizMap = new Map(quizzes.map((q) => [q.id, q]));
+    const attemptIds = (attempts ?? []).map((a) => a.id);
+
+    const answersRes = attemptIds.length
+      ? await supabase
+          .from("attempt_answers")
+          .select("mcq_id,is_correct,attempt_id")
+          .in("attempt_id", attemptIds)
+      : { data: [] as { mcq_id: string; is_correct: boolean; attempt_id: string }[] };
+    const answers = answersRes.data ?? [];
+
+    const answeredByChapter = new Map<string, Set<string>>();
+    const accByChapter = new Map<string, { correct: number; total: number }>();
+    for (const a of answers) {
+      const ch = mcqById.get(a.mcq_id);
+      if (!ch) continue;
+      if (!answeredByChapter.has(ch)) answeredByChapter.set(ch, new Set());
+      answeredByChapter.get(ch)!.add(a.mcq_id);
+      const acc = accByChapter.get(ch) ?? { correct: 0, total: 0 };
+      acc.total += 1;
+      if (a.is_correct) acc.correct += 1;
+      accByChapter.set(ch, acc);
+    }
+
+    const sessionsByChapter = new Map<string, number>();
+    const subjKindCounts = new Map<string, { quiz: number; mock: number; custom_exam: number }>();
+    for (const a of attempts ?? []) {
+      const q = a.quiz_id ? quizMap.get(a.quiz_id) : null;
+      const ch = a.chapter_id ?? q?.chapter_id ?? null;
+      const subj = a.subject_id ?? q?.subject_id ?? null;
+      if (ch) sessionsByChapter.set(ch, (sessionsByChapter.get(ch) ?? 0) + 1);
+      if (subj) {
+        const s = subjKindCounts.get(subj) ?? { quiz: 0, mock: 0, custom_exam: 0 };
+        if (a.kind === "quiz") s.quiz += 1;
+        else if (a.kind === "mock") s.mock += 1;
+        else if (a.kind === "custom_exam") s.custom_exam += 1;
+        subjKindCounts.set(subj, s);
+      }
+    }
+
+    const subjectNameById = new Map(subjects.map((s) => [s.id, s.name]));
+
+    const chapterRows: ChapterRow[] = chs.map((c) => {
+      const total = mcqsByChapter.get(c.id) ?? 0;
+      const done = answeredByChapter.get(c.id)?.size ?? 0;
+      const acc = accByChapter.get(c.id);
+      const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
+      const status: ChapterRow["status"] =
+        total === 0 ? "not_started" : pct >= 95 ? "completed" : pct > 0 ? "in_progress" : "not_started";
+      return {
+        id: c.id,
+        name: c.name,
+        subjectId: c.subject_id,
+        subjectName: subjectNameById.get(c.subject_id) ?? "—",
+        mcqsTotal: total,
+        mcqsDone: done,
+        completionPct: pct,
+        accuracy: acc && acc.total ? Math.round((acc.correct / acc.total) * 100) : 0,
+        attempts: sessionsByChapter.get(c.id) ?? 0,
+        status,
+      };
+    });
+
+    const subjectRows: SubjectRow[] = subjects.map((s) => {
+      const sub = chapterRows.filter((c) => c.subjectId === s.id);
+      const mcqsTotal = sub.reduce((sum, c) => sum + c.mcqsTotal, 0);
+      const mcqsDone = sub.reduce((sum, c) => sum + c.mcqsDone, 0);
+      const accNum = sub.reduce((sum, c) => sum + (accByChapter.get(c.id)?.correct ?? 0), 0);
+      const accDen = sub.reduce((sum, c) => sum + (accByChapter.get(c.id)?.total ?? 0), 0);
+      const k = subjKindCounts.get(s.id) ?? { quiz: 0, mock: 0, custom_exam: 0 };
+      const chaptersDone = sub.filter((c) => c.status === "completed").length;
+      const chaptersInProgress = sub.filter((c) => c.status === "in_progress").length;
+      return {
+        id: s.id,
+        name: s.name,
+        color: s.color,
+        mcqsTotal,
+        mcqsDone,
+        completionPct: mcqsTotal ? Math.round((mcqsDone / mcqsTotal) * 100) : 0,
+        accuracy: accDen ? Math.round((accNum / accDen) * 100) : 0,
+        quizzes: k.quiz,
+        mocks: k.mock,
+        customExams: k.custom_exam,
+        chaptersTotal: sub.length,
+        chaptersDone,
+        chaptersInProgress,
+        pendingChapters: sub.length - chaptersDone,
+      };
+    });
+
+    const weak = chapterRows
+      .filter((c) => c.attempts > 0 && c.accuracy < 60 && c.mcqsTotal > 0)
+      .sort((a, b) => a.accuracy - b.accuracy)
+      .slice(0, 3)
+      .map<Rec>((c) => ({
+        chapterId: c.id,
+        subjectId: c.subjectId,
+        subjectName: c.subjectName,
+        title: c.name,
+        reason: `Low accuracy (${c.accuracy}%) — revise this chapter`,
+      }));
+    const fresh = chapterRows
+      .filter((c) => c.status === "not_started" && c.mcqsTotal > 0)
+      .slice(0, 3)
+      .map<Rec>((c) => ({
+        chapterId: c.id,
+        subjectId: c.subjectId,
+        subjectName: c.subjectName,
+        title: c.name,
+        reason: `Untouched · ${c.mcqsTotal} MCQs ready`,
+      }));
+    const recommendations = [...weak, ...fresh].slice(0, 5);
+
+    const overallTotal = chapterRows.reduce((s, c) => s + c.mcqsTotal, 0);
+    const overallDone = chapterRows.reduce((s, c) => s + c.mcqsDone, 0);
+
+    return {
+      level,
+      subjects: subjectRows,
+      chapters: chapterRows,
+      recommendations,
+      overall: {
+        completionPct: overallTotal ? Math.round((overallDone / overallTotal) * 100) : 0,
+        chaptersDone: chapterRows.filter((c) => c.status === "completed").length,
+        chaptersTotal: chapterRows.length,
+      },
+    };
+  });
