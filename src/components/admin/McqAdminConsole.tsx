@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  adminListSubjects, adminListChapters, adminListMcqs,
+  adminListSubjects, adminListChapters, adminListMcqs, adminListLevels,
   adminCreateMcq, adminUpdateMcq, adminDeleteMcq, adminSetMcqStatus,
   adminCreateSubject, adminCreateChapter, adminBulkImportMcqs,
 } from "@/lib/admin-mcq.functions";
