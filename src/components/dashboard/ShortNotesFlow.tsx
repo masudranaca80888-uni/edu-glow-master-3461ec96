@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { listPublicShortNotes } from "@/lib/admin-short-notes.functions";
 import {
-  EyeOff, Sparkles, ChevronRight, FileText, Search,
+  EyeOff, Sparkles, ChevronRight, ChevronLeft, FileText, Search,
   Download, File as FileIcon, BookOpen, Bookmark, ExternalLink,
   NotebookPen, Maximize2, Loader2,
 } from "lucide-react";
