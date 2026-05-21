@@ -43,7 +43,9 @@ export const studentNavItems: NavItem[] = [
 
 export const adminNavItems: NavItem[] = [
   { title: "Dashboard", to: "/admin", icon: LayoutDashboard },
+  { title: "Academic Manager", to: "/admin/academic-manager", icon: FolderTree, keywords: ["level", "subject", "chapter", "academic", "structure"] },
   { title: "MCQ Manager", to: "/admin/mcq", icon: ListChecks, keywords: ["upload mcq", "mcq"] },
+
   { title: "Quiz Manager", to: "/admin/quiz", icon: Timer, keywords: ["quiz"] },
   { title: "Mock Test Manager", to: "/admin/mock-test", icon: Trophy, keywords: ["mock"] },
   { title: "Flash Card Manager", to: "/admin/flash-cards", icon: Layers, keywords: ["flash"] },
