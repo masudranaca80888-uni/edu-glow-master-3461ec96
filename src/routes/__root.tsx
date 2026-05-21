@@ -13,6 +13,7 @@ import { Suspense, useEffect, useMemo } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { useAppStore } from "@/stores/app-store";
 import { useRealtimeInvalidator } from "@/hooks/use-realtime-invalidator";
+import { usePrefs } from "@/lib/profile-prefs";
 
 import appCss from "../styles.css?url";
 
@@ -133,6 +134,9 @@ function RootInner() {
   const router = useRouter();
   const { queryClient } = Route.useRouteContext();
   const { hydrate, hydrated, sessionReady, user } = useAppStore();
+
+  // Apply user prefs (accent color, font size) to <html> on every mount.
+  usePrefs();
 
   // Must be inside QueryClientProvider — uses useQueryClient internally.
   useRealtimeInvalidator(Boolean(user));
