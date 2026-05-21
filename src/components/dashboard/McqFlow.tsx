@@ -173,7 +173,8 @@ export function McqFlow() {
   });
   const chapterProgressMap = useMemo(() => {
     const m = new Map<string, { total: number; completed: number; percent: number; accuracy: number }>();
-    (chapterProgressQ.data ?? []).forEach((r) => m.set(r.chapter_id, r));
+    const rows = (chapterProgressQ.data ?? []) as Array<{ chapter_id: string; total: number; completed: number; percent: number; accuracy: number }>;
+    rows.forEach((r) => m.set(r.chapter_id, { total: r.total, completed: r.completed, percent: r.percent, accuracy: r.accuracy }));
     return m;
   }, [chapterProgressQ.data]);
 
