@@ -423,7 +423,7 @@ export function FlashCardManagerFlow() {
         onSaved={invalidate}
         levels={levels}
         allSubjects={(tree.data?.subjects ?? []) as { id: string; name: string; level: string }[]}
-        allChapters={allChapters as { id: string; name: string; subject_id: string }[]}
+        allChapters={(tree.data?.chapters ?? []) as { id: string; name: string; subject_id: string }[]}
       />
     </div>
   );
