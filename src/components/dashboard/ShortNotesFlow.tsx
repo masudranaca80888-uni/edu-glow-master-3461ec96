@@ -65,10 +65,44 @@ export function ShortNotesFlow() {
   const [subject, setSubject] = useState("");
   const [chapter, setChapter] = useState("");
 
+  const qc = useQueryClient();
+  const publicFn = useServerFn(listPublicShortNotes);
+  const visQuery = useQuery({
+    queryKey: ["public-short-notes", "section"],
+    queryFn: () => publicFn({ data: {} }),
+    staleTime: 30_000,
+  });
+
+  useEffect(() => {
+    const ch = supabase
+      .channel("snv-student")
+      .on("postgres_changes", { event: "*", schema: "public", table: "short_notes_visibility" }, () => {
+        qc.invalidateQueries({ queryKey: ["public-short-notes"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "short_notes" }, () => {
+        qc.invalidateQueries({ queryKey: ["public-short-notes"] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [qc]);
+
+  if (visQuery.data?.hidden) {
+    return (
+      <div className="glass shadow-card-soft flex flex-col items-center justify-center gap-3 rounded-3xl p-12 text-center">
+        <EyeOff className="h-10 w-10 text-muted-foreground" />
+        <h2 className="font-display text-2xl font-bold">Short Notes are temporarily unavailable</h2>
+        <p className="max-w-md text-sm text-muted-foreground">
+          The Short Notes section is currently hidden by your administrator. Please check back soon.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <Header />
       <Stepper step={step} level={level} subject={subject} chapter={chapter} setStep={setStep} />
+
 
       {step === 0 && (
         <Grid>
