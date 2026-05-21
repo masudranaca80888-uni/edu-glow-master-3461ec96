@@ -28,9 +28,10 @@ async function assertAdmin(supabase: any, userId: string) {
 }
 
 export const listModuleVisibility = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const { data, error } = await context.supabase
+  .handler(async () => {
+    // Public read (no auth middleware) so the landing page works for anon visitors.
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin
       .from("module_visibility")
       .select("key,label,hidden,updated_at")
       .order("label");
