@@ -613,13 +613,13 @@ export function McqFlow() {
                           : state === "selected" ? "border-primary bg-primary/10"
                           : "border-border hover:border-primary/50 hover:bg-muted/40";
 
-                        // During practice: click locks selection & auto-advances.
-                        // In review: options are read-only.
-                        const clickable = !reviewMode;
+                        // During practice: clicking picks an option (temporary). Submit is manual.
+                        // Once submitted for this question, options lock until Previous/Next.
+                        const clickable = !reviewMode && !submittedNow;
                         return (
                           <button
                             key={o.k}
-                            onClick={() => clickable && submitAnswer(o.k as "A" | "B" | "C" | "D")}
+                            onClick={() => clickable && setSelectedOption(o.k as Choice)}
                             disabled={!clickable}
                             className={`group relative flex items-center gap-4 rounded-2xl border p-4 text-left transition-all ${tone} disabled:cursor-default`}
                           >
