@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { Search, Bell, Sun, Moon, Sparkles, Menu } from "lucide-react";
 import { useAppStore } from "@/stores/app-store";
+import { LiveIndicator } from "@/components/realtime/LiveIndicator";
 
 export function DashTopbar({ onMenu }: { onMenu?: () => void }) {
   const theme = useAppStore((s) => s.theme);
@@ -29,6 +30,8 @@ export function DashTopbar({ onMenu }: { onMenu?: () => void }) {
           className="h-10 w-full rounded-xl border border-border bg-background/60 pl-9 pr-3 text-sm outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary"
         />
       </div>
+
+      <LiveIndicator className="hidden sm:inline-flex" />
 
       <button
         type="button"

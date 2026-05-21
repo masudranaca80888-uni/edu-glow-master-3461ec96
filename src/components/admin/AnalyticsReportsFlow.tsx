@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
+import { CountUp } from "@/components/realtime/CountUp";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -240,7 +241,7 @@ export function AnalyticsReportsFlow() {
               </Badge>
             </div>
             <p className="mt-3 text-[11px] uppercase tracking-wider text-muted-foreground">{s.l}</p>
-            <p className="font-display text-2xl font-bold tracking-tight">{typeof s.v === "number" ? s.v.toLocaleString() : s.v}</p>
+            <p className="font-display text-2xl font-bold tracking-tight">{typeof s.v === "number" ? <CountUp value={s.v} /> : s.v}</p>
           </div>
         ))}
       </section>
@@ -329,7 +330,7 @@ export function AnalyticsReportsFlow() {
                     </div>
                     <div className="flex-1">
                       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{r.l}</p>
-                      <p className="font-display text-lg font-bold tracking-tight">{r.v.toLocaleString()}</p>
+                      <p className="font-display text-lg font-bold tracking-tight"><CountUp value={r.v} /></p>
                     </div>
                   </div>
                 </div>
@@ -357,7 +358,7 @@ export function AnalyticsReportsFlow() {
                   <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                     <l.i className={`h-3.5 w-3.5 ${l.c}`} /> {l.l}
                   </div>
-                  <p className="mt-1 font-display text-xl font-bold">{l.v.toLocaleString()}</p>
+                  <p className="mt-1 font-display text-xl font-bold"><CountUp value={l.v} /></p>
                 </div>
               ))}
             </div>
