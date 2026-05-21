@@ -66,6 +66,7 @@ const TABLE_QUERY_KEYS: TableMap = {
   profiles: { keys: ["profile", "profiles", "users"], label: "Profiles" },
   user_roles: { keys: ["users", "user-roles"], label: "Roles" },
   exam_attempts: { keys: ["exam-attempts", "analytics", "stats"], label: "Attempts" },
+  module_visibility: { keys: ["module-visibility"], label: "Module visibility" },
 };
 
 export function useRealtimeInvalidator(enabled = true) {
