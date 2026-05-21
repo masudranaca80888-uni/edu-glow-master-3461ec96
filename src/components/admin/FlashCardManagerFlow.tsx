@@ -417,7 +417,14 @@ export function FlashCardManagerFlow() {
         allSubjects={allSubjects as never}
         allChapters={allChapters as never}
       />
-      <BulkImportDialog open={importer} onClose={() => setImporter(false)} onSaved={invalidate} />
+      <BulkImportDialog
+        open={importer}
+        onClose={() => setImporter(false)}
+        onSaved={invalidate}
+        levels={levels}
+        allSubjects={(tree.data?.subjects ?? []) as { id: string; name: string; level: string }[]}
+        allChapters={(tree.data?.chapters ?? []) as { id: string; name: string; subject_id: string }[]}
+      />
     </div>
   );
 }
@@ -655,88 +662,243 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 // ===============================================
-// Bulk import dialog (paste plain text blocks)
+// Bulk import dialog — paste OR upload PDF/DOCX/TXT, preview, edit, then save.
 // ===============================================
-function BulkImportDialog({ open, onClose, onSaved }: { open: boolean; onClose: () => void; onSaved: () => void }) {
+function BulkImportDialog({
+  open,
+  onClose,
+  onSaved,
+  levels,
+  allSubjects,
+  allChapters,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSaved: () => void;
+  levels: { code: string; name: string }[];
+  allSubjects: { id: string; name: string; level: string }[];
+  allChapters: { id: string; name: string; subject_id: string }[];
+}) {
   const importFn = useServerFn(adminBulkImportFlashCards);
   const [text, setText] = useState("");
   const [level, setLevel] = useState("professional");
+  const [subjectId, setSubjectId] = useState<string>("none");
+  const [chapterId, setChapterId] = useState<string>("none");
+  const [parsing, setParsing] = useState(false);
+  const [parsedCards, setParsedCards] = useState<{ front: string; back: string }[]>([]);
 
-  // Parse format:  Front :: Back   (one card per line)
-  const cards = useMemo(() => {
-    return text
-      .split(/\r?\n/)
-      .map((l) => l.trim())
-      .filter(Boolean)
-      .map((l) => {
-        const [front, ...rest] = l.split("::");
-        return {
-          front: (front ?? "").trim(),
-          back: rest.join("::").trim(),
-        };
-      })
-      .filter((c) => c.front && c.back);
+  // Reset on close
+  useEffect(() => {
+    if (!open) {
+      setText("");
+      setParsedCards([]);
+      setSubjectId("none");
+      setChapterId("none");
+    }
+  }, [open]);
+
+  const subjectsForLevel = useMemo(
+    () => allSubjects.filter((s) => s.level === level),
+    [allSubjects, level],
+  );
+  const chaptersForSubject = useMemo(
+    () => (subjectId === "none" ? [] : allChapters.filter((c) => c.subject_id === subjectId)),
+    [allChapters, subjectId],
+  );
+
+  // Re-parse whenever text changes
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { parseFlashCardText } = await import("@/lib/flash-card-parse");
+      const cards = parseFlashCardText(text);
+      if (!cancelled) setParsedCards(cards);
+    })();
+    return () => { cancelled = true; };
   }, [text]);
+
+  async function handleFile(file: File | null) {
+    if (!file) return;
+    setParsing(true);
+    try {
+      const { extractTextFromFile } = await import("@/lib/flash-card-parse");
+      const extracted = await extractTextFromFile(file);
+      setText((prev) => (prev ? `${prev}\n\n${extracted}` : extracted));
+      toast.success(`Parsed ${file.name}`);
+    } catch (e) {
+      toast.error((e as Error).message || "Failed to parse file");
+    } finally {
+      setParsing(false);
+    }
+  }
+
+  const updateCard = (i: number, patch: Partial<{ front: string; back: string }>) => {
+    setParsedCards((prev) => prev.map((c, idx) => (idx === i ? { ...c, ...patch } : c)));
+  };
+  const removeCard = (i: number) => {
+    setParsedCards((prev) => prev.filter((_, idx) => idx !== i));
+  };
 
   const submit = useMutation({
     mutationFn: () =>
       importFn({
         data: {
-          cards: cards.map((c) => ({
-            front: c.front,
-            back: c.back,
-            level,
-            card_type: "concept",
-            status: "draft",
-            tags: [],
-            is_hidden: false,
-          })),
+          cards: parsedCards
+            .filter((c) => c.front.trim() && c.back.trim())
+            .map((c) => ({
+              front: c.front.trim().slice(0, 500),
+              back: c.back.trim().slice(0, 4000),
+              level,
+              subject_id: subjectId === "none" ? null : subjectId,
+              chapter_id: chapterId === "none" ? null : chapterId,
+              card_type: "concept",
+              status: "draft",
+              tags: [],
+              is_hidden: false,
+            })),
         },
       }),
-    onSuccess: (r) => { toast.success(`Imported ${r.count} flash cards`); setText(""); onSaved(); onClose(); },
+    onSuccess: (r) => {
+      toast.success(`Imported ${r.count} flash cards`);
+      onSaved();
+      onClose();
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const validCount = parsedCards.filter((c) => c.front.trim() && c.back.trim()).length;
+
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-xl">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Bulk Import Flash Cards</DialogTitle>
           <DialogDescription>
-            Paste one card per line in the format <code className="rounded bg-muted px-1">Front :: Back</code>. Imported as drafts.
+            Paste text or upload a <strong>PDF / DOCX / TXT</strong> file. Supported formats:
+            <span className="ml-1 font-mono text-[11px]">Question:/Answer:</span>,
+            <span className="ml-1 font-mono text-[11px]">Q:/A:</span>,
+            <span className="ml-1 font-mono text-[11px]">Front :: Back</span>, or blank-line separated pairs.
           </DialogDescription>
         </DialogHeader>
 
-        <Field label="Default level">
-          <Select value={level} onValueChange={setLevel}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="certificate">Certificate</SelectItem>
-              <SelectItem value="professional">Professional</SelectItem>
-              <SelectItem value="advanced">Advanced</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Field label="Level">
+            <Select value={level} onValueChange={(v) => { setLevel(v); setSubjectId("none"); setChapterId("none"); }}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {levels.length === 0 && <SelectItem value="professional">Professional</SelectItem>}
+                {levels.map((l) => (
+                  <SelectItem key={l.code} value={l.code}>{l.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Subject (optional)">
+            <Select value={subjectId} onValueChange={(v) => { setSubjectId(v); setChapterId("none"); }}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">— None —</SelectItem>
+                {subjectsForLevel.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Chapter (optional)">
+            <Select value={chapterId} onValueChange={setChapterId} disabled={subjectId === "none"}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">— None —</SelectItem>
+                {chaptersForSubject.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        </div>
+
+        <Field label="Upload PDF, DOCX or TXT">
+          <div className="flex items-center gap-2">
+            <Input
+              type="file"
+              accept=".pdf,.docx,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+              onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
+              disabled={parsing}
+            />
+            {parsing && <span className="text-xs text-muted-foreground">Parsing…</span>}
+          </div>
         </Field>
 
-        <Field label="Cards">
+        <Field label="Paste or edit text">
           <Textarea
-            rows={10}
+            rows={8}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder={"Newton's First Law :: An object in motion stays in motion…\nF = ma :: Force equals mass times acceleration"}
+            placeholder={
+              "Question: What is Newton's First Law?\nAnswer: An object remains at rest or in motion unless acted upon.\n\nQuestion: What is velocity?\nAnswer: Speed with direction."
+            }
             className="font-mono text-xs"
           />
         </Field>
 
-        <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
-          <FileText className="h-4 w-4" />
-          {cards.length} valid card{cards.length === 1 ? "" : "s"} detected.
+        <div className="flex items-center justify-between rounded-lg border border-white/10 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
+          <span className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            {validCount} valid card{validCount === 1 ? "" : "s"} detected ({parsedCards.length} parsed, duplicates removed).
+          </span>
+          {parsedCards.length > 0 && (
+            <button
+              type="button"
+              onClick={() => { setText(""); setParsedCards([]); }}
+              className="text-xs text-muted-foreground underline hover:text-foreground"
+            >
+              Clear
+            </button>
+          )}
         </div>
+
+        {parsedCards.length > 0 && (
+          <div className="max-h-[280px] overflow-y-auto rounded-xl border border-white/10 bg-background/40">
+            <div className="sticky top-0 z-10 grid grid-cols-[1fr_1.5fr_auto] gap-2 border-b border-white/10 bg-background/80 px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground backdrop-blur">
+              <span>Front</span><span>Back</span><span />
+            </div>
+            <ul className="divide-y divide-white/5">
+              {parsedCards.map((c, i) => (
+                <li key={i} className="grid grid-cols-[1fr_1.5fr_auto] gap-2 px-3 py-2">
+                  <Input
+                    value={c.front}
+                    onChange={(e) => updateCard(i, { front: e.target.value })}
+                    className="h-8 text-xs"
+                  />
+                  <Input
+                    value={c.back}
+                    onChange={(e) => updateCard(i, { back: e.target.value })}
+                    className="h-8 text-xs"
+                  />
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8"
+                    onClick={() => removeCard(i)}
+                    aria-label="Remove card"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button onClick={() => submit.mutate()} disabled={!cards.length || submit.isPending}>
-            {submit.isPending ? "Importing…" : `Import ${cards.length}`}
+          <Button
+            onClick={() => submit.mutate()}
+            disabled={!validCount || submit.isPending}
+            className="bg-cta-gradient text-white shadow-glow"
+          >
+            {submit.isPending ? "Importing…" : `Import ${validCount} as drafts`}
           </Button>
         </DialogFooter>
       </DialogContent>
