@@ -223,14 +223,14 @@ export function QuizFlow() {
         {step === 0 && (
           <section className="animate-fade-up">
             <h2 className="font-display text-2xl font-bold">Choose Quiz Level</h2>
-            <p className="text-sm text-muted-foreground">Select a difficulty band to begin.</p>
+            <p className="text-sm text-muted-foreground">Select your level to begin.</p>
             <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-3">
               {levels.map((l) => {
                 const Icon = l.icon;
                 return (
                   <button
                     key={l.t}
-                    onClick={() => { setLevel(l); setStep(1); }}
+                    onClick={() => { setLevel(l); setSubjectId(null); setChapterId(null); setStep(1); }}
                     className="group relative rounded-3xl p-px text-left transition-transform hover:-translate-y-1"
                     style={{ background: `linear-gradient(135deg, ${l.tone}, transparent 65%)` }}
                   >
@@ -242,7 +242,7 @@ export function QuizFlow() {
                       <h3 className="font-display mt-5 text-xl font-bold">{l.t}</h3>
                       <p className="mt-1 text-sm text-muted-foreground">{l.d}</p>
                       <div className="mt-5 inline-flex items-center gap-1 text-xs font-semibold text-gradient">
-                        Browse Quizzes <ArrowRight className="h-3.5 w-3.5" />
+                        Browse Subjects <ArrowRight className="h-3.5 w-3.5" />
                       </div>
                     </div>
                   </button>
@@ -252,21 +252,87 @@ export function QuizFlow() {
           </section>
         )}
 
-        {/* STEP 2 — QUIZ PICKER */}
+        {/* STEP 2 — SUBJECT */}
         {step === 1 && (
+          <section className="animate-fade-up">
+            <h2 className="font-display text-2xl font-bold">Pick a Subject</h2>
+            <p className="text-sm text-muted-foreground">{level?.t} Level · choose a subject.</p>
+            {subjectsQ.isLoading ? (
+              <Loading />
+            ) : (subjectsQ.data ?? []).length === 0 ? (
+              <Empty text="No subjects available yet." />
+            ) : (
+              <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
+                {(subjectsQ.data ?? []).map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => { setSubjectId(s.id); setChapterId(null); setStep(2); }}
+                    className="glass shadow-card-soft group rounded-3xl p-5 text-left transition-transform hover:-translate-y-1"
+                  >
+                    <div className="bg-cta-gradient flex h-11 w-11 items-center justify-center rounded-2xl text-white shadow-glow" style={s.color ? { background: s.color } : undefined}>
+                      <BookOpen className="h-5 w-5" />
+                    </div>
+                    <h3 className="font-display mt-4 text-lg font-bold">{s.name}</h3>
+                    <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{s.description ?? "Tap to see chapters"}</p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* STEP 3 — CHAPTER */}
+        {step === 2 && (
+          <section className="animate-fade-up">
+            <h2 className="font-display text-2xl font-bold">Pick a Chapter</h2>
+            <p className="text-sm text-muted-foreground">Or skip to see all quizzes for this subject.</p>
+            <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
+              <button
+                onClick={() => { setChapterId(null); setStep(3); }}
+                className="glass shadow-card-soft group rounded-3xl p-5 text-left transition-transform hover:-translate-y-1"
+              >
+                <div className="bg-cta-gradient flex h-11 w-11 items-center justify-center rounded-2xl text-white shadow-glow">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <h3 className="font-display mt-4 text-lg font-bold">All Chapters</h3>
+                <p className="mt-1 text-xs text-muted-foreground">Show every quiz in this subject</p>
+              </button>
+              {chaptersQ.isLoading ? (
+                <Loading />
+              ) : (
+                (chaptersQ.data ?? []).map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => { setChapterId(c.id); setStep(3); }}
+                    className="glass shadow-card-soft group rounded-3xl p-5 text-left transition-transform hover:-translate-y-1"
+                  >
+                    <div className="bg-cta-gradient flex h-11 w-11 items-center justify-center rounded-2xl text-white shadow-glow">
+                      <BookOpen className="h-5 w-5" />
+                    </div>
+                    <h3 className="font-display mt-4 text-lg font-bold">{c.name}</h3>
+                    <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{c.description ?? ""}</p>
+                  </button>
+                ))
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* STEP 4 — QUIZ PICKER */}
+        {step === 3 && (
           <section className="animate-fade-up">
             <h2 className="font-display text-2xl font-bold">Pick a Quiz</h2>
             <p className="text-sm text-muted-foreground">{level?.t} Level · choose a quiz to attempt.</p>
             {quizzesQ.isLoading ? (
               <Loading />
             ) : filteredQuizzes.length === 0 ? (
-              <Empty text="No quizzes for this level yet. Try another." />
+              <Empty text="No quizzes published here yet. Try another chapter or subject." />
             ) : (
               <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
                 {filteredQuizzes.map((qz) => (
                   <button
                     key={qz.id}
-                    onClick={() => { setQuizId(qz.id); setStep(2); resetAll(); }}
+                    onClick={() => { setQuizId(qz.id); setStep(4); resetAll(); }}
                     className="glass shadow-card-soft group rounded-3xl p-5 text-left transition-transform hover:-translate-y-1"
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -280,7 +346,7 @@ export function QuizFlow() {
                     <h3 className="font-display mt-4 text-lg font-bold">{qz.title}</h3>
                     <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{qz.description ?? "Tap to start"}</p>
                     <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{qz.total_questions} questions</span>
+                      <span>{(qz as { mcq_count?: number }).mcq_count ?? qz.total_questions} questions</span>
                       <span>{Math.round((qz.duration_seconds ?? 600) / 60)} min</span>
                     </div>
                   </button>
