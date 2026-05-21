@@ -265,6 +265,7 @@ export function QuizManagerFlow() {
                     <td className="px-3 py-3 text-muted-foreground">{new Date(r.updated_at).toLocaleDateString()}</td>
                     <td className="px-3 py-3">
                       <div className="flex items-center gap-1">
+                        <IconBtn title="Preview" onClick={() => setPreviewFor(r)}><Eye className="h-3.5 w-3.5" /></IconBtn>
                         <IconBtn title="Edit" onClick={() => setEditing(r)}><Edit3 className="h-3.5 w-3.5" /></IconBtn>
                         <IconBtn title="Manage MCQs" onClick={() => setBuilderFor(r)}><ListChecks className="h-3.5 w-3.5" /></IconBtn>
                         <IconBtn title="Duplicate" onClick={() => dupM.mutate(r.id)}><Copy className="h-3.5 w-3.5" /></IconBtn>
