@@ -19,14 +19,14 @@ import {
   Loader2,
   BookOpen,
 } from "lucide-react";
-import { listQuizzes, getQuiz, submitAttempt } from "@/lib/learning.functions";
+import { listQuizzes, getQuiz, submitAttempt, listSubjects, listChapters } from "@/lib/learning.functions";
 
-type Step = 0 | 1 | 2;
+type Step = 0 | 1 | 2 | 3 | 4;
 
 const levels = [
-  { t: "Certificate", d: "Beginner level", icon: Sparkles, tone: "var(--neon-purple)", match: "easy" },
-  { t: "Professional", d: "Intermediate level", icon: Award, tone: "var(--neon-blue)", match: "medium" },
-  { t: "Advanced", d: "Expert level", icon: Crown, tone: "oklch(0.82 0.16 85)", match: "hard" },
+  { t: "Certificate", d: "Beginner level", icon: Sparkles, tone: "var(--neon-purple)", code: "certificate" },
+  { t: "Professional", d: "Intermediate level", icon: Award, tone: "var(--neon-blue)", code: "professional" },
+  { t: "Advanced", d: "Expert level", icon: Crown, tone: "oklch(0.82 0.16 85)", code: "advanced" },
 ];
 
 const diffColor: Record<string, string> = {
@@ -35,7 +35,7 @@ const diffColor: Record<string, string> = {
   hard: "var(--neon-pink)",
 };
 
-const stepLabels = ["Level", "Quiz", "Play"];
+const stepLabels = ["Level", "Subject", "Chapter", "Quiz", "Play"];
 
 type QuizQ = {
   position: number;
@@ -53,6 +53,8 @@ type QuizQ = {
 export function QuizFlow() {
   const [step, setStep] = useState<Step>(0);
   const [level, setLevel] = useState<typeof levels[number] | null>(null);
+  const [subjectId, setSubjectId] = useState<string | null>(null);
+  const [chapterId, setChapterId] = useState<string | null>(null);
   const [quizId, setQuizId] = useState<string | null>(null);
   const [current, setCurrent] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
@@ -65,6 +67,8 @@ export function QuizFlow() {
   const listQuizzesFn = useServerFn(listQuizzes);
   const getQuizFn = useServerFn(getQuiz);
   const submitFn = useServerFn(submitAttempt);
+  const listSubjectsFn = useServerFn(listSubjects);
+  const listChaptersFn = useServerFn(listChapters);
   const qc = useQueryClient();
 
   // Realtime: any quiz/question change on admin side refreshes student view
@@ -74,22 +78,43 @@ export function QuizFlow() {
       .on("postgres_changes", { event: "*", schema: "public", table: "quizzes" }, () => {
         qc.invalidateQueries({ queryKey: ["quizzes"] });
         qc.invalidateQueries({ queryKey: ["quiz"] });
+        qc.invalidateQueries({ queryKey: ["student-dashboard"] });
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "quiz_questions" }, () => {
+        qc.invalidateQueries({ queryKey: ["quizzes"] });
         qc.invalidateQueries({ queryKey: ["quiz"] });
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [qc]);
 
+  const subjectsQ = useQuery({
+    queryKey: ["subjects", "student"],
+    queryFn: () => listSubjectsFn(),
+    enabled: step >= 1,
+  });
+  const chaptersQ = useQuery({
+    queryKey: ["chapters", subjectId],
+    queryFn: () => listChaptersFn({ data: { subjectId: subjectId! } }),
+    enabled: !!subjectId && step >= 2,
+  });
   const quizzesQ = useQuery({
-    queryKey: ["quizzes"],
-    queryFn: () => listQuizzesFn(),
+    queryKey: ["quizzes", level?.code ?? null, subjectId, chapterId],
+    queryFn: () =>
+      listQuizzesFn({
+        data: {
+          level: level?.code,
+          subjectId: subjectId ?? undefined,
+          chapterId: chapterId ?? undefined,
+          kind: "quiz",
+        },
+      }),
+    enabled: step >= 3,
   });
   const quizQ = useQuery({
     queryKey: ["quiz", quizId],
     queryFn: () => getQuizFn({ data: { quizId: quizId! } }),
-    enabled: !!quizId && step === 2,
+    enabled: !!quizId && step === 4,
   });
 
   const questions = ((quizQ.data?.questions ?? []) as unknown) as QuizQ[];
