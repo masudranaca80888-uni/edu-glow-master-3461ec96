@@ -180,13 +180,21 @@ export function MockTestManagerFlow() {
 
   const deleteMut = useMutation({
     mutationFn: (id: string) => deleteMockFn({ data: { id } }),
-    onSuccess: () => { toast.success("Mock test deleted"); invalidate(); },
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: ["admin-mocks"] });
+      qc.setQueriesData<{ rows: Mock[]; count: number }>({ queryKey: ["admin-mocks"] }, (old) => old ? ({ ...old, rows: old.rows.filter((r) => r.id !== id), count: Math.max(0, old.count - 1) }) : old);
+    },
+    onSuccess: () => { toast.success("Mock test deleted"); setDeleting(null); invalidate(); },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const statusMut = useMutation({
     mutationFn: (vars: { id: string; status: Status }) => setStatusFn({ data: vars }),
-    onSuccess: (_d, v) => { toast.success(`Mock ${v.status}`); invalidate(); },
+    onMutate: async (v) => {
+      await qc.cancelQueries({ queryKey: ["admin-mocks"] });
+      qc.setQueriesData<{ rows: Mock[]; count: number }>({ queryKey: ["admin-mocks"] }, (old) => old ? ({ ...old, rows: old.rows.map((r) => r.id === v.id ? { ...r, status: v.status } : r) }) : old);
+    },
+    onSuccess: (_d, v) => { toast.success(`Mock ${v.status}`); setPublishing(null); invalidate(); },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -198,6 +206,18 @@ export function MockTestManagerFlow() {
 
   const [editing, setEditing] = useState<Mock | null>(null);
   const [creating, setCreating] = useState(false);
+  const [builderPreset, setBuilderPreset] = useState<"blank" | "generate" | "full" | "chapter">("blank");
+  const [viewing, setViewing] = useState<Mock | null>(null);
+  const [analyticsFor, setAnalyticsFor] = useState<Mock | null>(null);
+  const [deleting, setDeleting] = useState<Mock | null>(null);
+  const [publishing, setPublishing] = useState<{ mock: Mock; status: Status } | null>(null);
+  const [scheduling, setScheduling] = useState<Mock | null>(null);
+
+  function openBuilder(preset: "blank" | "generate" | "full" | "chapter") {
+    setBuilderPreset(preset);
+    setEditing(null);
+    setCreating(true);
+  }
 
   // Stats from data
   const stats = useMemo(() => {
