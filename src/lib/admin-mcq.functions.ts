@@ -129,7 +129,7 @@ const listInput = z.object({
   status: statusEnum.optional(),
   difficulty: difficultyEnum.optional(),
   page: z.number().int().min(1).max(2000).default(1),
-  pageSize: z.number().int().min(1).max(100).default(20),
+  pageSize: z.number().int().min(1).max(500).default(20),
 });
 
 export const adminListMcqs = createServerFn({ method: "POST" })

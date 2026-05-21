@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
@@ -572,6 +573,29 @@ function QuizEditorDialog({
 // ============================================================
 // Question picker dialog
 // ============================================================
+type PoolRow = { id: string; question: string; difficulty: string; correct_option: string };
+
+const PickerRow = ({
+  m, selected, onToggle,
+}: { m: PoolRow; selected: boolean; onToggle: (id: string) => void }) => (
+  <label className={`flex cursor-pointer items-start gap-3 border-b border-border/40 p-3 text-xs ${selected ? "bg-[var(--neon-purple)]/10" : "hover:bg-background/40"}`}>
+    <input
+      type="checkbox"
+      checked={selected}
+      onChange={() => onToggle(m.id)}
+      className="mt-1 h-4 w-4 accent-[var(--neon-purple)]"
+    />
+    <div className="flex-1">
+      <p className="font-medium">{m.question}</p>
+      <div className="mt-1 flex gap-2 text-[10px] text-muted-foreground">
+        <span className="rounded-full bg-muted px-2 py-0.5 capitalize">{m.difficulty}</span>
+        <span>Answer: <b className="text-primary">{m.correct_option}</b></span>
+      </div>
+    </div>
+  </label>
+);
+const MemoPickerRow = memo(PickerRow);
+
 function QuestionPickerDialog({
   quiz, onClose, onSaved,
 }: { quiz: Quiz; onClose: () => void; onSaved: () => void }) {
@@ -579,40 +603,73 @@ function QuestionPickerDialog({
   const getQ = useServerFn(adminGetQuizQuestions);
   const setQ = useServerFn(adminSetQuizQuestions);
   const mcqList = useServerFn(adminListMcqs);
+  const levelsFn = useServerFn(adminListLevels);
+  const subjectsFn = useServerFn(adminListSubjects);
+  const chaptersFn = useServerFn(adminListChapters);
 
-  const [search, setSearch] = useState("");
+  // In-modal L→S→C selectors, seeded from the quiz so it "just works" for existing quizzes.
+  const [level, setLevel] = useState<string>(quiz.level || "");
+  const [subjectId, setSubjectId] = useState<string>(quiz.subject_id ?? "");
+  const [chapterId, setChapterId] = useState<string>(quiz.chapter_id ?? "");
+
+  const [searchInput, setSearchInput] = useState("");
+  const search = useDebouncedValue(searchInput, 250);
   const [difficulty, setDifficulty] = useState<string>("all");
   const [selected, setSelected] = useState<string[]>([]);
+  const selectedSet = useMemo(() => new Set(selected), [selected]);
   const [autoSave, setAutoSave] = useState(true);
   const lastSaved = useRef<string>("");
 
+  // ---- Academic tree (admin view) ----
+  const levelsQ = useQuery({ queryKey: ["admin-levels"], queryFn: () => levelsFn(), staleTime: 60_000 });
+  const subjectsQ = useQuery({ queryKey: ["admin-subjects"], queryFn: () => subjectsFn(), staleTime: 60_000 });
+  const chaptersQ = useQuery({
+    queryKey: ["admin-chapters", subjectId],
+    queryFn: () => chaptersFn({ data: { subjectId } }),
+    enabled: !!subjectId,
+    staleTime: 30_000,
+  });
+
+  const levels = (levelsQ.data ?? []) as Array<{ code: string; name: string }>;
+  const subjects = useMemo(
+    () => ((subjectsQ.data ?? []) as Array<{ id: string; name: string; level: string }>)
+      .filter((s) => !level || s.level === level),
+    [subjectsQ.data, level],
+  );
+  const chapters = (chaptersQ.data ?? []) as Array<{ id: string; name: string }>;
+
+  // ---- Initial selection from existing quiz ----
   const initial = useQuery({
     queryKey: ["quiz-questions", quiz.id],
     queryFn: () => getQ({ data: { quizId: quiz.id } }),
   });
   useEffect(() => {
     if (initial.data) {
-      const ids = initial.data.map((q: { mcq_id: string }) => q.mcq_id);
+      const ids = (initial.data as Array<{ mcq_id: string }>).map((q) => q.mcq_id);
       setSelected(ids);
       lastSaved.current = ids.join(",");
     }
   }, [initial.data]);
 
+  // ---- Pool query: scoped to chapter (preferred) or subject ----
   const pool = useQuery({
-    queryKey: ["quiz-mcq-pool", quiz.chapter_id, quiz.subject_id, search, difficulty],
+    queryKey: ["quiz-mcq-pool", chapterId || null, subjectId || null, search, difficulty],
     queryFn: () => mcqList({
       data: {
-        chapterId: quiz.chapter_id ?? undefined,
-        subjectId: !quiz.chapter_id ? (quiz.subject_id ?? undefined) : undefined,
+        chapterId: chapterId || undefined,
+        subjectId: !chapterId && subjectId ? subjectId : undefined,
         search: search || undefined,
         difficulty: difficulty === "all" ? undefined : (difficulty as "easy" | "medium" | "hard"),
         status: "published",
-        page: 1, pageSize: 200,
+        page: 1, pageSize: 300,
       },
     }),
+    enabled: !!(chapterId || subjectId),
+    staleTime: 10_000,
+    placeholderData: (prev) => prev,
   });
 
-  // Realtime: when a new MCQ is added/edited/deleted in this chapter, refresh the pool instantly.
+  // ---- Realtime: refresh pool on any MCQ change ----
   useEffect(() => {
     const ch = supabase
       .channel(`quiz-picker-${quiz.id}`)
@@ -623,6 +680,7 @@ function QuestionPickerDialog({
     return () => { supabase.removeChannel(ch); };
   }, [qc, quiz.id]);
 
+  // ---- Auto-save (debounced) when selection changes ----
   const save = useMutation({
     mutationFn: (ids: string[]) => setQ({ data: { quizId: quiz.id, mcqIds: ids } }),
     onSuccess: (_d, ids) => {
@@ -632,8 +690,6 @@ function QuestionPickerDialog({
     },
     onError: (e: Error) => toast.error(e.message),
   });
-
-  // Auto-save (debounced) when selection changes
   useEffect(() => {
     if (!autoSave) return;
     const key = selected.join(",");
@@ -642,8 +698,8 @@ function QuestionPickerDialog({
     return () => window.clearTimeout(t);
   }, [selected, autoSave]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const toggle = (id: string) =>
-    setSelected((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
+  const toggle = useMemo(() => (id: string) =>
+    setSelected((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]), []);
 
   const move = (idx: number, dir: -1 | 1) => {
     setSelected((s) => {
@@ -655,8 +711,11 @@ function QuestionPickerDialog({
     });
   };
 
-  const rows = (pool.data?.rows ?? []) as Array<{ id: string; question: string; difficulty: string; correct_option: string }>;
-  const byId = new Map(rows.map((r) => [r.id, r]));
+  const rows = useMemo(
+    () => ((pool.data?.rows ?? []) as PoolRow[]),
+    [pool.data],
+  );
+  const byId = useMemo(() => new Map(rows.map((r) => [r.id, r])), [rows]);
 
   const shuffle = (arr: string[]) => {
     const a = [...arr];
@@ -668,12 +727,9 @@ function QuestionPickerDialog({
   };
 
   const autoPick = (count: number, random: boolean) => {
-    const pool = rows.map((r) => r.id);
-    if (pool.length === 0) {
-      toast.error("No MCQs available in this chapter");
-      return;
-    }
-    const source = random ? shuffle(pool) : pool;
+    const ids = rows.map((r) => r.id);
+    if (ids.length === 0) { toast.error("No MCQs available in this chapter"); return; }
+    const source = random ? shuffle(ids) : ids;
     setSelected(source.slice(0, Math.min(count, source.length)));
     toast.success(`Picked ${Math.min(count, source.length)} MCQs`);
   };
@@ -688,15 +744,13 @@ function QuestionPickerDialog({
       ...shuffle(buckets.medium).slice(0, per),
       ...shuffle(buckets.hard).slice(0, per),
     ].slice(0, target);
-    if (mix.length === 0) {
-      toast.error("No MCQs available in this chapter");
-      return;
-    }
+    if (mix.length === 0) { toast.error("No MCQs available in this chapter"); return; }
     setSelected(mix);
     toast.success(`Picked ${mix.length} MCQs across difficulties`);
   };
 
-  const isEmptyPool = !pool.isLoading && rows.length === 0 && !search && difficulty === "all";
+  const noScope = !chapterId && !subjectId;
+  const isEmptyPool = !pool.isLoading && !noScope && rows.length === 0 && !search && difficulty === "all";
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -704,10 +758,32 @@ function QuestionPickerDialog({
         <DialogHeader>
           <DialogTitle>Manage Questions · {quiz.title}</DialogTitle>
           <DialogDescription>
-            Pulls MCQs from <b>{quiz.level}</b> → chapter pool automatically. Selected: <b>{selected.length}</b>
+            Pulls MCQs directly from the MCQ Practice database. Selected: <b>{selected.length}</b>
             {autoSave && <span className="ml-2 text-emerald-400">· Auto-saving</span>}
           </DialogDescription>
         </DialogHeader>
+
+        {/* Level → Subject → Chapter selectors */}
+        <div className="grid gap-2 rounded-xl border border-border/60 bg-background/40 p-3 sm:grid-cols-3">
+          <Select value={level} onValueChange={(v) => { setLevel(v); setSubjectId(""); setChapterId(""); }}>
+            <SelectTrigger><SelectValue placeholder="Level" /></SelectTrigger>
+            <SelectContent>
+              {levels.map((l) => <SelectItem key={l.code} value={l.code}>{l.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={subjectId} onValueChange={(v) => { setSubjectId(v); setChapterId(""); }} disabled={!level}>
+            <SelectTrigger><SelectValue placeholder={level ? "Subject" : "Pick a level first"} /></SelectTrigger>
+            <SelectContent>
+              {subjects.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={chapterId} onValueChange={setChapterId} disabled={!subjectId}>
+            <SelectTrigger><SelectValue placeholder={subjectId ? "Chapter" : "Pick a subject first"} /></SelectTrigger>
+            <SelectContent>
+              {chapters.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
 
         {/* Auto-pick toolbar */}
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--neon-purple)]/30 bg-[var(--neon-purple)]/5 p-2">
@@ -740,7 +816,7 @@ function QuestionPickerDialog({
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search chapter MCQs…" className="pl-9" />
+                <Input value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="Search chapter MCQs…" className="pl-9" />
               </div>
               <Select value={difficulty} onValueChange={setDifficulty}>
                 <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
@@ -752,8 +828,15 @@ function QuestionPickerDialog({
                 </SelectContent>
               </Select>
             </div>
-            <div className="max-h-[55vh] overflow-auto rounded-xl border border-border/60">
-              {pool.isLoading ? (
+            <div
+              className="max-h-[55vh] overflow-auto rounded-xl border border-border/60"
+              style={{ contentVisibility: "auto" } as React.CSSProperties}
+            >
+              {noScope ? (
+                <div className="flex h-40 items-center justify-center p-4 text-center text-xs text-muted-foreground">
+                  Pick a Level, Subject and Chapter to load MCQs.
+                </div>
+              ) : pool.isLoading && rows.length === 0 ? (
                 <div className="flex h-32 items-center justify-center text-sm text-muted-foreground"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading…</div>
               ) : isEmptyPool ? (
                 <div className="flex h-40 flex-col items-center justify-center gap-3 p-4 text-center text-xs text-muted-foreground">
@@ -764,23 +847,12 @@ function QuestionPickerDialog({
                 </div>
               ) : rows.length === 0 ? (
                 <div className="flex h-32 items-center justify-center p-4 text-center text-xs text-muted-foreground">No MCQs match these filters.</div>
-              ) : rows.map((m) => {
-                const on = selected.includes(m.id);
-                return (
-                  <label key={m.id} className={`flex cursor-pointer items-start gap-3 border-b border-border/40 p-3 text-xs ${on ? "bg-[var(--neon-purple)]/10" : "hover:bg-background/40"}`}>
-                    <input type="checkbox" checked={on} onChange={() => toggle(m.id)} className="mt-1 h-4 w-4 accent-[var(--neon-purple)]" />
-                    <div className="flex-1">
-                      <p className="font-medium">{m.question}</p>
-                      <div className="mt-1 flex gap-2 text-[10px] text-muted-foreground">
-                        <span className="rounded-full bg-muted px-2 py-0.5 capitalize">{m.difficulty}</span>
-                        <span>Answer: <b className="text-primary">{m.correct_option}</b></span>
-                      </div>
-                    </div>
-                  </label>
-                );
-              })}
+              ) : rows.map((m) => (
+                <MemoPickerRow key={m.id} m={m} selected={selectedSet.has(m.id)} onToggle={toggle} />
+              ))}
             </div>
           </div>
+
           {/* Selected with reorder */}
           <div className="space-y-2">
             <div className="flex items-center justify-between px-1">
@@ -789,7 +861,10 @@ function QuestionPickerDialog({
                 <button type="button" onClick={() => setSelected([])} className="text-[10px] text-rose-400 hover:underline">Clear all</button>
               )}
             </div>
-            <div className="max-h-[55vh] overflow-auto rounded-xl border border-border/60">
+            <div
+              className="max-h-[55vh] overflow-auto rounded-xl border border-border/60"
+              style={{ contentVisibility: "auto" } as React.CSSProperties}
+            >
               {selected.length === 0 ? (
                 <div className="flex h-32 items-center justify-center text-xs text-muted-foreground">No questions selected yet.</div>
               ) : selected.map((id, i) => {
@@ -829,6 +904,7 @@ function QuestionPickerDialog({
     </Dialog>
   );
 }
+
 
 
 // ============================================================
