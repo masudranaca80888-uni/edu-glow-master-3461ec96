@@ -129,10 +129,11 @@ function RootComponent() {
   );
 }
 
+const AUTH_ROUTES = ["/login", "/signup", "/register", "/admin-login", "/forgot-password", "/reset-password", "/verify-otp", "/email-verified"];
+const STUDENT_ROUTES = ["/dashboard", "/mcq-practice", "/quiz", "/custom-exam", "/mock-test", "/flash-cards", "/short-notes", "/qns-bank", "/classes", "/notifications", "/profile", "/bookmarks", "/wrong-questions"];
+
 function RootInner() {
   const location = useLocation();
-  const router = useRouter();
-  const { queryClient } = Route.useRouteContext();
   const { hydrate, hydrated, sessionReady, user } = useAppStore();
 
   // Apply user prefs (accent color, font size) to <html> on every mount.
@@ -145,26 +146,21 @@ function RootInner() {
     hydrate();
   }, [hydrate]);
 
-  useEffect(() => {
-    queryClient.invalidateQueries({ refetchType: "active" });
-    void router.invalidate();
-  }, [location.pathname, queryClient, router]);
+  const path = location.pathname;
+  const isAdminRoute = path === "/admin" || path.startsWith("/admin/");
+  const isStudentRoute = STUDENT_ROUTES.includes(path);
 
   const redirectTo = useMemo(() => {
-    const path = location.pathname;
-    const authRoutes = ["/login", "/signup", "/register", "/admin-login"];
-    const studentRoutes = ["/dashboard", "/mcq-practice", "/quiz", "/custom-exam", "/mock-test", "/flash-cards", "/short-notes", "/qns-bank", "/classes", "/notifications", "/profile"];
-    const isAdminRoute = path === "/admin" || path.startsWith("/admin/");
-    const isStudentRoute = studentRoutes.includes(path);
-
     if (!hydrated || !sessionReady) return null;
-    if (user && authRoutes.includes(path)) return user.role === "admin" ? "/admin" : "/dashboard";
+    if (user && AUTH_ROUTES.includes(path)) return user.role === "admin" ? "/admin" : "/dashboard";
     if (!user && (isAdminRoute || isStudentRoute)) return "/login";
     if (user && isAdminRoute && user.role !== "admin") return "/dashboard";
     return null;
-  }, [hydrated, location.pathname, sessionReady, user]);
+  }, [hydrated, path, sessionReady, user, isAdminRoute, isStudentRoute]);
 
-  const showInitialLoader = !hydrated || !sessionReady;
+  // Only block render with full-screen loader for protected routes that need
+  // a confirmed session. Auth pages and the landing page render immediately.
+  const showInitialLoader = (!hydrated || !sessionReady) && (isAdminRoute || isStudentRoute);
 
   if (showInitialLoader) return <AuthLoader />;
   if (redirectTo) return <Navigate to={redirectTo as never} replace />;
