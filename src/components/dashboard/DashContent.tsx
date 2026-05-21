@@ -250,6 +250,7 @@ export function DashContent() {
             </Link>
           </div>
         </div>
+        )}
       </section>
 
       {/* Continue learning + notifications */}
