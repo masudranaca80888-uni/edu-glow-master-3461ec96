@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -6,7 +6,7 @@ import {
   Search, Plus, Trash2, Edit3, Eye, EyeOff, Send, Copy, BarChart3, Loader2,
   CalendarClock, Trophy, Users, Timer, Target, CheckCircle2, PlayCircle,
   Rocket, Save, Layers, BookOpen, Sparkles, ChevronRight, X, CircleDot,
-  Download,
+  Download, ArrowUpDown, RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +23,11 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from "@/components/ui/table";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { supabase } from "@/integrations/supabase/client";
 import {
   adminListSubjectsByLevel,
   adminListChaptersBySubject,
