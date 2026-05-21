@@ -119,21 +119,38 @@ export function MockTestManagerFlow() {
   const duplicateFn = useServerFn(adminDuplicateMock);
 
   const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search.trim());
   const [filterStatus, setFilterStatus] = useState<"" | Status>("");
   const [filterLevel, setFilterLevel] = useState<"" | Level>("");
+  const [filterSubject, setFilterSubject] = useState("");
+  const [filterMockType, setFilterMockType] = useState<MockType>("all");
+  const [filterDate, setFilterDate] = useState<DateFilter>("all");
+  const [sortBy, setSortBy] = useState<SortBy>("updated_at");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
   const pageSize = 20;
 
+  const subjectsFilterQ = useQuery({
+    queryKey: ["mock-filter-subjects", filterLevel || "all"],
+    queryFn: () => listSubjectsByFilterLevel({ data: { level: filterLevel || undefined } }),
+  });
+
   const mocksQ = useQuery({
-    queryKey: ["admin-mocks", { search, filterStatus, filterLevel, page }],
+    queryKey: ["admin-mocks", { deferredSearch, filterStatus, filterLevel, filterSubject, filterMockType, filterDate, sortBy, sortDir, page }],
     queryFn: () => listMocksFn({
       data: {
-        search: search || undefined,
+        search: deferredSearch || undefined,
         status: (filterStatus || undefined) as Status | undefined,
         level: (filterLevel || undefined) as Level | undefined,
+        subjectId: filterSubject || undefined,
+        mockType: filterMockType,
+        date: filterDate,
+        sortBy,
+        sortDir,
         page, pageSize,
       },
     }),
+    placeholderData: (previous) => previous,
   });
 
   const rows = (mocksQ.data?.rows ?? []) as Mock[];
