@@ -93,6 +93,7 @@ export async function extractTextFromFile(file: File): Promise<string> {
   }
 
   if (name.endsWith(".docx")) {
+    // @ts-expect-error — no types for browser entry, runtime API is identical
     const mammoth = await import("mammoth/mammoth.browser");
     const buf = await file.arrayBuffer();
     const res = await mammoth.extractRawText({ arrayBuffer: buf });
