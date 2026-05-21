@@ -249,11 +249,20 @@ export function MockTestManagerFlow() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              onClick={() => setCreating(true)}
-              className="bg-cta-gradient rounded-xl text-white shadow-glow hover:opacity-95"
-            >
+            <Button onClick={() => openBuilder("blank")} className="bg-cta-gradient rounded-xl text-white shadow-glow hover:opacity-95">
               <Plus className="h-4 w-4" /> Create Mock Test
+            </Button>
+            <Button variant="outline" onClick={() => openBuilder("generate")} className="rounded-xl border-white/10 bg-background/40">
+              <Sparkles className="h-4 w-4" /> Generate from MCQs
+            </Button>
+            <Button variant="outline" onClick={() => openBuilder("full")} className="rounded-xl border-white/10 bg-background/40">
+              <BookOpen className="h-4 w-4" /> Full Subject Mock
+            </Button>
+            <Button variant="outline" onClick={() => openBuilder("chapter")} className="rounded-xl border-white/10 bg-background/40">
+              <Layers className="h-4 w-4" /> Chapter Wise Mock
+            </Button>
+            <Button variant="outline" onClick={() => { downloadCsv("mock-tests.csv", rows); toast.success("Export ready"); }} className="rounded-xl border-white/10 bg-background/40">
+              <Download className="h-4 w-4" /> Export Mock
             </Button>
           </div>
         </div>
