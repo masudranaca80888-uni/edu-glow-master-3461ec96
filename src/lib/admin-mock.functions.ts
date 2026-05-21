@@ -178,7 +178,7 @@ export const adminUpdateMock = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertAdmin(context.supabase, context.userId);
     const { id, mcq_ids, ...patch } = data;
-    const { error } = await context.supabase.from("quizzes").update(patch).eq("id", id);
+    const { error } = await context.supabase.from("quizzes").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", id);
     if (error) throw error;
     if (mcq_ids) {
       await context.supabase.from("quiz_questions").delete().eq("quiz_id", id);
@@ -187,7 +187,7 @@ export const adminUpdateMock = createServerFn({ method: "POST" })
         const { error: le } = await context.supabase.from("quiz_questions").insert(links);
         if (le) throw le;
       }
-      await context.supabase.from("quizzes").update({ total_questions: mcq_ids.length }).eq("id", id);
+      await context.supabase.from("quizzes").update({ total_questions: mcq_ids.length, updated_at: new Date().toISOString() }).eq("id", id);
     }
     return { ok: true };
   });
@@ -210,7 +210,7 @@ export const adminSetMockStatus = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context.supabase, context.userId);
-    const { error } = await context.supabase.from("quizzes").update({ status: data.status }).eq("id", data.id);
+    const { error } = await context.supabase.from("quizzes").update({ status: data.status, updated_at: new Date().toISOString() }).eq("id", data.id);
     if (error) throw error;
     return { ok: true };
   });
