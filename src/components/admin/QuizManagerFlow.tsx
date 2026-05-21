@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import {
   Search, Plus, Sparkles, Send, EyeOff, Eye, Trash2, Copy, Filter,
   ListChecks, Timer, CheckCircle2, Activity, Trophy, Loader2, X, Save,
-  Clock, Shuffle, Edit3,
+  Clock, Shuffle, Edit3, ArrowUp, ArrowDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -63,6 +63,7 @@ export function QuizManagerFlow() {
   const [editing, setEditing] = useState<Quiz | null>(null);
   const [creating, setCreating] = useState(false);
   const [builderFor, setBuilderFor] = useState<Quiz | null>(null);
+  const [previewFor, setPreviewFor] = useState<Quiz | null>(null);
 
   // realtime: invalidate on any quiz change
   useEffect(() => {
@@ -264,6 +265,7 @@ export function QuizManagerFlow() {
                     <td className="px-3 py-3 text-muted-foreground">{new Date(r.updated_at).toLocaleDateString()}</td>
                     <td className="px-3 py-3">
                       <div className="flex items-center gap-1">
+                        <IconBtn title="Preview" onClick={() => setPreviewFor(r)}><Eye className="h-3.5 w-3.5" /></IconBtn>
                         <IconBtn title="Edit" onClick={() => setEditing(r)}><Edit3 className="h-3.5 w-3.5" /></IconBtn>
                         <IconBtn title="Manage MCQs" onClick={() => setBuilderFor(r)}><ListChecks className="h-3.5 w-3.5" /></IconBtn>
                         <IconBtn title="Duplicate" onClick={() => dupM.mutate(r.id)}><Copy className="h-3.5 w-3.5" /></IconBtn>
@@ -312,6 +314,10 @@ export function QuizManagerFlow() {
           onSaved={invalidate}
         />
       )}
+
+      {previewFor && (
+        <QuizPreviewDialog quiz={previewFor} onClose={() => setPreviewFor(null)} />
+      )}
     </div>
   );
 }
@@ -353,7 +359,7 @@ function QuizEditorDialog({
     chapter_id: quiz?.chapter_id ?? "",
     difficulty: quiz?.difficulty ?? "medium",
     total_questions: quiz?.total_questions ?? 10,
-    duration_minutes: Math.round((quiz?.duration_seconds ?? 900) / 60),
+    duration_minutes: Math.round((quiz?.duration_seconds ?? 600) / 60),
     is_public: quiz?.is_public ?? true,
     randomize_questions: true,
     status: quiz?.status ?? "draft",
@@ -521,7 +527,7 @@ function QuestionPickerDialog({
         subjectId: !quiz.chapter_id ? (quiz.subject_id ?? undefined) : undefined,
         search: search || undefined,
         status: "published",
-        page: 1, pageSize: 100,
+        page: 1, pageSize: 200,
       },
     }),
   });
@@ -535,41 +541,84 @@ function QuestionPickerDialog({
   const toggle = (id: string) =>
     setSelected((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
 
+  const move = (idx: number, dir: -1 | 1) => {
+    setSelected((s) => {
+      const j = idx + dir;
+      if (j < 0 || j >= s.length) return s;
+      const n = [...s];
+      [n[idx], n[j]] = [n[j], n[idx]];
+      return n;
+    });
+  };
+
   const rows = (pool.data?.rows ?? []) as Array<{ id: string; question: string; difficulty: string; correct_option: string }>;
+  const byId = new Map(rows.map((r) => [r.id, r]));
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-5xl">
         <DialogHeader>
           <DialogTitle>Manage Questions · {quiz.title}</DialogTitle>
           <DialogDescription>
-            Pick MCQs from the published pool. Currently selected: <b>{selected.length}</b>
+            Pick MCQs from the published chapter pool. Reorder using the arrows. Selected: <b>{selected.length}</b>
           </DialogDescription>
         </DialogHeader>
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search MCQs by text…" className="pl-9" />
-        </div>
-        <div className="max-h-[55vh] overflow-auto rounded-xl border border-border/60">
-          {pool.isLoading ? (
-            <div className="flex h-32 items-center justify-center text-sm text-muted-foreground"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading MCQs…</div>
-          ) : rows.length === 0 ? (
-            <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">No published MCQs match this scope.</div>
-          ) : rows.map((m) => {
-            const on = selected.includes(m.id);
-            return (
-              <label key={m.id} className={`flex cursor-pointer items-start gap-3 border-b border-border/40 p-3 text-xs ${on ? "bg-[var(--neon-purple)]/10" : "hover:bg-background/40"}`}>
-                <input type="checkbox" checked={on} onChange={() => toggle(m.id)} className="mt-1 h-4 w-4 accent-[var(--neon-purple)]" />
-                <div className="flex-1">
-                  <p className="font-medium">{m.question}</p>
-                  <div className="mt-1 flex gap-2 text-[10px] text-muted-foreground">
-                    <span className="rounded-full bg-muted px-2 py-0.5 capitalize">{m.difficulty}</span>
-                    <span>Answer: <b className="text-primary">{m.correct_option}</b></span>
+        <div className="grid gap-3 md:grid-cols-2">
+          {/* Pool */}
+          <div className="space-y-2">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search chapter MCQs…" className="pl-9" />
+            </div>
+            <div className="max-h-[55vh] overflow-auto rounded-xl border border-border/60">
+              {pool.isLoading ? (
+                <div className="flex h-32 items-center justify-center text-sm text-muted-foreground"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading…</div>
+              ) : rows.length === 0 ? (
+                <div className="flex h-32 items-center justify-center text-center text-xs text-muted-foreground p-4">No published MCQs for this chapter. Add MCQs in MCQ Manager first.</div>
+              ) : rows.map((m) => {
+                const on = selected.includes(m.id);
+                return (
+                  <label key={m.id} className={`flex cursor-pointer items-start gap-3 border-b border-border/40 p-3 text-xs ${on ? "bg-[var(--neon-purple)]/10" : "hover:bg-background/40"}`}>
+                    <input type="checkbox" checked={on} onChange={() => toggle(m.id)} className="mt-1 h-4 w-4 accent-[var(--neon-purple)]" />
+                    <div className="flex-1">
+                      <p className="font-medium">{m.question}</p>
+                      <div className="mt-1 flex gap-2 text-[10px] text-muted-foreground">
+                        <span className="rounded-full bg-muted px-2 py-0.5 capitalize">{m.difficulty}</span>
+                        <span>Answer: <b className="text-primary">{m.correct_option}</b></span>
+                      </div>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+          {/* Selected with reorder */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between px-1">
+              <p className="text-xs font-semibold text-muted-foreground">Selected order ({selected.length})</p>
+              {selected.length > 0 && (
+                <button type="button" onClick={() => setSelected([])} className="text-[10px] text-rose-400 hover:underline">Clear all</button>
+              )}
+            </div>
+            <div className="max-h-[55vh] overflow-auto rounded-xl border border-border/60">
+              {selected.length === 0 ? (
+                <div className="flex h-32 items-center justify-center text-xs text-muted-foreground">No questions selected yet.</div>
+              ) : selected.map((id, i) => {
+                const m = byId.get(id);
+                return (
+                  <div key={id} className="flex items-start gap-2 border-b border-border/40 p-2 text-xs">
+                    <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted font-mono text-[10px]">{i + 1}</span>
+                    <p className="flex-1 line-clamp-2">{m?.question ?? <span className="text-muted-foreground italic">Not in current pool</span>}</p>
+                    <div className="flex flex-col gap-1">
+                      <button type="button" title="Move up" disabled={i === 0} onClick={() => move(i, -1)} className="rounded border border-border/50 p-0.5 disabled:opacity-30 hover:border-[var(--neon-purple)]/60"><ArrowUp className="h-3 w-3" /></button>
+                      <button type="button" title="Move down" disabled={i === selected.length - 1} onClick={() => move(i, 1)} className="rounded border border-border/50 p-0.5 disabled:opacity-30 hover:border-[var(--neon-purple)]/60"><ArrowDown className="h-3 w-3" /></button>
+                    </div>
+                    <button type="button" title="Remove" onClick={() => toggle(id)} className="rounded border border-border/50 p-0.5 text-rose-400 hover:border-rose-400/60"><X className="h-3 w-3" /></button>
                   </div>
-                </div>
-              </label>
-            );
-          })}
+                );
+              })}
+            </div>
+          </div>
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}><X className="mr-1 h-4 w-4" />Cancel</Button>
@@ -577,6 +626,83 @@ function QuestionPickerDialog({
             {save.isPending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Save className="mr-1 h-4 w-4" />}
             Save {selected.length} questions
           </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ============================================================
+// Preview dialog
+// ============================================================
+function QuizPreviewDialog({ quiz, onClose }: { quiz: Quiz; onClose: () => void }) {
+  const getQ = useServerFn(adminGetQuizQuestions);
+  const mcqList = useServerFn(adminListMcqs);
+
+  const qq = useQuery({
+    queryKey: ["preview-quiz-questions", quiz.id],
+    queryFn: () => getQ({ data: { quizId: quiz.id } }),
+  });
+
+  const ids = (qq.data ?? []).map((r: { mcq_id: string }) => r.mcq_id);
+
+  const pool = useQuery({
+    queryKey: ["preview-quiz-mcqs", quiz.chapter_id, quiz.subject_id],
+    queryFn: () => mcqList({
+      data: {
+        chapterId: quiz.chapter_id ?? undefined,
+        subjectId: !quiz.chapter_id ? (quiz.subject_id ?? undefined) : undefined,
+        page: 1, pageSize: 200,
+      },
+    }),
+    enabled: ids.length > 0,
+  });
+
+  const byId = new Map(
+    ((pool.data?.rows ?? []) as Array<{ id: string; question: string; option_a: string; option_b: string; option_c: string; option_d: string; correct_option: string; difficulty: string }>)
+      .map((m) => [m.id, m]),
+  );
+  const ordered = ids.map((id) => byId.get(id)).filter(Boolean) as Array<{ id: string; question: string; option_a: string; option_b: string; option_c: string; option_d: string; correct_option: string; difficulty: string }>;
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Preview · {quiz.title}</DialogTitle>
+          <DialogDescription>
+            {quiz.total_questions} questions · {Math.round(quiz.duration_seconds / 60)} min · <span className="capitalize">{quiz.difficulty}</span> · <span className="capitalize">{quiz.status}</span>
+          </DialogDescription>
+        </DialogHeader>
+        <div className="max-h-[60vh] space-y-3 overflow-auto pr-1">
+          {qq.isLoading || (ids.length > 0 && pool.isLoading) ? (
+            <div className="flex h-32 items-center justify-center text-sm text-muted-foreground"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading…</div>
+          ) : ordered.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
+              No questions assigned yet. Use <b>Manage MCQs</b> to attach questions from the chapter pool.
+            </div>
+          ) : ordered.map((m, i) => (
+            <div key={m.id} className="glass rounded-2xl p-4">
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-sm font-semibold"><span className="text-muted-foreground">Q{i + 1}.</span> {m.question}</p>
+                <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] capitalize">{m.difficulty}</span>
+              </div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {(["A", "B", "C", "D"] as const).map((k) => {
+                  const text = (m as unknown as Record<string, string>)[`option_${k.toLowerCase()}`];
+                  const ok = m.correct_option === k;
+                  return (
+                    <div key={k} className={`flex items-start gap-2 rounded-lg border p-2 text-xs ${ok ? "border-emerald-400/40 bg-emerald-400/10" : "border-border/50"}`}>
+                      <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-bold ${ok ? "bg-emerald-400/30 text-emerald-300" : "bg-muted"}`}>{k}</span>
+                      <span>{text}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}><X className="mr-1 h-4 w-4" />Close</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
