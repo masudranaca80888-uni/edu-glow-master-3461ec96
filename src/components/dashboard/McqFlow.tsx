@@ -155,7 +155,8 @@ export function McqFlow() {
   });
   const subjectProgressMap = useMemo(() => {
     const m = new Map<string, { total: number; completed: number; percent: number }>();
-    (subjectProgressQ.data ?? []).forEach((r) => m.set(r.subject_id, r));
+    const rows = (subjectProgressQ.data ?? []) as Array<{ subject_id: string; total: number; completed: number; percent: number }>;
+    rows.forEach((r) => m.set(r.subject_id, { total: r.total, completed: r.completed, percent: r.percent }));
     return m;
   }, [subjectProgressQ.data]);
 
