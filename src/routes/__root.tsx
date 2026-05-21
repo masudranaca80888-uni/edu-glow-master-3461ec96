@@ -119,10 +119,22 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <RootInner />
+      <Toaster position="top-right" richColors closeButton />
+    </QueryClientProvider>
+  );
+}
+
+function RootInner() {
   const location = useLocation();
   const router = useRouter();
+  const { queryClient } = Route.useRouteContext();
   const { hydrate, hydrated, sessionReady, user } = useAppStore();
 
+  // Must be inside QueryClientProvider — uses useQueryClient internally.
   useRealtimeInvalidator(Boolean(user));
 
   useEffect(() => {
@@ -148,24 +160,14 @@ function RootComponent() {
     return null;
   }, [hydrated, location.pathname, sessionReady, user]);
 
-  // Only show the full-screen loader during initial session hydration.
-  // Subsequent refreshes (after sign-in/sign-out) update `user` in place
-  // without flashing the loader, preventing redirect flicker on submit.
   const showInitialLoader = !hydrated || !sessionReady;
 
+  if (showInitialLoader) return <AuthLoader />;
+  if (redirectTo) return <Navigate to={redirectTo as never} replace />;
   return (
-    <QueryClientProvider client={queryClient}>
-      {showInitialLoader ? (
-        <AuthLoader />
-      ) : redirectTo ? (
-        <Navigate to={redirectTo as never} replace />
-      ) : (
-        <Suspense fallback={<RouteLoader />}>
-          <Outlet key={location.pathname} />
-        </Suspense>
-      )}
-      <Toaster position="top-right" richColors closeButton />
-    </QueryClientProvider>
+    <Suspense fallback={<RouteLoader />}>
+      <Outlet key={location.pathname} />
+    </Suspense>
   );
 }
 
