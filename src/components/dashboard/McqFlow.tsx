@@ -158,7 +158,9 @@ export function McqFlow() {
   const total = mcqs.length;
   const q = mcqs[current];
   const currentAnswer = answers[current];
-  const revealed = !!currentAnswer; // submitted once
+  const submittedNow = !!currentAnswer; // answered, but in practice we don't reveal correctness
+  // Reveal correct/wrong + explanations ONLY in review or after finish.
+  const revealResults = reviewMode || finished;
   const picked = currentAnswer?.chosen ?? null;
 
   const options = q
