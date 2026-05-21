@@ -368,14 +368,8 @@ export function McqFlow() {
     });
   }, [allSubmitted, current, finished, reviewMode, saving, stats.submitted, step, total]);
 
-  useEffect(() => {
-    if (step !== 3 || total === 0 || !allSubmitted || finished || reviewMode || saving) return;
-    const key = `${chapterId ?? "chapter"}:${total}:${answers.map((a) => a?.chosen ?? "_").join("|")}`;
-    if (autoFinishKeyRef.current === key) return;
-    autoFinishKeyRef.current = key;
-    debugMcq("auto finish condition met", { answeredCount: stats.submitted, totalQuestions: total, currentIndex: current });
-    void finishPractice({ auto: true });
-  }, [allSubmitted, answers, chapterId, current, finishPractice, finished, reviewMode, saving, stats.submitted, step, total]);
+
+
 
   function restartSame() {
     if (!chapterId || !chapterName) return;
