@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { type MouseEvent, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -84,7 +84,7 @@ const LEVELS: { value: Level; label: string }[] = [
   { value: "advanced", label: "Advanced" },
 ];
 
-function stopRowAction(e: React.MouseEvent<HTMLElement>) {
+function stopRowAction(e: MouseEvent<HTMLElement>) {
   e.preventDefault();
   e.stopPropagation();
 }
