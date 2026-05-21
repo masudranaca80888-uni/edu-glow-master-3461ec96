@@ -3,6 +3,7 @@ import {
   Bell,
   Database,
   FileText,
+  FolderTree,
   Layers,
   LayoutDashboard,
   ListChecks,
@@ -15,6 +16,7 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
+
 
 export type AppRole = "student" | "admin";
 
