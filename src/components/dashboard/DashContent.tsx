@@ -419,6 +419,9 @@ export function DashContent() {
         </div>
       </section>
 
+      {/* Performance Center */}
+      <PerformanceCenter />
+
       {/* Quick actions */}
       <section>
         <h3 className="font-display text-lg font-bold">Quick Actions</h3>
