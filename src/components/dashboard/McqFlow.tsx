@@ -353,7 +353,7 @@ export function McqFlow() {
     } finally {
       setSaving(false);
     }
-  }, [answers, buildCompletedAnswers, chapterId, chapterName, current, finished, level, mcqs, qc, saveAttemptFn, savedAttemptId, saving, sessionStart, subjectId, total]);
+  }, [answers, buildCompletedAnswers, chapterId, chapterName, current, finished, level, mcqs, qc, recordOutcomesFn, saveAttemptFn, savedAttemptId, saving, sessionStart, subjectId, total]);
 
   useEffect(() => {
     if (step !== 3 || total === 0) return;
