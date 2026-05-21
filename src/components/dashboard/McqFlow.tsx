@@ -209,7 +209,7 @@ export function McqFlow() {
   }
 
   async function finishPractice(opts?: { auto?: boolean }) {
-    if (saving || finished) return;
+    if (saving || (finished && savedAttemptId)) return;
     const finalizedAnswers = buildCompletedAnswers(answers);
     const totalDurationSec = Math.max(1, Math.round((Date.now() - (sessionStart || Date.now())) / 1000));
     const localCorrect = finalizedAnswers.reduce((sum, a, i) => (
