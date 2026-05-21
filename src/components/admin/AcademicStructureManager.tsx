@@ -108,6 +108,22 @@ export function AcademicStructureManager() {
   const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogState>({ kind: "none" });
+  const [mcqChapter, setMcqChapter] = useState<Chapter | null>(null);
+
+  // Realtime: refresh tree on any related change
+  useEffect(() => {
+    const ch = supabase
+      .channel("admin-academic-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "levels" }, () => qc.invalidateQueries({ queryKey: ["admin-academic-tree"] }))
+      .on("postgres_changes", { event: "*", schema: "public", table: "subjects" }, () => qc.invalidateQueries({ queryKey: ["admin-academic-tree"] }))
+      .on("postgres_changes", { event: "*", schema: "public", table: "chapters" }, () => qc.invalidateQueries({ queryKey: ["admin-academic-tree"] }))
+      .on("postgres_changes", { event: "*", schema: "public", table: "mcqs" }, () => {
+        qc.invalidateQueries({ queryKey: ["admin-academic-tree"] });
+        qc.invalidateQueries({ queryKey: ["academic-chapter-mcqs"] });
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(ch); };
+  }, [qc]);
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["admin-academic-tree"] });
 
