@@ -410,30 +410,6 @@ function ModulesPanel() {
     </Panel>
   );
 }
-  const liveCount = rows.filter((r) => !r.hidden).length;
-  return (
-    <Panel icon={Eye} color="#a78bfa" title="Module Visibility" subtitle="Show/hide modules for students globally" badge={`${liveCount}/${rows.length} live`}>
-      <div className="grid gap-2 sm:grid-cols-2">
-        {rows.map((m) => (
-          <div key={m.key} className="flex items-center justify-between rounded-xl border border-white/10 bg-background/30 px-3 py-2.5">
-            <div className="flex items-center gap-2">
-              <span className={`h-2 w-2 rounded-full ${!m.hidden ? "animate-pulse bg-emerald-400 shadow-[0_0_8px_#10b981]" : "bg-zinc-500"}`} />
-              <p className="text-sm font-medium">{m.label}</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="border-white/15 text-[10px] text-muted-foreground">students</Badge>
-              <Switch
-                checked={!m.hidden}
-                disabled={mut.isPending}
-                onCheckedChange={(on) => mut.mutate({ key: m.key, hidden: !on })}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-    </Panel>
-  );
-}
 
 /* -------------------- 5. payments -------------------- */
 const plans = [
