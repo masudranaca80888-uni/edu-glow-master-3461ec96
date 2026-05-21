@@ -183,12 +183,13 @@ export const adminDuplicateFlashCard = createServerFn({ method: "POST" })
     if (se) throw se;
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { id: _i, created_at: _c, updated_at: _u, view_count: _v, ...rest } = src as Record<string, unknown>;
-    const { error } = await context.supabase
-      .from("flash_cards")
-      .insert({ ...rest, status: "draft", created_by: context.userId, front: `${(src as { front: string }).front} (copy)` });
+    const payload = { ...(rest as Record<string, unknown>), status: "draft", created_by: context.userId, front: `${(src as { front: string }).front} (copy)` };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await context.supabase.from("flash_cards").insert(payload as any);
     if (error) throw error;
     return { ok: true };
   });
+
 
 export const adminBulkImportFlashCards = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
