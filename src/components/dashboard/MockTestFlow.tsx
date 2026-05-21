@@ -39,80 +39,82 @@ const filters = [
   "Chapter Wise Mock",
 ];
 
-const mocks = [
-  {
-    title: "Physics Grand Mock 2026",
-    subject: "Physics",
-    scope: "Full Subject",
-    mcqs: 100,
-    marks: 100,
-    duration: 90,
-    participants: 12480,
-    difficulty: "Hard",
-    level: "Advanced",
-    color: "from-[var(--neon-purple)] to-[var(--neon-blue)]",
-  },
-  {
-    title: "Organic Chemistry Sprint",
-    subject: "Chemistry",
-    scope: "Chapter Wise",
-    mcqs: 40,
-    marks: 40,
-    duration: 35,
-    participants: 5320,
-    difficulty: "Medium",
-    level: "Professional",
-    color: "from-fuchsia-500 to-purple-600",
-  },
-  {
-    title: "Biology Full Syllabus Mock",
-    subject: "Biology",
-    scope: "Full Subject",
-    mcqs: 80,
-    marks: 80,
-    duration: 70,
-    participants: 8910,
-    difficulty: "Hard",
-    level: "Advanced",
-    color: "from-emerald-500 to-cyan-500",
-  },
-  {
-    title: "Calculus Mastery Mock",
-    subject: "Mathematics",
-    scope: "Chapter Wise",
-    mcqs: 30,
-    marks: 30,
-    duration: 30,
-    participants: 4210,
-    difficulty: "Easy",
-    level: "Certificate",
-    color: "from-amber-500 to-pink-500",
-  },
-  {
-    title: "English Grammar Pro",
-    subject: "English",
-    scope: "Full Subject",
-    mcqs: 60,
-    marks: 60,
-    duration: 50,
-    participants: 3120,
-    difficulty: "Medium",
-    level: "Certificate",
-    color: "from-sky-500 to-indigo-500",
-  },
-  {
-    title: "ICT Algorithms Mock",
-    subject: "ICT",
-    scope: "Chapter Wise",
-    mcqs: 45,
-    marks: 45,
-    duration: 40,
-    participants: 2780,
-    difficulty: "Hard",
-    level: "Professional",
-    color: "from-violet-500 to-blue-600",
-  },
+type StudentMock = {
+  title: string;
+  subject: string;
+  scope: "Full Subject" | "Chapter Wise" | "Level Wide";
+  mcqs: number;
+  marks: number;
+  duration: number;
+  participants: number;
+  difficulty: "Easy" | "Medium" | "Hard";
+  level: string;
+  color: string;
+};
+
+const MOCK_COLORS = [
+  "from-[var(--neon-purple)] to-[var(--neon-blue)]",
+  "from-fuchsia-500 to-purple-600",
+  "from-emerald-500 to-cyan-500",
+  "from-amber-500 to-pink-500",
+  "from-sky-500 to-indigo-500",
+  "from-violet-500 to-blue-600",
 ];
+
+function cap(s: string) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+function useLiveMocks() {
+  const qc = useQueryClient();
+  useEffect(() => {
+    const ch = supabase
+      .channel("student-mock-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "quizzes" }, (payload) => {
+        const rec = (payload.new || payload.old) as { kind?: string } | null;
+        if (!rec || rec.kind === "mock") qc.invalidateQueries({ queryKey: ["student-mocks"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "quiz_questions" }, () =>
+        qc.invalidateQueries({ queryKey: ["student-mocks"] }))
+      .subscribe();
+    return () => { void supabase.removeChannel(ch); };
+  }, [qc]);
+
+  return useQuery({
+    queryKey: ["student-mocks"],
+    queryFn: async (): Promise<StudentMock[]> => {
+      const nowIso = new Date().toISOString();
+      const { data, error } = await supabase
+        .from("quizzes")
+        .select("id,title,level,subject_id,chapter_id,total_questions,duration_seconds,passing_marks,difficulty,starts_at,ends_at,status,kind,subjects(name)")
+        .eq("kind", "mock")
+        .eq("status", "published")
+        .or(`ends_at.is.null,ends_at.gte.${nowIso}`)
+        .order("updated_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return (data ?? []).map((r, i) => {
+        const subjectName = (r as { subjects?: { name?: string } | null }).subjects?.name ?? "General";
+        const scope: StudentMock["scope"] = r.subject_id == null
+          ? "Level Wide"
+          : r.chapter_id == null
+          ? "Full Subject"
+          : "Chapter Wise";
+        return {
+          title: r.title,
+          subject: subjectName,
+          scope,
+          mcqs: r.total_questions ?? 0,
+          marks: r.passing_marks || (r.total_questions ?? 0),
+          duration: Math.max(1, Math.round((r.duration_seconds ?? 0) / 60)),
+          participants: 0,
+          difficulty: cap(r.difficulty ?? "medium") as StudentMock["difficulty"],
+          level: cap(r.level ?? "professional"),
+          color: MOCK_COLORS[i % MOCK_COLORS.length],
+        };
+      });
+    },
+  });
+}
+
 
 const leaderboard = [
   { name: "Aarav Khan", score: 98, time: "62m", you: false },
