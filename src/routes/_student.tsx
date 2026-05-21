@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { DashSidebar } from "@/components/dashboard/DashSidebar";
 import { DashTopbar } from "@/components/dashboard/DashTopbar";
 
@@ -7,8 +7,6 @@ export const Route = createFileRoute("/_student")({
 });
 
 function StudentLayout() {
-  const location = useLocation();
-
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-background text-foreground">
       <div className="pointer-events-none fixed inset-0 -z-10 bg-hero-glow opacity-60" />
@@ -20,7 +18,7 @@ function StudentLayout() {
         <DashSidebar />
         <div className="pointer-events-auto min-w-0 flex-1 space-y-4">
           <DashTopbar />
-          <Outlet key={location.pathname} />
+          <Outlet />
         </div>
       </div>
     </div>
