@@ -612,13 +612,53 @@ function Viewer({
   );
 }
 
-function Face({ children, back }: { children: React.ReactNode; back?: boolean }) {
+/* ------------------------------ design variants ------------------------------ */
+
+type FaceVariant = "classic" | "neon" | "minimal" | "tilt" | "study";
+const FACE_VARIANTS: FaceVariant[] = ["classic", "neon", "minimal", "tilt", "study"];
+
+/** Deterministic variant per card index — stable across re-renders for the same deck. */
+function variantForIndex(i: number): FaceVariant {
+  return FACE_VARIANTS[i % FACE_VARIANTS.length];
+}
+
+function Face({
+  children,
+  back,
+  variant = "classic",
+}: {
+  children: React.ReactNode;
+  back?: boolean;
+  variant?: FaceVariant;
+}) {
+  const shell =
+    variant === "neon"
+      ? "border border-fuchsia-400/40 bg-gradient-to-br from-fuchsia-500/15 via-purple-500/10 to-cyan-400/15 shadow-[0_0_60px_rgba(217,70,239,0.25)]"
+      : variant === "minimal"
+        ? "border border-border/60 bg-background/80 backdrop-blur-md"
+        : variant === "tilt"
+          ? "glass shadow-card-soft transition-transform duration-300 hover:[transform:rotateX(4deg)_rotateY(-4deg)_scale(1.01)]"
+          : variant === "study"
+            ? "border border-emerald-400/25 bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-sky-500/10 shadow-[0_8px_40px_-12px_rgba(16,185,129,0.35)]"
+            : "glass shadow-card-soft"; // classic
+
+  const glowA =
+    variant === "neon" ? "bg-fuchsia-500/35" : variant === "study" ? "bg-emerald-400/25" : "bg-[var(--neon-purple)]/25";
+  const glowB =
+    variant === "neon" ? "bg-cyan-400/30" : variant === "study" ? "bg-sky-400/20" : "bg-[var(--neon-blue)]/25";
+
   return (
     <div className={`absolute inset-0 rounded-3xl ${back ? "[transform:rotateY(180deg)]" : ""} [backface-visibility:hidden]`}>
-      <div className="glass relative flex h-full flex-col overflow-hidden rounded-3xl p-6 shadow-card-soft sm:p-8">
-        <div className="pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full bg-[var(--neon-purple)]/25 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-[var(--neon-blue)]/25 blur-3xl" />
-        <div className="absolute inset-0 rounded-3xl border border-[var(--neon-purple)]/20" />
+      <div className={`relative flex h-full flex-col overflow-hidden rounded-3xl p-6 sm:p-8 ${shell}`}>
+        {variant !== "minimal" && (
+          <>
+            <div className={`pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full ${glowA} blur-3xl`} />
+            <div className={`pointer-events-none absolute -bottom-24 -left-24 h-64 w-64 rounded-full ${glowB} blur-3xl`} />
+          </>
+        )}
+        {variant === "neon" && (
+          <div className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-inset ring-fuchsia-400/40" />
+        )}
         <div className="relative flex h-full flex-col">{children}</div>
       </div>
     </div>
