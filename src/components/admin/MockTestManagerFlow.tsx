@@ -654,16 +654,25 @@ function MockBuilderDialog({
     enabled: !!subjectId,
   });
 
+  // Scope inferred from preset (chapter | subject | level). For 'blank'/'generate'/edit, we default to chapter.
+  const scope: "chapter" | "subject" | "level" =
+    preset === "full" ? "subject" : preset === "level" ? "level" : "chapter";
+
   const mcqsQ = useQuery({
-    queryKey: ["builder-mcqs", chapterIds, mcqSearch, difficulty],
+    queryKey: ["builder-mcqs", scope, level, subjectId, chapterIds, mcqSearch, difficulty],
     queryFn: () => listMcqs({
       data: {
-        chapterIds,
+        chapterIds: scope === "chapter" ? chapterIds : undefined,
+        subjectId: scope === "subject" ? (subjectId ?? undefined) : undefined,
+        level: scope === "level" ? level : undefined,
         search: mcqSearch || undefined,
         difficulty: (difficulty || undefined) as "easy" | "medium" | "hard" | undefined,
       },
     }),
-    enabled: chapterIds.length > 0,
+    enabled:
+      (scope === "chapter" && chapterIds.length > 0) ||
+      (scope === "subject" && !!subjectId) ||
+      (scope === "level" && !!level),
   });
 
   // Load existing mock's MCQ ids
@@ -693,11 +702,16 @@ function MockBuilderDialog({
   }
   function clearMcqs() { setSelectedMcqIds([]); }
   function goNext() {
-    if (step === 1 && !subjectId) return toast.error("Select a subject first");
-    if (step === 1 && chapterIds.length === 0) return toast.error("Select at least one chapter");
+    if (step === 1) {
+      if (scope === "chapter" && (!subjectId || chapterIds.length === 0))
+        return toast.error("Select a subject and at least one chapter");
+      if (scope === "subject" && !subjectId) return toast.error("Select a subject");
+      // level scope: just needs level (always set)
+    }
     if (step === 2 && selectedMcqIds.length === 0) return toast.error("Select at least one MCQ");
     if (step === 3 && !title.trim()) return toast.error("Enter a mock test title");
     setStep((s) => Math.min(4, s + 1));
+
   }
 
   const saveMut = useMutation({
