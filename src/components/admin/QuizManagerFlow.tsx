@@ -575,39 +575,72 @@ function QuizEditorDialog({
 function QuestionPickerDialog({
   quiz, onClose, onSaved,
 }: { quiz: Quiz; onClose: () => void; onSaved: () => void }) {
+  const qc = useQueryClient();
   const getQ = useServerFn(adminGetQuizQuestions);
   const setQ = useServerFn(adminSetQuizQuestions);
   const mcqList = useServerFn(adminListMcqs);
 
   const [search, setSearch] = useState("");
+  const [difficulty, setDifficulty] = useState<string>("all");
   const [selected, setSelected] = useState<string[]>([]);
+  const [autoSave, setAutoSave] = useState(true);
+  const lastSaved = useRef<string>("");
 
   const initial = useQuery({
     queryKey: ["quiz-questions", quiz.id],
     queryFn: () => getQ({ data: { quizId: quiz.id } }),
   });
   useEffect(() => {
-    if (initial.data) setSelected(initial.data.map((q: { mcq_id: string }) => q.mcq_id));
+    if (initial.data) {
+      const ids = initial.data.map((q: { mcq_id: string }) => q.mcq_id);
+      setSelected(ids);
+      lastSaved.current = ids.join(",");
+    }
   }, [initial.data]);
 
   const pool = useQuery({
-    queryKey: ["quiz-mcq-pool", quiz.chapter_id, quiz.subject_id, search],
+    queryKey: ["quiz-mcq-pool", quiz.chapter_id, quiz.subject_id, search, difficulty],
     queryFn: () => mcqList({
       data: {
         chapterId: quiz.chapter_id ?? undefined,
         subjectId: !quiz.chapter_id ? (quiz.subject_id ?? undefined) : undefined,
         search: search || undefined,
+        difficulty: difficulty === "all" ? undefined : (difficulty as "easy" | "medium" | "hard"),
         status: "published",
         page: 1, pageSize: 200,
       },
     }),
   });
 
+  // Realtime: when a new MCQ is added/edited/deleted in this chapter, refresh the pool instantly.
+  useEffect(() => {
+    const ch = supabase
+      .channel(`quiz-picker-${quiz.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "mcqs" }, () => {
+        qc.invalidateQueries({ queryKey: ["quiz-mcq-pool"] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [qc, quiz.id]);
+
   const save = useMutation({
-    mutationFn: () => setQ({ data: { quizId: quiz.id, mcqIds: selected } }),
-    onSuccess: () => { toast.success(`${selected.length} questions saved`); onSaved(); onClose(); },
+    mutationFn: (ids: string[]) => setQ({ data: { quizId: quiz.id, mcqIds: ids } }),
+    onSuccess: (_d, ids) => {
+      lastSaved.current = ids.join(",");
+      qc.invalidateQueries({ queryKey: ["admin-quizzes"] });
+      onSaved();
+    },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  // Auto-save (debounced) when selection changes
+  useEffect(() => {
+    if (!autoSave) return;
+    const key = selected.join(",");
+    if (key === lastSaved.current) return;
+    const t = window.setTimeout(() => save.mutate(selected), 600);
+    return () => window.clearTimeout(t);
+  }, [selected, autoSave]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggle = (id: string) =>
     setSelected((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
@@ -625,27 +658,112 @@ function QuestionPickerDialog({
   const rows = (pool.data?.rows ?? []) as Array<{ id: string; question: string; difficulty: string; correct_option: string }>;
   const byId = new Map(rows.map((r) => [r.id, r]));
 
+  const shuffle = (arr: string[]) => {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  };
+
+  const autoPick = (count: number, random: boolean) => {
+    const pool = rows.map((r) => r.id);
+    if (pool.length === 0) {
+      toast.error("No MCQs available in this chapter");
+      return;
+    }
+    const source = random ? shuffle(pool) : pool;
+    setSelected(source.slice(0, Math.min(count, source.length)));
+    toast.success(`Picked ${Math.min(count, source.length)} MCQs`);
+  };
+
+  const pickDifficultyMix = () => {
+    const buckets: Record<string, string[]> = { easy: [], medium: [], hard: [] };
+    rows.forEach((r) => { (buckets[r.difficulty] ?? buckets.medium).push(r.id); });
+    const target = quiz.total_questions || 10;
+    const per = Math.ceil(target / 3);
+    const mix = [
+      ...shuffle(buckets.easy).slice(0, per),
+      ...shuffle(buckets.medium).slice(0, per),
+      ...shuffle(buckets.hard).slice(0, per),
+    ].slice(0, target);
+    if (mix.length === 0) {
+      toast.error("No MCQs available in this chapter");
+      return;
+    }
+    setSelected(mix);
+    toast.success(`Picked ${mix.length} MCQs across difficulties`);
+  };
+
+  const isEmptyPool = !pool.isLoading && rows.length === 0 && !search && difficulty === "all";
+
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-5xl">
         <DialogHeader>
           <DialogTitle>Manage Questions · {quiz.title}</DialogTitle>
           <DialogDescription>
-            Pick MCQs from the published chapter pool. Reorder using the arrows. Selected: <b>{selected.length}</b>
+            Pulls MCQs from <b>{quiz.level}</b> → chapter pool automatically. Selected: <b>{selected.length}</b>
+            {autoSave && <span className="ml-2 text-emerald-400">· Auto-saving</span>}
           </DialogDescription>
         </DialogHeader>
+
+        {/* Auto-pick toolbar */}
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--neon-purple)]/30 bg-[var(--neon-purple)]/5 p-2">
+          <span className="ml-1 inline-flex items-center gap-1 text-xs font-semibold text-[var(--neon-purple)]">
+            <Wand2 className="h-3.5 w-3.5" /> Smart pick
+          </span>
+          <Button size="sm" variant="outline" disabled={rows.length === 0} onClick={() => autoPick(10, false)}>
+            Pick 10
+          </Button>
+          <Button size="sm" variant="outline" disabled={rows.length === 0} onClick={() => autoPick(quiz.total_questions || 10, true)}>
+            <Shuffle className="mr-1 h-3 w-3" /> Random {quiz.total_questions || 10}
+          </Button>
+          <Button size="sm" variant="outline" disabled={rows.length === 0} onClick={pickDifficultyMix}>
+            Difficulty mix
+          </Button>
+          <Button size="sm" variant="outline" disabled={rows.length === 0} onClick={() => setSelected(rows.map((r) => r.id))}>
+            <CheckSquare className="mr-1 h-3 w-3" /> Select all ({rows.length})
+          </Button>
+          <Button size="sm" variant="ghost" disabled={selected.length === 0} onClick={() => setSelected([])}>
+            Clear
+          </Button>
+          <label className="ml-auto flex items-center gap-2 px-2 text-xs">
+            <Switch checked={autoSave} onCheckedChange={setAutoSave} /> Auto-save
+          </label>
+        </div>
+
         <div className="grid gap-3 md:grid-cols-2">
           {/* Pool */}
           <div className="space-y-2">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search chapter MCQs…" className="pl-9" />
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search chapter MCQs…" className="pl-9" />
+              </div>
+              <Select value={difficulty} onValueChange={setDifficulty}>
+                <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All levels</SelectItem>
+                  <SelectItem value="easy">Easy</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="hard">Hard</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="max-h-[55vh] overflow-auto rounded-xl border border-border/60">
               {pool.isLoading ? (
                 <div className="flex h-32 items-center justify-center text-sm text-muted-foreground"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading…</div>
+              ) : isEmptyPool ? (
+                <div className="flex h-40 flex-col items-center justify-center gap-3 p-4 text-center text-xs text-muted-foreground">
+                  <p>No MCQs available in this chapter.</p>
+                  <Link to="/admin/mcq" className="inline-flex items-center gap-1 rounded-lg border border-[var(--neon-purple)]/40 bg-[var(--neon-purple)]/10 px-3 py-1.5 text-xs font-semibold text-[var(--neon-purple)] hover:border-[var(--neon-purple)]">
+                    Go to MCQ Manager <ExternalLink className="h-3 w-3" />
+                  </Link>
+                </div>
               ) : rows.length === 0 ? (
-                <div className="flex h-32 items-center justify-center text-center text-xs text-muted-foreground p-4">No published MCQs for this chapter. Add MCQs in MCQ Manager first.</div>
+                <div className="flex h-32 items-center justify-center p-4 text-center text-xs text-muted-foreground">No MCQs match these filters.</div>
               ) : rows.map((m) => {
                 const on = selected.includes(m.id);
                 return (
@@ -679,7 +797,7 @@ function QuestionPickerDialog({
                 return (
                   <div key={id} className="flex items-start gap-2 border-b border-border/40 p-2 text-xs">
                     <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted font-mono text-[10px]">{i + 1}</span>
-                    <p className="flex-1 line-clamp-2">{m?.question ?? <span className="text-muted-foreground italic">Not in current pool</span>}</p>
+                    <p className="flex-1 line-clamp-2">{m?.question ?? <span className="text-muted-foreground italic">Not in current filter</span>}</p>
                     <div className="flex flex-col gap-1">
                       <button type="button" title="Move up" disabled={i === 0} onClick={() => move(i, -1)} className="rounded border border-border/50 p-0.5 disabled:opacity-30 hover:border-[var(--neon-purple)]/60"><ArrowUp className="h-3 w-3" /></button>
                       <button type="button" title="Move down" disabled={i === selected.length - 1} onClick={() => move(i, 1)} className="rounded border border-border/50 p-0.5 disabled:opacity-30 hover:border-[var(--neon-purple)]/60"><ArrowDown className="h-3 w-3" /></button>
@@ -692,16 +810,26 @@ function QuestionPickerDialog({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="ghost" onClick={onClose}><X className="mr-1 h-4 w-4" />Cancel</Button>
-          <Button className="bg-cta-gradient text-white" disabled={save.isPending} onClick={() => save.mutate()}>
+          <div className="mr-auto flex items-center gap-2 text-[11px] text-muted-foreground">
+            {save.isPending ? (
+              <><Loader2 className="h-3 w-3 animate-spin" /> Saving…</>
+            ) : selected.join(",") === lastSaved.current ? (
+              <><CheckCircle2 className="h-3 w-3 text-emerald-400" /> All changes saved</>
+            ) : (
+              <>Unsaved changes</>
+            )}
+          </div>
+          <Button variant="ghost" onClick={onClose}><X className="mr-1 h-4 w-4" />Close</Button>
+          <Button className="bg-cta-gradient text-white" disabled={save.isPending || selected.join(",") === lastSaved.current} onClick={() => save.mutate(selected)}>
             {save.isPending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Save className="mr-1 h-4 w-4" />}
-            Save {selected.length} questions
+            Save now
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
+
 
 // ============================================================
 // Preview dialog
