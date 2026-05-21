@@ -327,6 +327,8 @@ export function MockTestManagerFlow() {
             <SelectItem value="all">All types</SelectItem>
             <SelectItem value="full">Full subject</SelectItem>
             <SelectItem value="chapter">Chapter wise</SelectItem>
+            <SelectItem value="level">Level wide</SelectItem>
+
           </SelectContent>
         </Select>
         <Select value={filterStatus || "all"} onValueChange={(v) => { setFilterStatus(v === "all" ? "" : (v as Status)); setPage(1); }}>
