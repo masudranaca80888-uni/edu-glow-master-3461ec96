@@ -153,6 +153,33 @@ export type Database = {
           },
         ]
       }
+      flash_card_visibility: {
+        Row: {
+          hidden_chapter_ids: string[]
+          hidden_levels: string[]
+          hidden_subject_ids: string[]
+          id: number
+          section_hidden: boolean
+          updated_at: string
+        }
+        Insert: {
+          hidden_chapter_ids?: string[]
+          hidden_levels?: string[]
+          hidden_subject_ids?: string[]
+          id?: number
+          section_hidden?: boolean
+          updated_at?: string
+        }
+        Update: {
+          hidden_chapter_ids?: string[]
+          hidden_levels?: string[]
+          hidden_subject_ids?: string[]
+          id?: number
+          section_hidden?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       flash_cards: {
         Row: {
           back: string
