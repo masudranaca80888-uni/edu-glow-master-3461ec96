@@ -241,13 +241,9 @@ export function McqFlow() {
 
   function submitAnswer(chosen: Choice | null) {
     if (!q || reviewMode) return;
-    // In practice mode: record answer silently and auto-advance.
+    // Manual submit only — records answer, NO auto-advance.
     debugMcq("submit trigger", { currentIndex: current, chosen, isLastQuestion: current === total - 1 });
     recordAnswer(chosen);
-    if (current < total - 1) {
-      // Defer to next tick so state update flushes before navigation.
-      setTimeout(() => setCurrent((c) => Math.min(c + 1, total - 1)), 120);
-    }
   }
 
   function nextQ() {
