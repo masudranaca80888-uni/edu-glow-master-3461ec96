@@ -153,6 +153,81 @@ export type Database = {
           },
         ]
       }
+      flash_cards: {
+        Row: {
+          back: string
+          card_type: Database["public"]["Enums"]["flash_card_type"]
+          chapter_id: string | null
+          created_at: string
+          created_by: string | null
+          formula: string | null
+          front: string
+          id: string
+          image_url: string | null
+          is_hidden: boolean
+          level: string
+          scheduled_at: string | null
+          status: Database["public"]["Enums"]["content_status"]
+          subject_id: string | null
+          tags: string[]
+          updated_at: string
+          view_count: number
+        }
+        Insert: {
+          back: string
+          card_type?: Database["public"]["Enums"]["flash_card_type"]
+          chapter_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          formula?: string | null
+          front: string
+          id?: string
+          image_url?: string | null
+          is_hidden?: boolean
+          level?: string
+          scheduled_at?: string | null
+          status?: Database["public"]["Enums"]["content_status"]
+          subject_id?: string | null
+          tags?: string[]
+          updated_at?: string
+          view_count?: number
+        }
+        Update: {
+          back?: string
+          card_type?: Database["public"]["Enums"]["flash_card_type"]
+          chapter_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          formula?: string | null
+          front?: string
+          id?: string
+          image_url?: string | null
+          is_hidden?: boolean
+          level?: string
+          scheduled_at?: string | null
+          status?: Database["public"]["Enums"]["content_status"]
+          subject_id?: string | null
+          tags?: string[]
+          updated_at?: string
+          view_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "flash_cards_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "chapters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flash_cards_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       levels: {
         Row: {
           code: string
@@ -505,6 +580,13 @@ export type Database = {
       app_role: "admin" | "moderator" | "student"
       attempt_status: "in_progress" | "completed" | "abandoned"
       content_status: "draft" | "published" | "archived"
+      flash_card_type:
+        | "concept"
+        | "formula"
+        | "diagram"
+        | "timeline"
+        | "definition"
+        | "other"
       mcq_difficulty: "easy" | "medium" | "hard"
     }
     CompositeTypes: {
@@ -636,6 +718,14 @@ export const Constants = {
       app_role: ["admin", "moderator", "student"],
       attempt_status: ["in_progress", "completed", "abandoned"],
       content_status: ["draft", "published", "archived"],
+      flash_card_type: [
+        "concept",
+        "formula",
+        "diagram",
+        "timeline",
+        "definition",
+        "other",
+      ],
       mcq_difficulty: ["easy", "medium", "hard"],
     },
   },
