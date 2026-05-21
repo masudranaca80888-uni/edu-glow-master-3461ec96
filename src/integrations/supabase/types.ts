@@ -105,41 +105,62 @@ export type Database = {
       }
       exam_attempts: {
         Row: {
+          attempt_number: number
+          chapter_id: string | null
           completed_at: string | null
           correct_count: number
           created_at: string
           duration_seconds: number
           id: string
-          quiz_id: string
+          kind: Database["public"]["Enums"]["attempt_kind"]
+          level: string | null
+          meta: Json
+          quiz_id: string | null
           score: number
           started_at: string
           status: Database["public"]["Enums"]["attempt_status"]
+          subject_id: string | null
+          title: string | null
           total_count: number
           user_id: string
         }
         Insert: {
+          attempt_number?: number
+          chapter_id?: string | null
           completed_at?: string | null
           correct_count?: number
           created_at?: string
           duration_seconds?: number
           id?: string
-          quiz_id: string
+          kind?: Database["public"]["Enums"]["attempt_kind"]
+          level?: string | null
+          meta?: Json
+          quiz_id?: string | null
           score?: number
           started_at?: string
           status?: Database["public"]["Enums"]["attempt_status"]
+          subject_id?: string | null
+          title?: string | null
           total_count?: number
           user_id: string
         }
         Update: {
+          attempt_number?: number
+          chapter_id?: string | null
           completed_at?: string | null
           correct_count?: number
           created_at?: string
           duration_seconds?: number
           id?: string
-          quiz_id?: string
+          kind?: Database["public"]["Enums"]["attempt_kind"]
+          level?: string | null
+          meta?: Json
+          quiz_id?: string | null
           score?: number
           started_at?: string
           status?: Database["public"]["Enums"]["attempt_status"]
+          subject_id?: string | null
+          title?: string | null
           total_count?: number
           user_id?: string
         }
@@ -1042,6 +1063,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "moderator" | "student"
+      attempt_kind: "mcq_practice" | "quiz" | "mock" | "custom_exam"
       attempt_status: "in_progress" | "completed" | "abandoned"
       content_status: "draft" | "published" | "archived"
       flash_card_type:
@@ -1188,6 +1210,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "moderator", "student"],
+      attempt_kind: ["mcq_practice", "quiz", "mock", "custom_exam"],
       attempt_status: ["in_progress", "completed", "abandoned"],
       content_status: ["draft", "published", "archived"],
       flash_card_type: [
