@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 
 export const Route = createFileRoute("/admin")({
@@ -22,8 +22,6 @@ export const Route = createFileRoute("/admin")({
 });
 
 function AdminLayout() {
-  const location = useLocation();
-
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-background text-foreground">
       <div className="pointer-events-none fixed inset-0 -z-10 bg-hero-glow opacity-60" />
@@ -34,7 +32,7 @@ function AdminLayout() {
       <div className="mx-auto flex max-w-[1600px] gap-4 px-4 py-4 sm:px-6">
         <AdminSidebar />
         <div className="pointer-events-auto min-w-0 flex-1 space-y-4">
-          <Outlet key={location.pathname} />
+          <Outlet />
         </div>
       </div>
     </div>
