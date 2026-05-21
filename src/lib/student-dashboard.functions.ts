@@ -59,8 +59,9 @@ export const studentDashboardSnapshot = createServerFn({ method: "GET" })
         .limit(1),
       supabase
         .from("quizzes")
-        .select("id,title,description,difficulty,total_questions,duration_seconds,subject_id,created_at")
+        .select("id,title,description,difficulty,total_questions,duration_seconds,subject_id,created_at,kind,level")
         .eq("status", "published")
+        .eq("kind", "quiz")
         .order("created_at", { ascending: false })
         .limit(8),
       supabase
