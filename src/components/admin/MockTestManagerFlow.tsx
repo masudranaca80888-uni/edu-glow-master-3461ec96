@@ -379,12 +379,12 @@ export function MockTestManagerFlow() {
           <Table>
             <TableHeader>
               <TableRow className="border-white/10 hover:bg-transparent">
-                <TableHead className="pl-4">Title</TableHead>
+                <TableHead className="pl-4"><button onClick={() => { setSortBy("title"); setSortDir(sortBy === "title" && sortDir === "asc" ? "desc" : "asc"); }} className="inline-flex items-center gap-1 hover:text-foreground">Title <ArrowUpDown className="h-3 w-3" /></button></TableHead>
                 <TableHead>Level</TableHead>
-                <TableHead>MCQs</TableHead>
+                <TableHead><button onClick={() => { setSortBy("total_questions"); setSortDir(sortBy === "total_questions" && sortDir === "desc" ? "asc" : "desc"); }} className="inline-flex items-center gap-1 hover:text-foreground">MCQs <ArrowUpDown className="h-3 w-3" /></button></TableHead>
                 <TableHead>Duration</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Schedule</TableHead>
+                <TableHead><button onClick={() => { setSortBy("starts_at"); setSortDir(sortBy === "starts_at" && sortDir === "asc" ? "desc" : "asc"); }} className="inline-flex items-center gap-1 hover:text-foreground">Schedule <ArrowUpDown className="h-3 w-3" /></button></TableHead>
                 <TableHead className="text-right pr-4">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -400,7 +400,7 @@ export function MockTestManagerFlow() {
                 </TableCell></TableRow>
               )}
               {rows.map((m) => (
-                <TableRow key={m.id} className="border-white/5 hover:bg-white/[0.03]">
+                <TableRow key={m.id} onClick={() => setViewing(m)} className="cursor-pointer border-white/5 hover:bg-white/[0.03]">
                   <TableCell className="pl-4 font-medium">
                     <div>{m.title}</div>
                     {m.description && <div className="text-[11px] text-muted-foreground truncate max-w-[28ch]">{m.description}</div>}
@@ -418,22 +418,34 @@ export function MockTestManagerFlow() {
                   </TableCell>
                   <TableCell className="pr-4">
                     <div className="flex items-center justify-end gap-0.5">
-                      <button title="Edit" onClick={() => setEditing(m)} className="rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-white/5 hover:text-foreground">
+                      <button title="View" onClick={(e) => { stopRowAction(e); setViewing(m); }} className="rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-white/5 hover:text-foreground">
+                        <Eye className="h-3.5 w-3.5" />
+                      </button>
+                      <button title="Edit" onClick={(e) => { stopRowAction(e); setEditing(m); }} className="rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-white/5 hover:text-foreground">
                         <Edit3 className="h-3.5 w-3.5" />
                       </button>
-                      <button title="Duplicate" onClick={() => dupMut.mutate(m.id)} className="rounded-lg p-1.5 text-muted-foreground hover:bg-white/5 hover:text-foreground">
+                      <button title="Duplicate" onClick={(e) => { stopRowAction(e); dupMut.mutate(m.id); }} disabled={dupMut.isPending} className="rounded-lg p-1.5 text-muted-foreground hover:bg-white/5 hover:text-foreground disabled:opacity-50">
                         <Copy className="h-3.5 w-3.5" />
                       </button>
                       {m.status !== "published" ? (
-                        <button title="Publish" onClick={() => statusMut.mutate({ id: m.id, status: "published" })} className="rounded-lg p-1.5 text-emerald-400 hover:bg-emerald-500/10">
+                        <button title="Publish" onClick={(e) => { stopRowAction(e); setPublishing({ mock: m, status: "published" }); }} className="rounded-lg p-1.5 text-emerald-400 hover:bg-emerald-500/10">
                           <Send className="h-3.5 w-3.5" />
                         </button>
                       ) : (
-                        <button title="Unpublish (archive)" onClick={() => statusMut.mutate({ id: m.id, status: "archived" })} className="rounded-lg p-1.5 text-amber-400 hover:bg-amber-500/10">
+                        <button title="Unpublish (archive)" onClick={(e) => { stopRowAction(e); setPublishing({ mock: m, status: "archived" }); }} className="rounded-lg p-1.5 text-amber-400 hover:bg-amber-500/10">
                           <EyeOff className="h-3.5 w-3.5" />
                         </button>
                       )}
-                      <button title="Delete" onClick={() => { if (confirm("Delete this mock test?")) deleteMut.mutate(m.id); }} className="rounded-lg p-1.5 text-red-400 hover:bg-red-500/10">
+                      <button title="Schedule" onClick={(e) => { stopRowAction(e); setScheduling(m); }} className="rounded-lg p-1.5 text-sky-400 hover:bg-sky-500/10">
+                        <CalendarClock className="h-3.5 w-3.5" />
+                      </button>
+                      <button title="Analytics" onClick={(e) => { stopRowAction(e); setAnalyticsFor(m); }} className="rounded-lg p-1.5 text-indigo-300 hover:bg-indigo-500/10">
+                        <BarChart3 className="h-3.5 w-3.5" />
+                      </button>
+                      <button title="Export" onClick={(e) => { stopRowAction(e); downloadCsv(`${m.title || "mock"}.csv`, [m]); toast.success("Mock exported"); }} className="rounded-lg p-1.5 text-muted-foreground hover:bg-white/5 hover:text-foreground">
+                        <Download className="h-3.5 w-3.5" />
+                      </button>
+                      <button title="Delete" onClick={(e) => { stopRowAction(e); setDeleting(m); }} className="rounded-lg p-1.5 text-red-400 hover:bg-red-500/10">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
