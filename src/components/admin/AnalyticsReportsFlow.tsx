@@ -358,7 +358,7 @@ export function AnalyticsReportsFlow() {
                   <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                     <l.i className={`h-3.5 w-3.5 ${l.c}`} /> {l.l}
                   </div>
-                  <p className="mt-1 font-display text-xl font-bold">{l.v.toLocaleString()}</p>
+                  <p className="mt-1 font-display text-xl font-bold"><CountUp value={l.v} /></p>
                 </div>
               ))}
             </div>
