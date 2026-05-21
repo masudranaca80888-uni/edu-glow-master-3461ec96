@@ -166,7 +166,7 @@ function RootInner() {
   if (redirectTo) return <Navigate to={redirectTo as never} replace />;
   return (
     <Suspense fallback={<RouteLoader />}>
-      <Outlet key={location.pathname} />
+      <Outlet />
     </Suspense>
   );
 }
