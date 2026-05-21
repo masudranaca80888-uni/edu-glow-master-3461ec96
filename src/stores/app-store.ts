@@ -27,6 +27,7 @@ type AppState = {
 
 const THEME_KEY = "edumaster.theme";
 let authSubscribed = false;
+let inflightRefresh: Promise<UserSession> | null = null;
 
 export const useAppStore = create<AppState>((set, get) => ({
   user: null,
@@ -40,6 +41,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   hydrated: false,
   hydrate: () => {
     if (typeof window === "undefined") return;
+    if (get().hydrated) return;
     const rawTheme = window.localStorage.getItem(THEME_KEY) as "dark" | "light" | null;
     const theme: "dark" | "light" = rawTheme ?? "dark";
     const root = document.documentElement;
@@ -48,38 +50,50 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!rawTheme) {
       window.localStorage.setItem(THEME_KEY, theme);
     }
-    set({ theme });
-
-    set({ hydrated: true });
+    set({ theme, hydrated: true });
     void get().refreshAuth();
 
     if (!authSubscribed) {
       authSubscribed = true;
-      supabase.auth.onAuthStateChange((_event, session) => {
+      supabase.auth.onAuthStateChange((event, session) => {
         if (!session) {
           set({ user: null, sessionReady: true, authLoading: false, authError: null });
           return;
         }
-        setTimeout(() => {
-          void get().refreshAuth();
-        }, 0);
+        // Skip refetch for token refreshes / user-updates when we already
+        // have the same user loaded — avoids the double session fetch.
+        const current = get().user;
+        if (
+          (event === "TOKEN_REFRESHED" || event === "USER_UPDATED" || event === "INITIAL_SESSION") &&
+          current &&
+          current.id === session.user.id
+        ) {
+          set({ sessionReady: true, authLoading: false });
+          return;
+        }
+        void get().refreshAuth();
       });
     }
   },
   login: (user) => set({ user, sessionReady: true, authLoading: false, authError: null }),
   refreshAuth: async () => {
-    set({ authLoading: true, authError: null });
-    try {
-      const { data, error } = await supabase.auth.getSession();
-      if (error) throw error;
-      const user = await fetchSessionUser(data.session);
-      set({ user, sessionReady: true, authLoading: false, authError: null });
-      return user;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Could not restore session";
-      set({ user: null, sessionReady: true, authLoading: false, authError: message });
-      return null;
-    }
+    if (inflightRefresh) return inflightRefresh;
+    inflightRefresh = (async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        const user = await fetchSessionUser(data.session);
+        set({ user, sessionReady: true, authLoading: false, authError: null });
+        return user;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Could not restore session";
+        set({ user: null, sessionReady: true, authLoading: false, authError: message });
+        return null;
+      } finally {
+        inflightRefresh = null;
+      }
+    })();
+    return inflightRefresh;
   },
   logout: async () => {
     set({ authLoading: true });
