@@ -469,4 +469,3 @@ function NoteReader({ note }: { note: Note }) {
 }
 
 // keep import referenced to satisfy bundler if needed
-void ChevronLeft;
