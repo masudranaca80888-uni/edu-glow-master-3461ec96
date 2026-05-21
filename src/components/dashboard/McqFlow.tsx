@@ -102,7 +102,42 @@ export function McqFlow() {
   const listChaptersFn = useServerFn(listChapters);
   const listMcqsFn = useServerFn(listMcqs);
   const saveAttemptFn = useServerFn(saveSessionAttempt);
+  const toggleBookmarkFn = useServerFn(toggleMcqBookmark);
+  const listBookmarkIdsFn = useServerFn(listMyBookmarkIds);
+  const recordOutcomesFn = useServerFn(recordMcqOutcomes);
   const qc = useQueryClient();
+
+  const bookmarksQ = useQuery({
+    queryKey: ["my-bookmark-ids"],
+    queryFn: () => listBookmarkIdsFn(),
+    staleTime: 60_000,
+  });
+  const bookmarkSet = useMemo(
+    () => new Set<string>(bookmarksQ.data ?? []),
+    [bookmarksQ.data],
+  );
+
+  async function toggleBookmark(mcqId: string) {
+    const wasBookmarked = bookmarkSet.has(mcqId);
+    try {
+      await toggleBookmarkFn({
+        data: {
+          mcqId,
+          bookmarked: !wasBookmarked,
+          chapterId: chapterId ?? null,
+          subjectId: subjectId ?? null,
+          level: level ?? null,
+        },
+      });
+      qc.invalidateQueries({ queryKey: ["my-bookmark-ids"] });
+      qc.invalidateQueries({ queryKey: ["mcq-bookmarks"] });
+      qc.invalidateQueries({ queryKey: ["mcq-review-counts"] });
+      toast.success(wasBookmarked ? "Bookmark removed" : "Bookmarked for review");
+    } catch (e) {
+      debugMcq("bookmark failed", e);
+      toast.error("Could not update bookmark");
+    }
+  }
 
   const subjectsQ = useQuery({
     queryKey: ["subjects"],
