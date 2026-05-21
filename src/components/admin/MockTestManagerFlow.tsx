@@ -43,7 +43,7 @@ import {
 
 type Level = "certificate" | "professional" | "advanced";
 type Status = "draft" | "published" | "archived";
-type MockType = "all" | "full" | "chapter";
+type MockType = "all" | "full" | "chapter" | "level";
 type DateFilter = "all" | "scheduled" | "unscheduled" | "upcoming" | "expired";
 type SortBy = "updated_at" | "title" | "starts_at" | "total_questions";
 type SortDir = "asc" | "desc";
@@ -206,18 +206,19 @@ export function MockTestManagerFlow() {
 
   const [editing, setEditing] = useState<Mock | null>(null);
   const [creating, setCreating] = useState(false);
-  const [builderPreset, setBuilderPreset] = useState<"blank" | "generate" | "full" | "chapter">("blank");
+  const [builderPreset, setBuilderPreset] = useState<"blank" | "generate" | "full" | "chapter" | "level">("blank");
   const [viewing, setViewing] = useState<Mock | null>(null);
   const [analyticsFor, setAnalyticsFor] = useState<Mock | null>(null);
   const [deleting, setDeleting] = useState<Mock | null>(null);
   const [publishing, setPublishing] = useState<{ mock: Mock; status: Status } | null>(null);
   const [scheduling, setScheduling] = useState<Mock | null>(null);
 
-  function openBuilder(preset: "blank" | "generate" | "full" | "chapter") {
+  function openBuilder(preset: "blank" | "generate" | "full" | "chapter" | "level") {
     setBuilderPreset(preset);
     setEditing(null);
     setCreating(true);
   }
+
 
   // Stats from data
   const stats = useMemo(() => {
@@ -261,6 +262,10 @@ export function MockTestManagerFlow() {
             <Button variant="outline" onClick={() => openBuilder("chapter")} className="rounded-xl border-white/10 bg-background/40">
               <Layers className="h-4 w-4" /> Chapter Wise Mock
             </Button>
+            <Button variant="outline" onClick={() => openBuilder("level")} className="rounded-xl border-white/10 bg-background/40">
+              <Trophy className="h-4 w-4" /> Level Wise Mock
+            </Button>
+
             <Button variant="outline" onClick={() => { downloadCsv("mock-tests.csv", rows); toast.success("Export ready"); }} className="rounded-xl border-white/10 bg-background/40">
               <Download className="h-4 w-4" /> Export Mock
             </Button>
@@ -322,6 +327,8 @@ export function MockTestManagerFlow() {
             <SelectItem value="all">All types</SelectItem>
             <SelectItem value="full">Full subject</SelectItem>
             <SelectItem value="chapter">Chapter wise</SelectItem>
+            <SelectItem value="level">Level wide</SelectItem>
+
           </SelectContent>
         </Select>
         <Select value={filterStatus || "all"} onValueChange={(v) => { setFilterStatus(v === "all" ? "" : (v as Status)); setPage(1); }}>
@@ -607,7 +614,7 @@ function ScheduleDialog({ mock, onClose, onSaved }: { mock: Mock | null; onClose
 function MockBuilderDialog({
   open, onClose, existing, preset, onSaved,
 }: {
-  open: boolean; onClose: () => void; existing: Mock | null; preset: "blank" | "generate" | "full" | "chapter"; onSaved: () => void;
+  open: boolean; onClose: () => void; existing: Mock | null; preset: "blank" | "generate" | "full" | "chapter" | "level"; onSaved: () => void;
 }) {
   const listSubjects = useServerFn(adminListSubjectsByLevel);
   const listChapters = useServerFn(adminListChaptersBySubject);
@@ -647,16 +654,25 @@ function MockBuilderDialog({
     enabled: !!subjectId,
   });
 
+  // Scope inferred from preset (chapter | subject | level). For 'blank'/'generate'/edit, we default to chapter.
+  const scope: "chapter" | "subject" | "level" =
+    preset === "full" ? "subject" : preset === "level" ? "level" : "chapter";
+
   const mcqsQ = useQuery({
-    queryKey: ["builder-mcqs", chapterIds, mcqSearch, difficulty],
+    queryKey: ["builder-mcqs", scope, level, subjectId, chapterIds, mcqSearch, difficulty],
     queryFn: () => listMcqs({
       data: {
-        chapterIds,
+        chapterIds: scope === "chapter" ? chapterIds : undefined,
+        subjectId: scope === "subject" ? (subjectId ?? undefined) : undefined,
+        level: scope === "level" ? level : undefined,
         search: mcqSearch || undefined,
         difficulty: (difficulty || undefined) as "easy" | "medium" | "hard" | undefined,
       },
     }),
-    enabled: chapterIds.length > 0,
+    enabled:
+      (scope === "chapter" && chapterIds.length > 0) ||
+      (scope === "subject" && !!subjectId) ||
+      (scope === "level" && !!level),
   });
 
   // Load existing mock's MCQ ids
@@ -686,11 +702,16 @@ function MockBuilderDialog({
   }
   function clearMcqs() { setSelectedMcqIds([]); }
   function goNext() {
-    if (step === 1 && !subjectId) return toast.error("Select a subject first");
-    if (step === 1 && chapterIds.length === 0) return toast.error("Select at least one chapter");
+    if (step === 1) {
+      if (scope === "chapter" && (!subjectId || chapterIds.length === 0))
+        return toast.error("Select a subject and at least one chapter");
+      if (scope === "subject" && !subjectId) return toast.error("Select a subject");
+      // level scope: just needs level (always set)
+    }
     if (step === 2 && selectedMcqIds.length === 0) return toast.error("Select at least one MCQ");
     if (step === 3 && !title.trim()) return toast.error("Enter a mock test title");
     setStep((s) => Math.min(4, s + 1));
+
   }
 
   const saveMut = useMutation({
@@ -701,8 +722,9 @@ function MockBuilderDialog({
         title: title.trim(),
         description: description.trim() || null,
         level,
-        subject_id: subjectId,
-        chapter_id: chapterIds[0] ?? null,
+        subject_id: scope === "level" ? null : subjectId,
+        chapter_id: scope === "chapter" ? (chapterIds[0] ?? null) : null,
+
         duration_seconds: Math.max(60, durationMin * 60),
         total_questions: selectedMcqIds.length,
         difficulty: "medium" as const,
@@ -778,68 +800,83 @@ function MockBuilderDialog({
               </div>
             </div>
 
-            <div>
-              <Label className="mb-2 block text-xs">
-                Subject {subjectsQ.isFetching && <Loader2 className="ml-1 inline h-3 w-3 animate-spin" />}
-              </Label>
-              {subjects.length === 0 && !subjectsQ.isFetching ? (
-                <p className="text-xs text-muted-foreground">No subjects under <strong>{level}</strong>. Create one in the MCQ Manager and set its level.</p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {subjects.map((s) => (
-                    <button
-                      key={s.id}
-                    onClick={() => { setSubjectId(s.id); setChapterIds([]); setSelectedMcqIds([]); }}
-                      className={`rounded-lg border px-3 py-1.5 text-xs transition ${
-                        subjectId === s.id
-                          ? "border-[var(--neon-purple)]/50 bg-[var(--neon-purple)]/10 text-[var(--neon-purple)]"
-                          : "border-white/10 hover:border-white/30"
-                      }`}
-                    >
-                      {s.name}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            {scope !== "level" && (
+              <div>
+                <Label className="mb-2 block text-xs">
+                  Subject {subjectsQ.isFetching && <Loader2 className="ml-1 inline h-3 w-3 animate-spin" />}
+                </Label>
+                {subjects.length === 0 && !subjectsQ.isFetching ? (
+                  <p className="text-xs text-muted-foreground">No subjects under <strong>{level}</strong>. Create one in the MCQ Manager and set its level.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {subjects.map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={() => { setSubjectId(s.id); setChapterIds([]); setSelectedMcqIds([]); }}
+                        className={`rounded-lg border px-3 py-1.5 text-xs transition ${
+                          subjectId === s.id
+                            ? "border-[var(--neon-purple)]/50 bg-[var(--neon-purple)]/10 text-[var(--neon-purple)]"
+                            : "border-white/10 hover:border-white/30"
+                        }`}
+                      >
+                        {s.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
-            <div>
-              <Label className="mb-2 block text-xs">
-                Chapters {chaptersQ.isFetching && <Loader2 className="ml-1 inline h-3 w-3 animate-spin" />}
-              </Label>
-              {!subjectId ? (
-                <p className="text-xs text-muted-foreground">Pick a subject first.</p>
-              ) : chapters.length === 0 && !chaptersQ.isFetching ? (
-                <p className="text-xs text-muted-foreground">No chapters in this subject.</p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {chapters.map((c) => (
-                    <button
-                      key={c.id}
-                      onClick={() => toggleChapter(c.id)}
-                      className={`rounded-lg border px-3 py-1.5 text-xs transition ${
-                        chapterIds.includes(c.id)
-                          ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
-                          : "border-white/10 hover:border-white/30"
-                      }`}
-                    >
-                      {c.name}
-                    </button>
-                  ))}
-                </div>
-              )}
-              <p className="mt-2 text-[11px] text-muted-foreground">
-                {chapterIds.length} chapter(s) selected
-              </p>
-            </div>
+
+            {scope === "chapter" && (
+              <div>
+                <Label className="mb-2 block text-xs">
+                  Chapters {chaptersQ.isFetching && <Loader2 className="ml-1 inline h-3 w-3 animate-spin" />}
+                </Label>
+                {!subjectId ? (
+                  <p className="text-xs text-muted-foreground">Pick a subject first.</p>
+                ) : chapters.length === 0 && !chaptersQ.isFetching ? (
+                  <p className="text-xs text-muted-foreground">No chapters in this subject.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {chapters.map((c) => (
+                      <button
+                        key={c.id}
+                        onClick={() => toggleChapter(c.id)}
+                        className={`rounded-lg border px-3 py-1.5 text-xs transition ${
+                          chapterIds.includes(c.id)
+                            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+                            : "border-white/10 hover:border-white/30"
+                        }`}
+                      >
+                        {c.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  {chapterIds.length} chapter(s) selected
+                </p>
+              </div>
+            )}
+            {scope === "subject" && (
+              <p className="text-[11px] text-muted-foreground">Full subject mock: MCQ pool will include every chapter in the selected subject.</p>
+            )}
+            {scope === "level" && (
+              <p className="text-[11px] text-muted-foreground">Level-wide mock: MCQ pool will include every subject/chapter under <strong className="capitalize">{level}</strong>.</p>
+            )}
+
           </div>
         )}
 
         {/* STEP 2: Questions */}
         {step === 2 && (
           <div className="space-y-3">
-            {chapterIds.length === 0 ? (
+            {scope === "chapter" && chapterIds.length === 0 ? (
               <p className="text-sm text-muted-foreground">Select at least one chapter in Step 1.</p>
+            ) : scope === "subject" && !subjectId ? (
+              <p className="text-sm text-muted-foreground">Select a subject in Step 1.</p>
+
             ) : (
               <>
                 <div className="flex flex-wrap items-center gap-2">

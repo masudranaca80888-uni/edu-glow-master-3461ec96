@@ -49,10 +49,18 @@ export const adminListChaptersBySubject = createServerFn({ method: "POST" })
 
 export const adminListMcqsForBuilder = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i: { chapterIds: string[]; search?: string; difficulty?: string }) =>
+  .inputValidator((i: {
+    chapterIds?: string[];
+    subjectId?: string;
+    level?: string;
+    search?: string;
+    difficulty?: string;
+  }) =>
     z
       .object({
-        chapterIds: z.array(z.string().uuid()).min(1).max(50),
+        chapterIds: z.array(z.string().uuid()).max(200).optional(),
+        subjectId: z.string().uuid().optional(),
+        level: levelEnum.optional(),
         search: z.string().trim().max(200).optional(),
         difficulty: difficultyEnum.optional(),
       })
@@ -60,10 +68,37 @@ export const adminListMcqsForBuilder = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context.supabase, context.userId);
+    // Resolve target chapter ids based on the most specific scope provided.
+    let chapterIds: string[] = data.chapterIds ?? [];
+    if (chapterIds.length === 0 && data.subjectId) {
+      const { data: chs, error: ce } = await context.supabase
+        .from("chapters")
+        .select("id")
+        .eq("subject_id", data.subjectId);
+      if (ce) throw ce;
+      chapterIds = (chs ?? []).map((c: { id: string }) => c.id);
+    }
+    if (chapterIds.length === 0 && data.level) {
+      const { data: subs, error: se } = await context.supabase
+        .from("subjects")
+        .select("id")
+        .eq("level", data.level);
+      if (se) throw se;
+      const subjectIds = (subs ?? []).map((s: { id: string }) => s.id);
+      if (subjectIds.length) {
+        const { data: chs, error: ce } = await context.supabase
+          .from("chapters")
+          .select("id")
+          .in("subject_id", subjectIds);
+        if (ce) throw ce;
+        chapterIds = (chs ?? []).map((c: { id: string }) => c.id);
+      }
+    }
+    if (chapterIds.length === 0) return [];
     let q = context.supabase
       .from("mcqs")
       .select("id,question,difficulty,status,chapter_id,correct_option")
-      .in("chapter_id", data.chapterIds)
+      .in("chapter_id", chapterIds)
       .order("updated_at", { ascending: false })
       .limit(500);
     if (data.difficulty) q = q.eq("difficulty", data.difficulty);
@@ -72,6 +107,7 @@ export const adminListMcqsForBuilder = createServerFn({ method: "POST" })
     if (error) throw error;
     return rows ?? [];
   });
+
 
 // ---------- Mocks (stored in quizzes with kind='mock') ----------
 const mockSelect =
@@ -84,7 +120,7 @@ export const adminListMocks = createServerFn({ method: "POST" })
     status?: string;
     level?: string;
     subjectId?: string;
-    mockType?: "all" | "full" | "chapter";
+    mockType?: "all" | "full" | "chapter" | "level";
     date?: "all" | "scheduled" | "unscheduled" | "upcoming" | "expired";
     sortBy?: "updated_at" | "title" | "starts_at" | "total_questions";
     sortDir?: "asc" | "desc";
@@ -97,7 +133,7 @@ export const adminListMocks = createServerFn({ method: "POST" })
         status: statusEnum.optional(),
         level: levelEnum.optional(),
         subjectId: z.string().uuid().optional(),
-        mockType: z.enum(["all", "full", "chapter"]).default("all"),
+        mockType: z.enum(["all", "full", "chapter", "level"]).default("all"),
         date: z.enum(["all", "scheduled", "unscheduled", "upcoming", "expired"]).default("all"),
         sortBy: z.enum(["updated_at", "title", "starts_at", "total_questions"]).default("updated_at"),
         sortDir: z.enum(["asc", "desc"]).default("desc"),
@@ -121,6 +157,8 @@ export const adminListMocks = createServerFn({ method: "POST" })
     if (data.subjectId) q = q.eq("subject_id", data.subjectId);
     if (data.mockType === "full") q = q.not("subject_id", "is", null).is("chapter_id", null);
     if (data.mockType === "chapter") q = q.not("chapter_id", "is", null);
+    if (data.mockType === "level") q = q.is("subject_id", null).is("chapter_id", null);
+
     if (data.date === "scheduled") q = q.not("starts_at", "is", null);
     if (data.date === "unscheduled") q = q.is("starts_at", null);
     if (data.date === "upcoming") q = q.gte("starts_at", new Date().toISOString());
