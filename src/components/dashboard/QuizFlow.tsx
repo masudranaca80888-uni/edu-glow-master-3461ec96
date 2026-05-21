@@ -123,20 +123,20 @@ export function QuizFlow() {
   const q = questions[current];
 
   useEffect(() => {
-    if (step !== 2 || submitted || !meta) return;
+    if (step !== 4 || submitted || !meta) return;
     const id = setInterval(() => setTimeLeft((t) => Math.max(0, t - 1)), 1000);
     return () => clearInterval(id);
   }, [step, submitted, meta]);
 
   useEffect(() => {
-    if (quizQ.data?.quiz && step === 2) {
+    if (quizQ.data?.quiz && step === 4) {
       setTimeLeft(quizQ.data.quiz.duration_seconds ?? 600);
       setStartedAt(Date.now());
     }
   }, [quizQ.data, step]);
 
   useEffect(() => {
-    if (step === 2 && !submitted && timeLeft === 0 && total > 0) {
+    if (step === 4 && !submitted && timeLeft === 0 && total > 0) {
       void doSubmit();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -163,6 +163,9 @@ export function QuizFlow() {
     onSuccess: (r) => {
       setResult({ correct: r.correct, total: r.total, score: r.score });
       setSubmitted(true);
+      qc.invalidateQueries({ queryKey: ["student-dashboard"] });
+      qc.invalidateQueries({ queryKey: ["student-performance-center"] });
+      qc.invalidateQueries({ queryKey: ["student-completion-tracker"] });
     },
   });
 
@@ -181,9 +184,7 @@ export function QuizFlow() {
     setStartedAt(Date.now());
   }
 
-  const filteredQuizzes = (quizzesQ.data ?? []).filter((q2) =>
-    !level ? true : q2.difficulty === level.match,
-  );
+  const filteredQuizzes = quizzesQ.data ?? [];
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1fr_320px]">
