@@ -1,6 +1,7 @@
 import {
   BarChart3,
   Bell,
+  Bookmark,
   Database,
   FileText,
   FolderTree,
@@ -14,6 +15,7 @@ import {
   Trophy,
   User,
   Users,
+  XCircle,
   type LucideIcon,
 } from "lucide-react";
 
