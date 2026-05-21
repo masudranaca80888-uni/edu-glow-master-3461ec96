@@ -273,6 +273,13 @@ export function FlashCardManagerFlow() {
         </div>
       </div>
 
+      {/* Section-wide visibility controls */}
+      <VisibilityPanel
+        levels={(tree.data?.levels ?? []) as { code: string; name: string }[]}
+        subjects={(tree.data?.subjects ?? []) as { id: string; name: string; level: string }[]}
+        chapters={(tree.data?.chapters ?? []) as { id: string; name: string; subject_id: string }[]}
+      />
+
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
         <StatTile label="Total Flash Cards" value={stats.total} icon={Layers} color="var(--neon-purple)" />
