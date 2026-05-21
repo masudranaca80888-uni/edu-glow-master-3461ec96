@@ -206,18 +206,19 @@ export function MockTestManagerFlow() {
 
   const [editing, setEditing] = useState<Mock | null>(null);
   const [creating, setCreating] = useState(false);
-  const [builderPreset, setBuilderPreset] = useState<"blank" | "generate" | "full" | "chapter">("blank");
+  const [builderPreset, setBuilderPreset] = useState<"blank" | "generate" | "full" | "chapter" | "level">("blank");
   const [viewing, setViewing] = useState<Mock | null>(null);
   const [analyticsFor, setAnalyticsFor] = useState<Mock | null>(null);
   const [deleting, setDeleting] = useState<Mock | null>(null);
   const [publishing, setPublishing] = useState<{ mock: Mock; status: Status } | null>(null);
   const [scheduling, setScheduling] = useState<Mock | null>(null);
 
-  function openBuilder(preset: "blank" | "generate" | "full" | "chapter") {
+  function openBuilder(preset: "blank" | "generate" | "full" | "chapter" | "level") {
     setBuilderPreset(preset);
     setEditing(null);
     setCreating(true);
   }
+
 
   // Stats from data
   const stats = useMemo(() => {
