@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -12,8 +12,14 @@ import {
   Trash2,
   BookOpen,
   GraduationCap,
+  ListChecks,
+  Eye,
+  EyeOff,
+  Loader2,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import {
   adminCreateChapter,
   adminCreateLevel,
@@ -26,6 +32,11 @@ import {
   adminUpdateLevel,
   adminUpdateSubject,
 } from "@/lib/admin-academic.functions";
+import {
+  adminListMcqs,
+  adminDeleteMcq,
+  adminSetMcqStatus,
+} from "@/lib/admin-mcq.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -46,6 +57,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
 
 type Level = {
   code: string;
