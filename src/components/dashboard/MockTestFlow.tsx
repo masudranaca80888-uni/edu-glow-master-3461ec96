@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Trophy,
   Clock,
@@ -25,6 +27,7 @@ import {
   XCircle,
   MinusCircle,
 } from "lucide-react";
+
 
 type Stage = "browse" | "exam" | "result";
 
