@@ -312,6 +312,84 @@ export type Database = {
         }
         Relationships: []
       }
+      mcq_bookmarks: {
+        Row: {
+          chapter_id: string | null
+          created_at: string
+          id: string
+          level: string | null
+          mcq_id: string
+          subject_id: string | null
+          user_id: string
+        }
+        Insert: {
+          chapter_id?: string | null
+          created_at?: string
+          id?: string
+          level?: string | null
+          mcq_id: string
+          subject_id?: string | null
+          user_id: string
+        }
+        Update: {
+          chapter_id?: string | null
+          created_at?: string
+          id?: string
+          level?: string | null
+          mcq_id?: string
+          subject_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      mcq_wrong_questions: {
+        Row: {
+          chapter_id: string | null
+          correct_option: string | null
+          first_wrong_at: string
+          id: string
+          last_chosen_option: string | null
+          last_wrong_at: string
+          level: string | null
+          mastered: boolean
+          mcq_id: string
+          retry_count: number
+          subject_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          chapter_id?: string | null
+          correct_option?: string | null
+          first_wrong_at?: string
+          id?: string
+          last_chosen_option?: string | null
+          last_wrong_at?: string
+          level?: string | null
+          mastered?: boolean
+          mcq_id: string
+          retry_count?: number
+          subject_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          chapter_id?: string | null
+          correct_option?: string | null
+          first_wrong_at?: string
+          id?: string
+          last_chosen_option?: string | null
+          last_wrong_at?: string
+          level?: string | null
+          mastered?: boolean
+          mcq_id?: string
+          retry_count?: number
+          subject_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       mcqs: {
         Row: {
           chapter_id: string
