@@ -32,10 +32,10 @@ export type NavItem = {
 export const studentNavItems: NavItem[] = [
   { title: "Dashboard", to: "/dashboard", icon: LayoutDashboard },
   { title: "MCQ Practice", to: "/mcq-practice", icon: ListChecks, keywords: ["practice", "mcq"] },
-  { title: "Wrong Questions", to: "/wrong-questions", icon: XCircle, keywords: ["wrong", "mistakes", "review"] },
-  { title: "Bookmarks", to: "/bookmarks", icon: Bookmark, keywords: ["bookmark", "saved"] },
   { title: "Quiz", to: "/quiz", icon: Timer },
   { title: "Custom Exam", to: "/custom-exam", icon: SlidersHorizontal, keywords: ["exam", "custom"] },
+  { title: "Wrong Questions", to: "/wrong-questions", icon: XCircle, keywords: ["wrong", "mistakes", "review"] },
+  { title: "Bookmarks", to: "/bookmarks", icon: Bookmark, keywords: ["bookmark", "saved"] },
   { title: "Mock Test", to: "/mock-test", icon: Trophy, keywords: ["mock"] },
   { title: "Flash Cards", to: "/flash-cards", icon: Layers, keywords: ["flash"] },
   { title: "Short Notes", to: "/short-notes", icon: FileText, keywords: ["notes", "pdf"] },
