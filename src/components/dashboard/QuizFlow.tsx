@@ -356,8 +356,8 @@ export function QuizFlow() {
           </section>
         )}
 
-        {/* STEP 3 — PLAY */}
-        {step === 2 && !submitted && (
+        {/* STEP 5 — PLAY */}
+        {step === 4 && !submitted && (
           <section className="animate-fade-up space-y-4">
             <div className="glass shadow-card-soft rounded-2xl p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
