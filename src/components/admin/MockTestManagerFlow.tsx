@@ -358,7 +358,7 @@ export function MockTestManagerFlow() {
           className="rounded-xl border-white/10"
           onClick={() => { invalidate(); toast.success("Refreshed"); }}
         >
-          <Loader2 className={`h-3.5 w-3.5 ${mocksQ.isFetching ? "animate-spin" : ""}`} /> Refresh
+          {mocksQ.isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />} Refresh
         </Button>
       </div>
 
@@ -782,7 +782,7 @@ function MockBuilderDialog({
                   {subjects.map((s) => (
                     <button
                       key={s.id}
-                      onClick={() => { setSubjectId(s.id); setChapterIds([]); }}
+                    onClick={() => { setSubjectId(s.id); setChapterIds([]); setSelectedMcqIds([]); }}
                       className={`rounded-lg border px-3 py-1.5 text-xs transition ${
                         subjectId === s.id
                           ? "border-[var(--neon-purple)]/50 bg-[var(--neon-purple)]/10 text-[var(--neon-purple)]"
@@ -947,7 +947,7 @@ function MockBuilderDialog({
         <DialogFooter className="flex-wrap gap-2">
           <Button variant="ghost" onClick={onClose}><X className="h-4 w-4" /> Cancel</Button>
           {step > 1 && <Button variant="outline" onClick={() => setStep(step - 1)} className="rounded-xl border-white/10">Back</Button>}
-          {step < 4 && <Button onClick={() => setStep(step + 1)} className="bg-cta-gradient rounded-xl text-white shadow-glow">Next</Button>}
+          {step < 4 && <Button onClick={() => goNext()} className="bg-cta-gradient rounded-xl text-white shadow-glow">Next</Button>}
           {step === 4 && (
             <>
               <Button
