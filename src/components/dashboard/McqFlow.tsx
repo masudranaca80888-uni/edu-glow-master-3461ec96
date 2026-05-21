@@ -8,7 +8,7 @@ import {
   CheckCircle2, XCircle, MinusCircle, BarChart3,
 } from "lucide-react";
 import { toast } from "sonner";
-import { listSubjects, listChapters, listMcqs } from "@/lib/learning.functions";
+import { listSubjects, listChapters, listMcqs, listSubjectProgress, listChapterProgress } from "@/lib/learning.functions";
 import { saveSessionAttempt } from "@/lib/student-performance.functions";
 import {
   toggleMcqBookmark,
@@ -102,6 +102,8 @@ export function McqFlow() {
   const listSubjectsFn = useServerFn(listSubjects);
   const listChaptersFn = useServerFn(listChapters);
   const listMcqsFn = useServerFn(listMcqs);
+  const listSubjectProgressFn = useServerFn(listSubjectProgress);
+  const listChapterProgressFn = useServerFn(listChapterProgress);
   const saveAttemptFn = useServerFn(saveSessionAttempt);
   const toggleBookmarkFn = useServerFn(toggleMcqBookmark);
   const listBookmarkIdsFn = useServerFn(listMyBookmarkIds);
@@ -141,14 +143,41 @@ export function McqFlow() {
   }
 
   const subjectsQ = useQuery({
-    queryKey: ["subjects"],
-    queryFn: () => listSubjectsFn(),
+    queryKey: ["subjects", level],
+    queryFn: () => listSubjectsFn({ data: { level: level ?? undefined } }),
+    enabled: !!level,
   });
+  const subjectProgressQ = useQuery({
+    queryKey: ["subject-progress", level],
+    queryFn: () => listSubjectProgressFn({ data: { level: level ?? undefined } }),
+    enabled: !!level,
+    staleTime: 30_000,
+  });
+  const subjectProgressMap = useMemo(() => {
+    const m = new Map<string, { total: number; completed: number; percent: number }>();
+    const rows = (subjectProgressQ.data ?? []) as Array<{ subject_id: string; total: number; completed: number; percent: number }>;
+    rows.forEach((r) => m.set(r.subject_id, { total: r.total, completed: r.completed, percent: r.percent }));
+    return m;
+  }, [subjectProgressQ.data]);
+
   const chaptersQ = useQuery({
     queryKey: ["chapters", subjectId],
     queryFn: () => listChaptersFn({ data: { subjectId: subjectId! } }),
     enabled: !!subjectId,
   });
+  const chapterProgressQ = useQuery({
+    queryKey: ["chapter-progress", subjectId],
+    queryFn: () => listChapterProgressFn({ data: { subjectId: subjectId! } }),
+    enabled: !!subjectId,
+    staleTime: 30_000,
+  });
+  const chapterProgressMap = useMemo(() => {
+    const m = new Map<string, { total: number; completed: number; percent: number; accuracy: number }>();
+    const rows = (chapterProgressQ.data ?? []) as Array<{ chapter_id: string; total: number; completed: number; percent: number; accuracy: number }>;
+    rows.forEach((r) => m.set(r.chapter_id, { total: r.total, completed: r.completed, percent: r.percent, accuracy: r.accuracy }));
+    return m;
+  }, [chapterProgressQ.data]);
+
   const mcqsQ = useQuery({
     queryKey: ["mcqs", chapterId],
     queryFn: () => listMcqsFn({ data: { chapterId: chapterId!, limit: 25 } }),
@@ -346,6 +375,8 @@ export function McqFlow() {
       qc.invalidateQueries({ queryKey: ["exam-attempts"] });
       qc.invalidateQueries({ queryKey: ["mcq-wrong"] });
       qc.invalidateQueries({ queryKey: ["mcq-review-counts"] });
+      qc.invalidateQueries({ queryKey: ["subject-progress"] });
+      qc.invalidateQueries({ queryKey: ["chapter-progress"] });
     } catch (e) {
       debugMcq("DB save failed", e);
       toast.error("Could not save attempt", {
@@ -457,6 +488,8 @@ export function McqFlow() {
                 {(subjectsQ.data ?? []).map((s) => {
                   const { i: Icon, tone } = iconFor(s.slug);
                   const active = subjectId === s.id;
+                  const prog = subjectProgressMap.get(s.id);
+                  const pct = prog?.percent ?? 0;
                   return (
                     <button
                       key={s.id}
@@ -471,11 +504,22 @@ export function McqFlow() {
                         </div>
                         <h3 className="font-display mt-4 text-lg font-bold">{s.name}</h3>
                         <p className="text-xs text-muted-foreground line-clamp-2">{s.description ?? "Tap to explore chapters"}</p>
+                        {prog && prog.total > 0 && (
+                          <div className="mt-3">
+                            <div className="flex items-center justify-between text-[11px] font-semibold">
+                              <span className="text-muted-foreground">{prog.completed} / {prog.total} MCQs</span>
+                              <span className="text-gradient">{pct}%</span>
+                            </div>
+                            <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-muted/60">
+                              <div className="h-full rounded-full bg-gradient-to-r from-[var(--neon-purple)] to-[var(--neon-blue)] transition-all duration-500" style={{ width: `${pct}%` }} />
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </button>
                   );
                 })}
-                {!subjectsQ.isLoading && (subjectsQ.data ?? []).length === 0 && <EmptyState text="No subjects published yet." />}
+                {!subjectsQ.isLoading && (subjectsQ.data ?? []).length === 0 && <EmptyState text="No subjects published for this level yet." />}
               </div>
             )}
           </section>
@@ -495,6 +539,8 @@ export function McqFlow() {
                 <ul className="divide-y divide-border">
                   {(chaptersQ.data ?? []).map((c) => {
                     const open = openChapter === c.id;
+                    const cprog = chapterProgressMap.get(c.id);
+                    const cpct = cprog?.percent ?? 0;
                     return (
                       <li key={c.id}>
                         <button
@@ -507,6 +553,16 @@ export function McqFlow() {
                           <div className="min-w-0 flex-1">
                             <p className="font-display font-bold">{c.name}</p>
                             <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{c.description ?? "Tap to expand"}</p>
+                            {cprog && cprog.total > 0 && (
+                              <div className="mt-2 flex items-center gap-2">
+                                <div className="h-1.5 w-32 overflow-hidden rounded-full bg-muted/60">
+                                  <div className="h-full rounded-full bg-gradient-to-r from-[var(--neon-purple)] to-[var(--neon-blue)] transition-all duration-500" style={{ width: `${cpct}%` }} />
+                                </div>
+                                <span className="text-[10px] font-semibold text-muted-foreground">
+                                  {cprog.completed}/{cprog.total} · {cpct}%{cprog.completed > 0 ? ` · ${cprog.accuracy}% acc` : ""}
+                                </span>
+                              </div>
+                            )}
                           </div>
                           <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
                         </button>

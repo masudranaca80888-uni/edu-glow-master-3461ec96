@@ -3,16 +3,172 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 // ---- Subjects ----
-export const listSubjects = createServerFn({ method: "GET" })
+const subjectsSchema = z
+  .object({ level: z.string().trim().min(1).max(40).optional() })
+  .partial();
+
+export const listSubjects = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const { data, error } = await context.supabase
+  .inputValidator((i: z.infer<typeof subjectsSchema> | undefined) =>
+    subjectsSchema.parse(i ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    let q = context.supabase
       .from("subjects")
-      .select("id,name,slug,description,icon,color,sort_order")
+      .select("id,name,slug,description,icon,color,sort_order,level")
       .eq("status", "published")
       .order("sort_order", { ascending: true });
+    if (data?.level) q = q.eq("level", data.level);
+    const { data: rows, error } = await q;
     if (error) throw error;
-    return data ?? [];
+    return rows ?? [];
+  });
+
+// ---- Progress: subjects in a level ----
+const subjectProgressSchema = z
+  .object({ level: z.string().trim().min(1).max(40).optional() })
+  .partial();
+
+export const listSubjectProgress = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: z.infer<typeof subjectProgressSchema> | undefined) =>
+    subjectProgressSchema.parse(i ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    const supabase = context.supabase;
+    const userId = context.userId;
+    // 1. Subjects in scope
+    let sq = supabase.from("subjects").select("id").eq("status", "published");
+    if (data?.level) sq = sq.eq("level", data.level);
+    const { data: subjects, error: se } = await sq;
+    if (se) throw se;
+    const subjectIds = (subjects ?? []).map((s) => s.id);
+    if (!subjectIds.length) return [] as Array<{ subject_id: string; total: number; completed: number; percent: number }>;
+    // 2. Chapters under those subjects
+    const { data: chapters, error: ce } = await supabase
+      .from("chapters")
+      .select("id,subject_id")
+      .in("subject_id", subjectIds)
+      .eq("status", "published");
+    if (ce) throw ce;
+    const chapterToSubject = new Map<string, string>();
+    (chapters ?? []).forEach((c) => chapterToSubject.set(c.id, c.subject_id));
+    const chapterIds = Array.from(chapterToSubject.keys());
+    if (!chapterIds.length) {
+      return subjectIds.map((id) => ({ subject_id: id, total: 0, completed: 0, percent: 0 }));
+    }
+    // 3. Total published MCQs per subject (via chapter)
+    const { data: mcqs, error: me } = await supabase
+      .from("mcqs")
+      .select("id,chapter_id")
+      .in("chapter_id", chapterIds)
+      .eq("status", "published");
+    if (me) throw me;
+    const totalsBySubject = new Map<string, number>();
+    const mcqToSubject = new Map<string, string>();
+    for (const m of mcqs ?? []) {
+      const sId = chapterToSubject.get(m.chapter_id);
+      if (!sId) continue;
+      mcqToSubject.set(m.id, sId);
+      totalsBySubject.set(sId, (totalsBySubject.get(sId) ?? 0) + 1);
+    }
+    // 4. Distinct MCQs the user has answered (chosen non-null)
+    const { data: attempts, error: ae } = await supabase
+      .from("exam_attempts")
+      .select("id")
+      .eq("user_id", userId)
+      .in("subject_id", subjectIds);
+    if (ae) throw ae;
+    const attemptIds = (attempts ?? []).map((a) => a.id);
+    const completedBySubject = new Map<string, Set<string>>();
+    if (attemptIds.length) {
+      const { data: ans, error: aae } = await supabase
+        .from("attempt_answers")
+        .select("mcq_id,chosen_option,attempt_id")
+        .in("attempt_id", attemptIds)
+        .not("chosen_option", "is", null);
+      if (aae) throw aae;
+      for (const r of ans ?? []) {
+        const sId = mcqToSubject.get(r.mcq_id);
+        if (!sId) continue;
+        if (!completedBySubject.has(sId)) completedBySubject.set(sId, new Set());
+        completedBySubject.get(sId)!.add(r.mcq_id);
+      }
+    }
+    return subjectIds.map((id) => {
+      const total = totalsBySubject.get(id) ?? 0;
+      const completed = completedBySubject.get(id)?.size ?? 0;
+      const percent = total ? Math.round((completed / total) * 100) : 0;
+      return { subject_id: id, total, completed, percent };
+    });
+  });
+
+// ---- Progress: chapters in a subject ----
+const chapterProgressSchema = z.object({ subjectId: z.string().uuid() });
+
+export const listChapterProgress = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: z.infer<typeof chapterProgressSchema>) =>
+    chapterProgressSchema.parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const supabase = context.supabase;
+    const userId = context.userId;
+    const { data: chapters, error: ce } = await supabase
+      .from("chapters")
+      .select("id")
+      .eq("subject_id", data.subjectId)
+      .eq("status", "published");
+    if (ce) throw ce;
+    const chapterIds = (chapters ?? []).map((c) => c.id);
+    if (!chapterIds.length) return [] as Array<{ chapter_id: string; total: number; completed: number; percent: number; correct: number; accuracy: number }>;
+    const { data: mcqs, error: me } = await supabase
+      .from("mcqs")
+      .select("id,chapter_id")
+      .in("chapter_id", chapterIds)
+      .eq("status", "published");
+    if (me) throw me;
+    const totalsByChapter = new Map<string, number>();
+    const mcqToChapter = new Map<string, string>();
+    for (const m of mcqs ?? []) {
+      mcqToChapter.set(m.id, m.chapter_id);
+      totalsByChapter.set(m.chapter_id, (totalsByChapter.get(m.chapter_id) ?? 0) + 1);
+    }
+    const { data: attempts, error: ae } = await supabase
+      .from("exam_attempts")
+      .select("id")
+      .eq("user_id", userId)
+      .in("chapter_id", chapterIds);
+    if (ae) throw ae;
+    const attemptIds = (attempts ?? []).map((a) => a.id);
+    const completedByChapter = new Map<string, Set<string>>();
+    const correctByChapter = new Map<string, Set<string>>();
+    if (attemptIds.length) {
+      const { data: ans, error: aae } = await supabase
+        .from("attempt_answers")
+        .select("mcq_id,chosen_option,is_correct,attempt_id")
+        .in("attempt_id", attemptIds)
+        .not("chosen_option", "is", null);
+      if (aae) throw aae;
+      for (const r of ans ?? []) {
+        const cId = mcqToChapter.get(r.mcq_id);
+        if (!cId) continue;
+        if (!completedByChapter.has(cId)) completedByChapter.set(cId, new Set());
+        completedByChapter.get(cId)!.add(r.mcq_id);
+        if (r.is_correct) {
+          if (!correctByChapter.has(cId)) correctByChapter.set(cId, new Set());
+          correctByChapter.get(cId)!.add(r.mcq_id);
+        }
+      }
+    }
+    return chapterIds.map((id) => {
+      const total = totalsByChapter.get(id) ?? 0;
+      const completed = completedByChapter.get(id)?.size ?? 0;
+      const correct = correctByChapter.get(id)?.size ?? 0;
+      const percent = total ? Math.round((completed / total) * 100) : 0;
+      const accuracy = completed ? Math.round((correct / completed) * 100) : 0;
+      return { chapter_id: id, total, completed, percent, correct, accuracy };
+    });
   });
 
 // ---- Chapters ----
