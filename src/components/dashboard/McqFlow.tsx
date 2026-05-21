@@ -521,7 +521,7 @@ export function McqFlow() {
                     <div className="relative mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
                       {options.map((o) => {
                         const isPicked = picked === o.k;
-                        const isCorrect = q.correct_option === o.k;
+                        const isCorrect = normalizeChoice(q.correct_option) === o.k;
                         let state: "idle" | "correct" | "wrong" | "selected" = "idle";
                         if (revealed) {
                           if (isCorrect) state = "correct";
@@ -671,7 +671,7 @@ export function McqFlow() {
                 else if (a) {
                   if (finished || reviewMode) {
                     if (a.chosen === null) cls = "bg-amber-500/15 text-amber-400 border border-amber-400/30";
-                    else if (a.chosen === m.correct_option) cls = "bg-emerald-500/15 text-emerald-400 border border-emerald-400/30";
+                    else if (a.chosen === normalizeChoice(m.correct_option)) cls = "bg-emerald-500/15 text-emerald-400 border border-emerald-400/30";
                     else cls = "bg-rose-500/15 text-rose-400 border border-rose-400/30";
                   } else {
                     cls = "bg-[var(--neon-blue)]/15 text-[var(--neon-blue)] border border-[var(--neon-blue)]/30";
@@ -682,7 +682,7 @@ export function McqFlow() {
                     key={m.id}
                     onClick={() => jumpTo(i)}
                     className={`flex h-9 items-center justify-center rounded-lg text-xs font-semibold transition-transform hover:scale-110 ${cls}`}
-                    title={`Q${i + 1}${a ? (a.chosen === null ? " · skipped" : a.chosen === m.correct_option ? " · correct" : " · wrong") : " · unattempted"}`}
+                    title={`Q${i + 1}${a ? (a.chosen === null ? " · skipped" : a.chosen === normalizeChoice(m.correct_option) ? " · correct" : " · wrong") : " · unattempted"}`}
                   >
                     {i + 1}
                   </button>
@@ -731,7 +731,7 @@ function ResultScreen({
       buckets[k] = buckets[k] ?? { correct: 0, total: 0 };
       buckets[k].total++;
       const a = answers[i];
-      if (a && a.chosen === m.correct_option) buckets[k].correct++;
+      if (a && a.chosen === normalizeChoice(m.correct_option)) buckets[k].correct++;
     });
     return Object.entries(buckets).map(([k, v]) => ({
       key: k,
@@ -855,7 +855,7 @@ function ResultScreen({
           <ul className="mt-4 space-y-2 max-h-64 overflow-y-auto pr-1">
             {mcqs.map((m, i) => {
               const a = answers[i];
-              if (!a || a.chosen === null || a.chosen === m.correct_option) return null;
+              if (!a || a.chosen === null || a.chosen === normalizeChoice(m.correct_option)) return null;
               return (
                 <li key={m.id} className="rounded-xl bg-background/40 p-3 text-xs">
                   <p className="font-medium line-clamp-2">Q{i + 1}. {m.question}</p>
