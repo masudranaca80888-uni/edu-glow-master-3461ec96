@@ -309,6 +309,21 @@ export function MockTestManagerFlow() {
             {LEVELS.map((l) => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Select value={filterSubject || "all"} onValueChange={(v) => { setFilterSubject(v === "all" ? "" : v); setPage(1); }}>
+          <SelectTrigger className="h-9 w-[180px] rounded-xl border-white/10 bg-background/60"><SelectValue placeholder="All subjects" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All subjects</SelectItem>
+            {(subjectsFilterQ.data ?? []).map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={filterMockType} onValueChange={(v) => { setFilterMockType(v as MockType); setPage(1); }}>
+          <SelectTrigger className="h-9 w-[160px] rounded-xl border-white/10 bg-background/60"><SelectValue placeholder="Mock type" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All types</SelectItem>
+            <SelectItem value="full">Full subject</SelectItem>
+            <SelectItem value="chapter">Chapter wise</SelectItem>
+          </SelectContent>
+        </Select>
         <Select value={filterStatus || "all"} onValueChange={(v) => { setFilterStatus(v === "all" ? "" : (v as Status)); setPage(1); }}>
           <SelectTrigger className="h-9 w-[150px] rounded-xl border-white/10 bg-background/60"><SelectValue placeholder="All status" /></SelectTrigger>
           <SelectContent>
@@ -316,6 +331,25 @@ export function MockTestManagerFlow() {
             <SelectItem value="draft">Draft</SelectItem>
             <SelectItem value="published">Published</SelectItem>
             <SelectItem value="archived">Archived</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={filterDate} onValueChange={(v) => { setFilterDate(v as DateFilter); setPage(1); }}>
+          <SelectTrigger className="h-9 w-[150px] rounded-xl border-white/10 bg-background/60"><SelectValue placeholder="Date" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All dates</SelectItem>
+            <SelectItem value="scheduled">Scheduled</SelectItem>
+            <SelectItem value="unscheduled">Unscheduled</SelectItem>
+            <SelectItem value="upcoming">Upcoming</SelectItem>
+            <SelectItem value="expired">Expired</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={`${sortBy}:${sortDir}`} onValueChange={(v) => { const [by, dir] = v.split(":") as [SortBy, SortDir]; setSortBy(by); setSortDir(dir); setPage(1); }}>
+          <SelectTrigger className="h-9 w-[170px] rounded-xl border-white/10 bg-background/60"><SelectValue placeholder="Sort" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="updated_at:desc">Newest updated</SelectItem>
+            <SelectItem value="title:asc">Title A–Z</SelectItem>
+            <SelectItem value="starts_at:asc">Schedule soonest</SelectItem>
+            <SelectItem value="total_questions:desc">Most questions</SelectItem>
           </SelectContent>
         </Select>
         <Button
