@@ -605,9 +605,9 @@ function ScheduleDialog({ mock, onClose, onSaved }: { mock: Mock | null; onClose
  * ============================================================ */
 
 function MockBuilderDialog({
-  open, onClose, existing, onSaved,
+  open, onClose, existing, preset, onSaved,
 }: {
-  open: boolean; onClose: () => void; existing: Mock | null; onSaved: () => void;
+  open: boolean; onClose: () => void; existing: Mock | null; preset: "blank" | "generate" | "full" | "chapter"; onSaved: () => void;
 }) {
   const listSubjects = useServerFn(adminListSubjectsByLevel);
   const listChapters = useServerFn(adminListChaptersBySubject);
@@ -616,7 +616,7 @@ function MockBuilderDialog({
   const updateFn = useServerFn(adminUpdateMock);
   const getQuestions = useServerFn(adminGetMockQuestions);
 
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(preset === "blank" ? 1 : preset === "generate" ? 2 : 1);
   const [level, setLevel] = useState<Level>(existing?.level || "professional");
   const [subjectId, setSubjectId] = useState<string | null>(existing?.subject_id ?? null);
   const [chapterIds, setChapterIds] = useState<string[]>(existing?.chapter_id ? [existing.chapter_id] : []);
