@@ -51,12 +51,19 @@ export function DashContent() {
   const classesHidden = isPathHidden("/classes");
 
   const fetchSnapshot = useServerFn(studentDashboardSnapshot);
+  const qc = useQueryClient();
+  const activity = useRealtimeActivity();
   const { data, isLoading } = useQuery({
     queryKey: ["student-dashboard-snapshot"],
     queryFn: () => fetchSnapshot(),
     staleTime: 15_000,
     refetchOnWindowFocus: true,
   });
+
+  // Any global realtime event nudges the dashboard snapshot to refetch.
+  useEffect(() => {
+    qc.invalidateQueries({ queryKey: ["student-dashboard-snapshot"] });
+  }, [activity, qc]);
 
   const counts = data?.counts;
   const bars = data?.bars ?? [0, 0, 0, 0, 0, 0, 0];
