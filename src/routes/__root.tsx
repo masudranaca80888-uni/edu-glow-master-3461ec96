@@ -123,6 +123,8 @@ function RootComponent() {
   const router = useRouter();
   const { hydrate, hydrated, sessionReady, user } = useAppStore();
 
+  useRealtimeInvalidator(Boolean(user));
+
   useEffect(() => {
     hydrate();
   }, [hydrate]);
