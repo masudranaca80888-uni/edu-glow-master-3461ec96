@@ -474,7 +474,7 @@ export function MockTestManagerFlow() {
         />
       )}
 
-      <MockDetailsDialog mock={viewing} onClose={() => setViewing(null)} onEdit={(mock) => { setViewing(null); setEditing(mock); }} />
+      <MockDetailsDialog mock={viewing} onClose={() => setViewing(null)} onEdit={(mock: Mock) => { setViewing(null); setEditing(mock); }} />
       <MockAnalyticsDialog mock={analyticsFor} onClose={() => setAnalyticsFor(null)} />
       <ScheduleDialog mock={scheduling} onClose={() => setScheduling(null)} onSaved={() => { setScheduling(null); invalidate(); }} />
 
