@@ -1,7 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
-import { getFlashCardVisibility } from "@/lib/admin-flash-cards.functions";
+import { useModuleVisibility } from "@/hooks/use-module-visibility";
 import {
   ListChecks,
   Timer,
