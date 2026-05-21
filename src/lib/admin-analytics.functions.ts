@@ -117,7 +117,7 @@ export const adminAnalyticsOverview = createServerFn({ method: "POST" })
       if (q.subject_id) quizSubj.set(q.id, q.subject_id);
     }
     const subjStats = new Map<string, { correct: number; total: number; attempts: number }>();
-    for (const a of completed as Array<{ correct_count: number; total_count: number; quiz_id: string }>) {
+    for (const a of completed) {
       const sid = quizSubj.get(a.quiz_id);
       if (!sid) continue;
       const s = subjStats.get(sid) ?? { correct: 0, total: 0, attempts: 0 };
