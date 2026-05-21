@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useAppStore } from "@/stores/app-store";
+import { LiveIndicator } from "@/components/realtime/LiveIndicator";
 
 export function AdminFlow() {
   return (
