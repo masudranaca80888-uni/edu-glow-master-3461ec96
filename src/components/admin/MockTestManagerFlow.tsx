@@ -262,6 +262,10 @@ export function MockTestManagerFlow() {
             <Button variant="outline" onClick={() => openBuilder("chapter")} className="rounded-xl border-white/10 bg-background/40">
               <Layers className="h-4 w-4" /> Chapter Wise Mock
             </Button>
+            <Button variant="outline" onClick={() => openBuilder("level")} className="rounded-xl border-white/10 bg-background/40">
+              <Trophy className="h-4 w-4" /> Level Wise Mock
+            </Button>
+
             <Button variant="outline" onClick={() => { downloadCsv("mock-tests.csv", rows); toast.success("Export ready"); }} className="rounded-xl border-white/10 bg-background/40">
               <Download className="h-4 w-4" /> Export Mock
             </Button>
