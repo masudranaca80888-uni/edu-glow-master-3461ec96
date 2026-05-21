@@ -90,7 +90,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     const theme = get().theme === "dark" ? "light" : "dark";
     if (typeof window !== "undefined") {
       window.localStorage.setItem(THEME_KEY, theme);
-      document.documentElement.classList.toggle("dark", theme === "dark");
+      const root = document.documentElement;
+      root.classList.toggle("dark", theme === "dark");
+      root.style.colorScheme = theme;
     }
     set({ theme });
   },
