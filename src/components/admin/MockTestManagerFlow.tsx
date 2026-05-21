@@ -162,6 +162,22 @@ export function MockTestManagerFlow() {
     qc.invalidateQueries({ queryKey: ["admin-mocks"] });
   }
 
+  useEffect(() => {
+    const channel = supabase
+      .channel("admin-mock-tests-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "quizzes" }, (payload) => {
+        const record = (payload.new || payload.old) as { kind?: string } | null;
+        if (!record || record.kind === "mock") invalidate();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "quiz_questions" }, () => invalidate())
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [qc]);
+
+  useEffect(() => {
+    setFilterSubject("");
+  }, [filterLevel]);
+
   const deleteMut = useMutation({
     mutationFn: (id: string) => deleteMockFn({ data: { id } }),
     onSuccess: () => { toast.success("Mock test deleted"); invalidate(); },
