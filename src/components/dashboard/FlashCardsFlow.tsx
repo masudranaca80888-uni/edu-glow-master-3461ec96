@@ -509,7 +509,7 @@ function Viewer({
           <div className={`relative h-[420px] w-full transition-transform duration-700 [transform-style:preserve-3d] ${
             flipped ? "[transform:rotateY(180deg)]" : ""
           }`}>
-            <Face>
+            <Face variant={variantForIndex(idx)}>
               <div className="flex items-center justify-between">
                 <span className="inline-flex items-center gap-1 rounded-full border border-[var(--neon-purple)]/30 bg-[var(--neon-purple)]/10 px-2 py-0.5 text-[10px] font-semibold text-[var(--neon-purple)]">
                   <Sparkles className="h-3 w-3" /> {card.tag}
