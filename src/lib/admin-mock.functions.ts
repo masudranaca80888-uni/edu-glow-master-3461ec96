@@ -157,6 +157,8 @@ export const adminListMocks = createServerFn({ method: "POST" })
     if (data.subjectId) q = q.eq("subject_id", data.subjectId);
     if (data.mockType === "full") q = q.not("subject_id", "is", null).is("chapter_id", null);
     if (data.mockType === "chapter") q = q.not("chapter_id", "is", null);
+    if (data.mockType === "level") q = q.is("subject_id", null).is("chapter_id", null);
+
     if (data.date === "scheduled") q = q.not("starts_at", "is", null);
     if (data.date === "unscheduled") q = q.is("starts_at", null);
     if (data.date === "upcoming") q = q.gte("starts_at", new Date().toISOString());
