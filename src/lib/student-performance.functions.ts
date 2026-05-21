@@ -101,7 +101,7 @@ export const saveSessionAttempt = createServerFn({ method: "POST" })
         correct_count: correct,
         total_count: total,
         score,
-        meta: data.meta ?? {},
+        meta: (data.meta ?? {}) as never,
       })
       .select("id")
       .single();
