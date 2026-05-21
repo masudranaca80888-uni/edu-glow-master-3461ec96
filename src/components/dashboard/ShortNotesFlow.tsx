@@ -1,4 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { supabase } from "@/integrations/supabase/client";
+import { listPublicShortNotes } from "@/lib/admin-short-notes.functions";
+import { EyeOff } from "lucide-react";
 import {
   Sparkles,
   Award,
