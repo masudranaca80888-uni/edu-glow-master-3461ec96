@@ -45,7 +45,7 @@ export function DashSidebar() {
           Learning
         </p>
         <ul className="mt-2 space-y-1">
-          {studentNavItems.slice(0, 9).map((m) => {
+          {learningItems.map((m) => {
             const isActive = currentPath === m.to;
             return (
               <li key={m.title}>
@@ -75,7 +75,7 @@ export function DashSidebar() {
           Account
         </p>
         <ul className="mt-2 space-y-1">
-          {studentNavItems.slice(9).map((s) => {
+          {accountItems.map((s) => {
             const isActive = currentPath === s.to;
             return (
               <li key={s.title}>
