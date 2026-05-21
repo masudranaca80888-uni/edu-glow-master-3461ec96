@@ -1,629 +1,736 @@
+import { useEffect, useMemo, useState } from "react";
 import {
   Search,
-  Bell,
-  Sun,
-  Moon,
   Plus,
-  Upload,
-  FileText,
-  FileType,
   Send,
   EyeOff,
-  Download,
   Filter,
   ArrowUpDown,
-  ChevronRight,
   Layers,
   CheckCircle2,
   Eye,
   Flame,
-  Activity,
-  BarChart3,
   Edit3,
   Trash2,
   Copy,
-  Image as ImageIcon,
-  Bold,
-  Italic,
-  List,
-  Highlighter,
-  Smartphone,
-  Monitor,
-  Save,
-  Rocket,
-  CalendarPlus,
+  CircleDot,
   CloudUpload,
   Sparkles,
-  CircleDot,
-  Bookmark,
   RotateCw,
+  FileText,
 } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Progress } from "@/components/ui/progress";
 import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableHead,
-  TableRow,
-  TableCell,
+  Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from "@/components/ui/table";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
-function Spark({ data, color = "var(--neon-purple)" }: { data: number[]; color?: string }) {
-  const max = Math.max(...data, 1);
-  const pts = data.map((v, i) => `${(i / (data.length - 1)) * 100},${30 - (v / max) * 26}`).join(" ");
-  const id = color.replace(/\W/g, "");
-  return (
-    <svg viewBox="0 0 100 30" className="h-8 w-full">
-      <defs>
-        <linearGradient id={`fc-${id}`} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.6" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.6" />
-      <polygon points={`0,30 ${pts} 100,30`} fill={`url(#fc-${id})`} />
-    </svg>
-  );
-}
+import { adminGetAcademicTree } from "@/lib/admin-academic.functions";
+import {
+  adminBulkImportFlashCards,
+  adminCreateFlashCard,
+  adminDeleteFlashCard,
+  adminDuplicateFlashCard,
+  adminListFlashCards,
+  adminSetFlashCardHidden,
+  adminSetFlashCardStatus,
+  adminUpdateFlashCard,
+} from "@/lib/admin-flash-cards.functions";
 
-function Topbar() {
-  return (
-    <header className="glass shadow-card-soft flex items-center gap-3 rounded-2xl p-3">
-      <div className="relative flex-1 max-w-xl">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Search flash cards, topics, subjects…"
-          className="h-10 rounded-xl border-white/10 bg-background/60 pl-9 backdrop-blur"
-        />
-        <kbd className="absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-white/10 bg-muted/50 px-1.5 py-0.5 text-[10px] text-muted-foreground md:block">⌘K</kbd>
-      </div>
-      <div className="ml-auto flex items-center gap-2">
-        <div className="hidden items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-medium text-emerald-400 md:flex">
-          <CircleDot className="h-3 w-3 animate-pulse" /> System healthy · 99.99%
-        </div>
-        <Button size="icon" variant="ghost" className="rounded-xl">
-          <Sun className="h-4 w-4 dark:hidden" />
-          <Moon className="hidden h-4 w-4 dark:block" />
-        </Button>
-        <Button size="icon" variant="ghost" className="relative rounded-xl">
-          <Bell className="h-4 w-4" />
-          <span className="absolute right-1.5 top-1.5 h-2 w-2 animate-pulse rounded-full bg-[var(--neon-purple)] shadow-[0_0_8px_var(--neon-purple)]" />
-        </Button>
-        <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-background/40 p-1 pl-3">
-          <div className="leading-tight text-right">
-            <p className="text-xs font-semibold">Asha Rahman</p>
-            <p className="text-[10px] text-muted-foreground">Super Admin</p>
-          </div>
-          <div className="bg-cta-gradient flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold text-white shadow-glow">AR</div>
-        </div>
-      </div>
-    </header>
-  );
-}
+type FlashCard = {
+  id: string;
+  subject_id: string | null;
+  chapter_id: string | null;
+  level: string;
+  front: string;
+  back: string;
+  formula: string | null;
+  image_url: string | null;
+  card_type: "concept" | "formula" | "diagram" | "timeline" | "definition" | "other";
+  tags: string[];
+  status: "draft" | "published" | "archived";
+  is_hidden: boolean;
+  scheduled_at: string | null;
+  view_count: number;
+  updated_at: string;
+};
 
-function HeaderBlock() {
-  return (
-    <div className="glass shadow-card-soft relative overflow-hidden rounded-3xl p-6">
-      <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-[var(--neon-purple)]/25 blur-3xl" />
-      <div className="pointer-events-none absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[var(--neon-blue)]/25 blur-3xl" />
-      <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2">
-            <Badge className="bg-cta-gradient border-0 text-white shadow-glow">
-              <Layers className="mr-1 h-3 w-3" /> Flash Cards
-            </Badge>
-            <span className="text-xs text-muted-foreground">/ Admin / Flash Card Manager</span>
-          </div>
-          <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">
-            Flash Card <span className="text-gradient">Management Center</span>
-          </h1>
-          <p className="max-w-2xl text-sm text-muted-foreground">
-            Create, organize and manage smart revision flash cards with rich media and instant publishing.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button className="bg-cta-gradient rounded-xl text-white shadow-glow hover:opacity-95">
-            <Plus className="h-4 w-4" /> Create Flash Card
-          </Button>
-          <Button variant="outline" className="rounded-xl border-white/15 bg-background/40">
-            <CloudUpload className="h-4 w-4" /> Bulk Upload
-          </Button>
-        </div>
-      </div>
+type EditState = { open: boolean; card?: FlashCard | null };
 
-      <div className="relative mt-5 flex flex-wrap gap-2">
-        {[
-          { l: "Import PDF", i: FileText },
-          { l: "Import DOC/Text", i: FileType },
-          { l: "Publish Cards", i: Send },
-          { l: "Hide Cards", i: EyeOff },
-          { l: "Export Collection", i: Download },
-        ].map((a) => (
-          <button key={a.l} className="group flex items-center gap-2 rounded-xl border border-white/10 bg-background/50 px-3.5 py-2 text-xs font-medium backdrop-blur transition-all hover:border-[var(--neon-purple)]/40 hover:shadow-glow">
-            <a.i className="h-3.5 w-3.5 text-[var(--neon-purple)] group-hover:text-[var(--neon-blue)]" />
-            {a.l}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function FilterPanel() {
-  const pills = ["Level", "Subject", "Chapter", "Status"];
-  return (
-    <div className="glass shadow-card-soft rounded-2xl p-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-[220px]">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search flash cards by topic or ID…" className="h-9 rounded-xl border-white/10 bg-background/60 pl-9" />
-        </div>
-        {pills.map((p) => (
-          <button key={p} className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-background/50 px-3 py-1.5 text-xs hover:border-[var(--neon-blue)]/40">
-            <Filter className="h-3 w-3" /> {p} <ChevronRight className="h-3 w-3 rotate-90" />
-          </button>
-        ))}
-        <div className="ml-auto flex items-center gap-1.5 rounded-xl border border-white/10 bg-background/50 px-3 py-1.5 text-xs">
-          <ArrowUpDown className="h-3 w-3" /> Sort: Latest
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function StatGrid() {
-  const stats = [
-    { l: "Total Flash Cards", v: "8,412", d: "+128 this week", i: Layers, c: "var(--neon-purple)", s: [4, 6, 5, 8, 7, 10, 12] },
-    { l: "Published Cards", v: "7,204", d: "85.6% live", i: Send, c: "#22c55e", s: [50, 55, 60, 62, 70, 75, 82] },
-    { l: "Hidden Cards", v: "1,208", d: "Under review", i: EyeOff, c: "#f59e0b", s: [12, 14, 10, 11, 9, 8, 7] },
-    { l: "Most Viewed Set", v: "12.4k", d: "Organic Chemistry · Reactions", i: Flame, c: "var(--neon-blue)", s: [2, 4, 6, 9, 11, 13, 14] },
-    { l: "Completion Rate", v: "78.3%", d: "+3.4% vs last", i: CheckCircle2, c: "#06b6d4", s: [60, 64, 68, 70, 72, 75, 78] },
-  ];
-  return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-      {stats.map((s) => (
-        <div key={s.l} className="glass group relative overflow-hidden rounded-2xl p-4 transition-all hover:-translate-y-0.5 hover:shadow-glow">
-          <div className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full opacity-30 blur-2xl transition-opacity group-hover:opacity-60" style={{ background: s.c }} />
-          <div className="flex items-center justify-between">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10" style={{ background: `color-mix(in oklab, ${s.c} 15%, transparent)` }}>
-              <s.i className="h-4 w-4" style={{ color: s.c }} />
-            </div>
-            <span className="text-[10px] text-muted-foreground">7d</span>
-          </div>
-          <p className="mt-3 text-[11px] text-muted-foreground">{s.l}</p>
-          <p className="font-display text-2xl font-bold tracking-tight">{s.v}</p>
-          <Spark data={s.s} color={s.c} />
-          <p className="truncate text-[10px] text-muted-foreground">{s.d}</p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-const CARDS = [
-  { id: "FC-9120", t: "Newton's Laws of Motion", sub: "Physics", ch: "Mechanics", ty: "Concept", v: 4_812, st: "Published", date: "May 18, 2026" },
-  { id: "FC-9119", t: "SN1 vs SN2 Reactions", sub: "Chemistry", ch: "Organic", ty: "Formula", v: 3_104, st: "Published", date: "May 17, 2026" },
-  { id: "FC-9118", t: "DNA Replication Steps", sub: "Biology", ch: "Genetics", ty: "Diagram", v: 2_274, st: "Scheduled", date: "May 22, 2026" },
-  { id: "FC-9117", t: "Integration by Parts", sub: "Math", ch: "Calculus", ty: "Formula", v: 1_976, st: "Draft", date: "—" },
-  { id: "FC-9116", t: "French Revolution Timeline", sub: "History", ch: "Modern Era", ty: "Timeline", v: 982, st: "Hidden", date: "May 14, 2026" },
-  { id: "FC-9115", t: "Supply & Demand Curve", sub: "Economics", ch: "Microecon.", ty: "Diagram", v: 3_021, st: "Published", date: "May 12, 2026" },
-];
-
-function statusTone(s: string) {
+function statusTone(s: string, hidden: boolean) {
+  if (hidden) return "bg-zinc-500/15 text-zinc-400 border-zinc-500/30";
   switch (s) {
-    case "Published": return "bg-emerald-500/15 text-emerald-400 border-emerald-500/30";
-    case "Scheduled": return "bg-sky-500/15 text-sky-400 border-sky-500/30";
-    case "Draft": return "bg-amber-500/15 text-amber-400 border-amber-500/30";
-    case "Hidden": return "bg-zinc-500/15 text-zinc-400 border-zinc-500/30";
+    case "published": return "bg-emerald-500/15 text-emerald-400 border-emerald-500/30";
+    case "draft": return "bg-amber-500/15 text-amber-400 border-amber-500/30";
+    case "archived": return "bg-rose-500/15 text-rose-400 border-rose-500/30";
     default: return "bg-muted text-foreground";
   }
 }
 
-function CardTable() {
+export function FlashCardManagerFlow() {
+  const qc = useQueryClient();
+
+  const treeFn = useServerFn(adminGetAcademicTree);
+  const listFn = useServerFn(adminListFlashCards);
+
+  // ----- Filter state (URL-free, local but stable) -----
+  const [search, setSearch] = useState("");
+  const [level, setLevel] = useState<string>("all");
+  const [subjectId, setSubjectId] = useState<string>("all");
+  const [chapterId, setChapterId] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "published" | "archived" | "hidden">("all");
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
+
+  const [editor, setEditor] = useState<EditState>({ open: false });
+  const [importer, setImporter] = useState(false);
+
+  // ----- Academic tree -----
+  const tree = useQuery({
+    queryKey: ["admin-academic-tree"],
+    queryFn: () => treeFn(),
+    staleTime: 60_000,
+  });
+
+  const subjects = useMemo(() => {
+    const all = (tree.data?.subjects ?? []) as { id: string; name: string; level: string }[];
+    return level === "all" ? all : all.filter((s) => s.level === level);
+  }, [tree.data, level]);
+  const chapters = useMemo(() => {
+    const all = (tree.data?.chapters ?? []) as { id: string; name: string; subject_id: string }[];
+    return subjectId === "all" ? all : all.filter((c) => c.subject_id === subjectId);
+  }, [tree.data, subjectId]);
+
+  // Reset deeper selectors when a parent changes
+  useEffect(() => { setSubjectId("all"); setChapterId("all"); setPage(1); }, [level]);
+  useEffect(() => { setChapterId("all"); setPage(1); }, [subjectId]);
+
+  // ----- Card list -----
+  const cardsQuery = useQuery({
+    queryKey: ["flash-cards", { search, level, subjectId, chapterId, statusFilter, page }],
+    queryFn: () =>
+      listFn({
+        data: {
+          search: search.trim() || undefined,
+          level: level === "all" ? undefined : level,
+          subjectId: subjectId === "all" ? undefined : subjectId,
+          chapterId: chapterId === "all" ? undefined : chapterId,
+          status: statusFilter,
+          page,
+          pageSize,
+        },
+      }),
+  });
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["flash-cards"] });
+    qc.invalidateQueries({ queryKey: ["public-flash-cards"] });
+  };
+
+  // Realtime — admin table + student deck both refresh instantly
+  useEffect(() => {
+    const ch = supabase
+      .channel("flash-cards-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "flash_cards" }, invalidate)
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ----- Mutations -----
+  const delFn = useServerFn(adminDeleteFlashCard);
+  const dupFn = useServerFn(adminDuplicateFlashCard);
+  const statusFn = useServerFn(adminSetFlashCardStatus);
+  const hideFn = useServerFn(adminSetFlashCardHidden);
+
+  const remove = useMutation({
+    mutationFn: (id: string) => delFn({ data: { id } }),
+    onSuccess: () => { toast.success("Deleted"); invalidate(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const duplicate = useMutation({
+    mutationFn: (id: string) => dupFn({ data: { id } }),
+    onSuccess: () => { toast.success("Duplicated"); invalidate(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const setStatus = useMutation({
+    mutationFn: (p: { id: string; status: "draft" | "published" | "archived" }) => statusFn({ data: p }),
+    onSuccess: (_d, p) => { toast.success(`Marked ${p.status}`); invalidate(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const setHidden = useMutation({
+    mutationFn: (p: { id: string; is_hidden: boolean }) => hideFn({ data: p }),
+    onSuccess: (_d, p) => { toast.success(p.is_hidden ? "Hidden from students" : "Visible again"); invalidate(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const rows: FlashCard[] = (cardsQuery.data?.rows ?? []) as FlashCard[];
+  const total = cardsQuery.data?.count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  const levels = (tree.data?.levels ?? []) as { code: string; name: string }[];
+  const allSubjects = (tree.data?.subjects ?? []) as { id: string; name: string }[];
+  const allChapters = (tree.data?.chapters ?? []) as { id: string; name: string }[];
+  const subjectName = (id: string | null) => allSubjects.find((s) => s.id === id)?.name ?? "—";
+  const chapterName = (id: string | null) => allChapters.find((c) => c.id === id)?.name ?? "—";
+
+  // ----- Stat cards (live counts via lightweight reads) -----
+  const stats = useMemo(() => {
+    const published = rows.filter((r) => r.status === "published" && !r.is_hidden).length;
+    const hidden = rows.filter((r) => r.is_hidden).length;
+    return { total, published, hidden };
+  }, [rows, total]);
+
   return (
-    <div className="glass shadow-card-soft overflow-hidden rounded-3xl">
-      <div className="flex items-center justify-between border-b border-white/10 p-4">
-        <div>
-          <h3 className="font-display text-lg font-bold">All Flash Cards</h3>
-          <p className="text-xs text-muted-foreground">Showing 6 of 8,412 — live sync enabled</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="border-white/10 bg-background/40">
-            <CircleDot className="mr-1 h-2.5 w-2.5 animate-pulse text-emerald-400" /> Live
-          </Badge>
-          <Button size="sm" variant="outline" className="rounded-xl border-white/10">
-            <Download className="h-3.5 w-3.5" /> Export CSV
-          </Button>
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="glass shadow-card-soft relative overflow-hidden rounded-3xl p-6">
+        <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-[var(--neon-purple)]/25 blur-3xl" />
+        <div className="pointer-events-none absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[var(--neon-blue)]/25 blur-3xl" />
+        <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <Badge className="bg-cta-gradient border-0 text-white shadow-glow">
+                <Layers className="mr-1 h-3 w-3" /> Flash Cards
+              </Badge>
+              <span className="text-xs text-muted-foreground">/ Admin / Flash Card Manager</span>
+            </div>
+            <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">
+              Flash Card <span className="text-gradient">Management Center</span>
+            </h1>
+            <p className="max-w-2xl text-sm text-muted-foreground">
+              Create, organize and manage smart revision flash cards with rich media and instant publishing.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              onClick={() => setEditor({ open: true, card: null })}
+              className="bg-cta-gradient rounded-xl text-white shadow-glow hover:opacity-95"
+            >
+              <Plus className="h-4 w-4" /> Create Flash Card
+            </Button>
+            <Button
+              type="button"
+              onClick={() => setImporter(true)}
+              variant="outline"
+              className="rounded-xl border-white/15 bg-background/40"
+            >
+              <CloudUpload className="h-4 w-4" /> Bulk Upload
+            </Button>
+          </div>
         </div>
       </div>
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow className="border-white/10 hover:bg-transparent">
-              <TableHead className="pl-4">Card ID</TableHead>
-              <TableHead>Topic</TableHead>
-              <TableHead>Subject</TableHead>
-              <TableHead>Chapter</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Views</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Upload</TableHead>
-              <TableHead className="text-right pr-4">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {CARDS.map((c) => (
-              <TableRow key={c.id} className="border-white/5 hover:bg-white/[0.03]">
-                <TableCell className="pl-4 font-mono text-xs text-muted-foreground">{c.id}</TableCell>
-                <TableCell className="font-medium">{c.t}</TableCell>
-                <TableCell className="text-muted-foreground">{c.sub}</TableCell>
-                <TableCell className="text-muted-foreground">{c.ch}</TableCell>
-                <TableCell>
-                  <span className="rounded-md bg-[var(--neon-purple)]/10 px-2 py-0.5 text-[10px] text-[var(--neon-purple)]">{c.ty}</span>
-                </TableCell>
-                <TableCell>{c.v.toLocaleString()}</TableCell>
-                <TableCell>
-                  <Badge variant="outline" className={`${statusTone(c.st)} border text-[10px]`}>{c.st}</Badge>
-                </TableCell>
-                <TableCell className="text-xs text-muted-foreground">{c.date}</TableCell>
-                <TableCell className="pr-4">
-                  <div className="flex items-center justify-end gap-0.5">
-                    {[Edit3, Eye, Copy, Send, EyeOff, Trash2].map((I, i) => (
-                      <button key={i} className="rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-white/5 hover:text-foreground">
-                        <I className="h-3.5 w-3.5" />
-                      </button>
-                    ))}
-                  </div>
-                </TableCell>
+
+      {/* Filters connected to Academic Manager */}
+      <div className="glass shadow-card-soft rounded-2xl p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-[220px] flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              placeholder="Search flash cards by front or back…"
+              className="h-9 rounded-xl border-white/10 bg-background/60 pl-9"
+            />
+          </div>
+
+          <SelectFilter icon={<Filter className="h-3 w-3" />} label="Level" value={level} onValueChange={setLevel}
+            options={[{ value: "all", label: "All levels" }, ...levels.map((l) => ({ value: l.code, label: l.name }))]} />
+
+          <SelectFilter icon={<Filter className="h-3 w-3" />} label="Subject" value={subjectId} onValueChange={setSubjectId}
+            options={[{ value: "all", label: "All subjects" }, ...subjects.map((s) => ({ value: s.id, label: s.name }))]} />
+
+          <SelectFilter icon={<Filter className="h-3 w-3" />} label="Chapter" value={chapterId} onValueChange={setChapterId}
+            options={[{ value: "all", label: "All chapters" }, ...chapters.map((c) => ({ value: c.id, label: c.name }))]} />
+
+          <SelectFilter icon={<ArrowUpDown className="h-3 w-3" />} label="Status" value={statusFilter}
+            onValueChange={(v) => { setStatusFilter(v as typeof statusFilter); setPage(1); }}
+            options={[
+              { value: "all", label: "All" },
+              { value: "published", label: "Published" },
+              { value: "draft", label: "Draft" },
+              { value: "archived", label: "Archived" },
+              { value: "hidden", label: "Hidden" },
+            ]} />
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+        <StatTile label="Total Flash Cards" value={stats.total} icon={Layers} color="var(--neon-purple)" />
+        <StatTile label="Published & Visible" value={stats.published} icon={CheckCircle2} color="#22c55e" />
+        <StatTile label="Hidden in current page" value={stats.hidden} icon={EyeOff} color="#f59e0b" />
+      </div>
+
+      {/* Table */}
+      <div className="glass shadow-card-soft overflow-hidden rounded-3xl">
+        <div className="flex items-center justify-between border-b border-white/10 p-4">
+          <div>
+            <h3 className="font-display text-lg font-bold">All Flash Cards</h3>
+            <p className="text-xs text-muted-foreground">
+              {cardsQuery.isLoading ? "Loading…" : `Showing ${rows.length} of ${total}`}
+              {" "}— live sync enabled
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="border-white/10 bg-background/40">
+              <CircleDot className="mr-1 h-2.5 w-2.5 animate-pulse text-emerald-400" /> Live
+            </Badge>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="border-white/10 hover:bg-transparent">
+                <TableHead className="pl-4">Front</TableHead>
+                <TableHead>Subject</TableHead>
+                <TableHead>Chapter</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Views</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Updated</TableHead>
+                <TableHead className="pr-4 text-right">Actions</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-      <div className="flex items-center justify-between border-t border-white/10 px-4 py-3 text-xs text-muted-foreground">
-        <span>Page 1 of 1,403</span>
-        <div className="flex gap-1">
-          <Button size="sm" variant="outline" className="h-7 rounded-lg border-white/10">Prev</Button>
-          <Button size="sm" className="bg-cta-gradient h-7 rounded-lg text-white">1</Button>
-          <Button size="sm" variant="outline" className="h-7 rounded-lg border-white/10">2</Button>
-          <Button size="sm" variant="outline" className="h-7 rounded-lg border-white/10">3</Button>
-          <Button size="sm" variant="outline" className="h-7 rounded-lg border-white/10">Next</Button>
+            </TableHeader>
+            <TableBody>
+              {rows.map((c) => (
+                <TableRow key={c.id} className="border-white/5 hover:bg-white/[0.03]">
+                  <TableCell className="max-w-[260px] truncate pl-4 font-medium">{c.front}</TableCell>
+                  <TableCell className="text-muted-foreground">{subjectName(c.subject_id)}</TableCell>
+                  <TableCell className="text-muted-foreground">{chapterName(c.chapter_id)}</TableCell>
+                  <TableCell>
+                    <span className="rounded-md bg-[var(--neon-purple)]/10 px-2 py-0.5 text-[10px] text-[var(--neon-purple)]">{c.card_type}</span>
+                  </TableCell>
+                  <TableCell>{c.view_count.toLocaleString()}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className={`${statusTone(c.status, c.is_hidden)} border text-[10px]`}>
+                      {c.is_hidden ? "Hidden" : c.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {new Date(c.updated_at).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell className="pr-4">
+                    <div className="flex items-center justify-end gap-0.5">
+                      <RowBtn title="Edit" onClick={() => setEditor({ open: true, card: c })}><Edit3 className="h-3.5 w-3.5" /></RowBtn>
+                      <RowBtn title="Duplicate" onClick={() => duplicate.mutate(c.id)}><Copy className="h-3.5 w-3.5" /></RowBtn>
+                      <RowBtn
+                        title={c.status === "published" ? "Unpublish" : "Publish"}
+                        onClick={() => setStatus.mutate({ id: c.id, status: c.status === "published" ? "draft" : "published" })}
+                      >
+                        <Send className={`h-3.5 w-3.5 ${c.status === "published" ? "text-emerald-400" : ""}`} />
+                      </RowBtn>
+                      <RowBtn
+                        title={c.is_hidden ? "Unhide" : "Hide from students"}
+                        onClick={() => setHidden.mutate({ id: c.id, is_hidden: !c.is_hidden })}
+                      >
+                        {c.is_hidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                      </RowBtn>
+                      <RowBtn
+                        title="Delete"
+                        onClick={() => {
+                          if (confirm(`Delete flash card "${c.front}"?`)) remove.mutate(c.id);
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      </RowBtn>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {!cardsQuery.isLoading && rows.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
+                    <Sparkles className="mx-auto mb-2 h-5 w-5" />
+                    No flash cards match your filters. Create your first card.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+        <div className="flex items-center justify-between border-t border-white/10 px-4 py-3 text-xs text-muted-foreground">
+          <span>Page {page} of {totalPages}</span>
+          <div className="flex gap-1">
+            <Button size="sm" variant="outline" className="h-7 rounded-lg border-white/10"
+              disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Prev</Button>
+            <Button size="sm" variant="outline" className="h-7 rounded-lg border-white/10"
+              disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>Next</Button>
+          </div>
         </div>
       </div>
+
+      {/* Sample preview card kept (visual only) */}
+      <div className="glass shadow-card-soft rounded-3xl p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="font-display text-lg font-bold">Live Preview</h3>
+          <span className="text-xs text-muted-foreground">Hover to flip</span>
+        </div>
+        <div className="[perspective:1000px]">
+          <div className="group relative h-40 max-w-md rounded-2xl border border-[var(--neon-purple)]/30 bg-gradient-to-br from-[var(--neon-purple)]/15 to-[var(--neon-blue)]/15 p-4 shadow-glow transition-transform duration-700 [transform-style:preserve-3d] hover:[transform:rotateY(180deg)]">
+            <div className="absolute inset-0 flex flex-col justify-between p-4 [backface-visibility:hidden]">
+              <span className="self-end rounded-md bg-background/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">FRONT</span>
+              <div>
+                <p className="font-display text-base font-bold">{rows[0]?.front ?? "Create a flash card to preview"}</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">Hover to flip → reveal explanation</p>
+              </div>
+              <RotateCw className="h-3.5 w-3.5 text-[var(--neon-purple)]" />
+            </div>
+            <div className="absolute inset-0 flex flex-col justify-between p-4 [backface-visibility:hidden] [transform:rotateY(180deg)]">
+              <span className="self-end rounded-md bg-background/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">BACK</span>
+              <p className="text-[11px] leading-relaxed">{rows[0]?.back ?? "Back side of your first card will appear here."}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <EditorDialog
+        state={editor}
+        onClose={() => setEditor({ open: false })}
+        onSaved={invalidate}
+        levels={levels}
+        allSubjects={allSubjects as never}
+        allChapters={allChapters as never}
+      />
+      <BulkImportDialog open={importer} onClose={() => setImporter(false)} onSaved={invalidate} />
     </div>
   );
 }
 
-function Step({ n, title, active, children }: { n: number; title: string; active?: boolean; children: React.ReactNode }) {
+// ===============================================
+// helpers
+// ===============================================
+function StatTile({ label, value, icon: Icon, color }: { label: string; value: number; icon: React.ComponentType<{ className?: string }>; color: string }) {
   return (
-    <div className={`rounded-2xl border p-4 transition-all ${active ? "border-[var(--neon-purple)]/50 bg-[var(--neon-purple)]/5 shadow-glow" : "border-white/10 bg-background/30"}`}>
-      <div className="mb-3 flex items-center gap-2">
-        <div className={`flex h-7 w-7 items-center justify-center rounded-lg text-xs font-bold ${active ? "bg-cta-gradient text-white shadow-glow" : "bg-muted text-muted-foreground"}`}>{n}</div>
-        <h4 className="font-display text-sm font-semibold">{title}</h4>
+    <div className="glass relative overflow-hidden rounded-2xl p-4">
+      <div className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full opacity-30 blur-2xl" style={{ background: color }} />
+      <div className="flex items-center justify-between">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10" style={{ background: `color-mix(in oklab, ${color} 15%, transparent)` }}>
+          <Icon className="h-4 w-4" />
+        </div>
+        <Flame className="h-3.5 w-3.5 text-muted-foreground" />
       </div>
+      <p className="mt-3 text-[11px] text-muted-foreground">{label}</p>
+      <p className="font-display text-2xl font-bold tracking-tight">{value.toLocaleString()}</p>
+    </div>
+  );
+}
+
+function RowBtn({ title, onClick, children }: { title: string; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      className="rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-white/5 hover:text-foreground"
+    >
+      {children}
+    </button>
+  );
+}
+
+function SelectFilter({
+  icon, label, value, onValueChange, options,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  onValueChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <div className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-background/50 px-2 py-1 text-xs">
+      {icon}
+      <span className="text-muted-foreground">{label}:</span>
+      <Select value={value} onValueChange={onValueChange}>
+        <SelectTrigger className="h-7 w-[140px] border-0 bg-transparent px-1 text-xs focus:ring-0">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+// ===============================================
+// Editor dialog (create + edit)
+// ===============================================
+function EditorDialog({
+  state, onClose, onSaved, levels, allSubjects, allChapters,
+}: {
+  state: EditState;
+  onClose: () => void;
+  onSaved: () => void;
+  levels: { code: string; name: string }[];
+  allSubjects: { id: string; name: string; level: string }[];
+  allChapters: { id: string; name: string; subject_id: string }[];
+}) {
+  const createFn = useServerFn(adminCreateFlashCard);
+  const updateFn = useServerFn(adminUpdateFlashCard);
+  const isEdit = !!state.card;
+
+  const [form, setForm] = useState<Partial<FlashCard>>({});
+  useEffect(() => {
+    if (!state.open) return;
+    setForm(
+      state.card
+        ? { ...state.card }
+        : {
+            level: "professional",
+            front: "",
+            back: "",
+            formula: "",
+            card_type: "concept",
+            status: "draft",
+            is_hidden: false,
+            tags: [],
+            subject_id: null,
+            chapter_id: null,
+          },
+    );
+  }, [state]);
+
+  const subjectsForLevel = useMemo(
+    () => (form.level ? allSubjects.filter((s) => s.level === form.level) : allSubjects),
+    [allSubjects, form.level],
+  );
+  const chaptersForSubject = useMemo(
+    () => (form.subject_id ? allChapters.filter((c) => c.subject_id === form.subject_id) : []),
+    [allChapters, form.subject_id],
+  );
+
+  const set = <K extends keyof FlashCard>(k: K, v: FlashCard[K] | null) => setForm((f) => ({ ...f, [k]: v as never }));
+
+  const save = useMutation({
+    mutationFn: async () => {
+      if (!form.front?.trim() || !form.back?.trim()) throw new Error("Front and back are required");
+      const payload = {
+        subject_id: form.subject_id ?? null,
+        chapter_id: form.chapter_id ?? null,
+        level: form.level ?? "professional",
+        front: form.front,
+        back: form.back,
+        formula: form.formula || null,
+        image_url: form.image_url || null,
+        card_type: (form.card_type ?? "concept"),
+        tags: form.tags ?? [],
+        status: form.status ?? "draft",
+        is_hidden: form.is_hidden ?? false,
+        scheduled_at: form.scheduled_at ?? null,
+      };
+      if (isEdit && state.card) return updateFn({ data: { id: state.card.id, ...payload } });
+      return createFn({ data: payload });
+    },
+    onSuccess: () => { toast.success(isEdit ? "Flash card updated" : "Flash card created"); onSaved(); onClose(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Dialog open={state.open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{isEdit ? "Edit Flash Card" : "Create Flash Card"}</DialogTitle>
+          <DialogDescription>Card content syncs instantly to all students once published.</DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          <Field label="Level">
+            <Select value={form.level ?? "professional"} onValueChange={(v) => { set("level", v); set("subject_id", null); set("chapter_id", null); }}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>{levels.map((l) => <SelectItem key={l.code} value={l.code}>{l.name}</SelectItem>)}</SelectContent>
+            </Select>
+          </Field>
+          <Field label="Type">
+            <Select value={form.card_type ?? "concept"} onValueChange={(v) => set("card_type", v as FlashCard["card_type"])}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {["concept","formula","diagram","timeline","definition","other"].map((t) => (
+                  <SelectItem key={t} value={t}>{t}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Subject">
+            <Select value={form.subject_id ?? ""} onValueChange={(v) => { set("subject_id", v); set("chapter_id", null); }}>
+              <SelectTrigger><SelectValue placeholder="Select subject" /></SelectTrigger>
+              <SelectContent>
+                {subjectsForLevel.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Chapter">
+            <Select value={form.chapter_id ?? ""} onValueChange={(v) => set("chapter_id", v)} disabled={!form.subject_id}>
+              <SelectTrigger><SelectValue placeholder={form.subject_id ? "Select chapter" : "Pick subject first"} /></SelectTrigger>
+              <SelectContent>
+                {chaptersForSubject.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </Field>
+        </div>
+
+        <Field label="Front (question / topic) *">
+          <Input value={form.front ?? ""} onChange={(e) => set("front", e.target.value)} placeholder="e.g. Newton's Second Law" />
+        </Field>
+        <Field label="Back (explanation) *">
+          <Textarea rows={4} value={form.back ?? ""} onChange={(e) => set("back", e.target.value)} placeholder="Detailed explanation…" />
+        </Field>
+        <div className="grid gap-3 md:grid-cols-2">
+          <Field label="Formula (optional)">
+            <Input value={form.formula ?? ""} onChange={(e) => set("formula", e.target.value)} placeholder="F = m · a" />
+          </Field>
+          <Field label="Image URL (optional)">
+            <Input value={form.image_url ?? ""} onChange={(e) => set("image_url", e.target.value)} placeholder="https://…" />
+          </Field>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-3">
+          <Field label="Status">
+            <Select value={form.status ?? "draft"} onValueChange={(v) => set("status", v as FlashCard["status"])}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="published">Published</SelectItem>
+                <SelectItem value="archived">Archived</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+          <div className="flex items-center justify-between rounded-xl border border-white/10 bg-background/40 px-3 py-2 text-xs">
+            <span>Hide from students</span>
+            <Switch checked={!!form.is_hidden} onCheckedChange={(v) => set("is_hidden", v)} />
+          </div>
+          <Field label="Tags (comma-separated)">
+            <Input
+              value={(form.tags ?? []).join(", ")}
+              onChange={(e) => set("tags", e.target.value.split(",").map((t) => t.trim()).filter(Boolean) as never)}
+              placeholder="mechanics, exam"
+            />
+          </Field>
+        </div>
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button onClick={() => save.mutate()} disabled={save.isPending}>
+            {save.isPending ? "Saving…" : isEdit ? "Save changes" : "Create"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1">
+      <Label className="text-xs font-medium">{label}</Label>
       {children}
     </div>
   );
 }
 
-function FlashCardCreator() {
+// ===============================================
+// Bulk import dialog (paste plain text blocks)
+// ===============================================
+function BulkImportDialog({ open, onClose, onSaved }: { open: boolean; onClose: () => void; onSaved: () => void }) {
+  const importFn = useServerFn(adminBulkImportFlashCards);
+  const [text, setText] = useState("");
+  const [level, setLevel] = useState("professional");
+
+  // Parse format:  Front :: Back   (one card per line)
+  const cards = useMemo(() => {
+    return text
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .map((l) => {
+        const [front, ...rest] = l.split("::");
+        return {
+          front: (front ?? "").trim(),
+          back: rest.join("::").trim(),
+        };
+      })
+      .filter((c) => c.front && c.back);
+  }, [text]);
+
+  const submit = useMutation({
+    mutationFn: () =>
+      importFn({
+        data: {
+          cards: cards.map((c) => ({
+            front: c.front,
+            back: c.back,
+            level,
+            card_type: "concept",
+            status: "draft",
+            tags: [],
+            is_hidden: false,
+          })),
+        },
+      }),
+    onSuccess: (r) => { toast.success(`Imported ${r.count} flash cards`); setText(""); onSaved(); onClose(); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   return (
-    <div className="glass shadow-card-soft rounded-3xl p-5">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h3 className="font-display text-lg font-bold">Flash Card Creator</h3>
-          <p className="text-xs text-muted-foreground">Design beautiful revision cards in four guided steps.</p>
-        </div>
-        <Badge className="bg-cta-gradient border-0 text-white shadow-glow">Step 2 of 4 in progress</Badge>
-      </div>
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-xl">
+        <DialogHeader>
+          <DialogTitle>Bulk Import Flash Cards</DialogTitle>
+          <DialogDescription>
+            Paste one card per line in the format <code className="rounded bg-muted px-1">Front :: Back</code>. Imported as drafts.
+          </DialogDescription>
+        </DialogHeader>
 
-      <div className="grid gap-3 lg:grid-cols-2">
-        <Step n={1} title="Setup">
-          <div className="grid grid-cols-3 gap-2">
-            {["Certificate", "Professional", "Advanced"].map((l, i) => (
-              <button key={l} className={`rounded-xl border px-3 py-2 text-xs font-medium ${i === 1 ? "border-[var(--neon-blue)]/50 bg-[var(--neon-blue)]/10 text-[var(--neon-blue)]" : "border-white/10 bg-background/40"}`}>{l}</button>
-            ))}
-          </div>
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {["Physics", "Chemistry", "Biology", "Math", "History"].map((s, i) => (
-              <span key={s} className={`rounded-md border px-2 py-1 text-[11px] ${i === 1 ? "border-[var(--neon-purple)]/40 bg-[var(--neon-purple)]/10 text-[var(--neon-purple)]" : "border-white/10"}`}>{s}</span>
-            ))}
-          </div>
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {["Ch.1 Atomic Structure", "Ch.2 Bonding", "Ch.3 Reactions"].map((c, i) => (
-              <span key={c} className={`rounded-md border px-2 py-1 text-[11px] ${i === 2 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400" : "border-white/10 text-muted-foreground"}`}>{c}</span>
-            ))}
-          </div>
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            {["Concept", "Formula", "Diagram"].map((c, i) => (
-              <button key={c} className={`rounded-xl border px-3 py-1.5 text-[11px] ${i === 1 ? "border-[var(--neon-purple)]/40 bg-[var(--neon-purple)]/10 text-[var(--neon-purple)]" : "border-white/10 bg-background/40"}`}>{c}</button>
-            ))}
-          </div>
-        </Step>
+        <Field label="Default level">
+          <Select value={level} onValueChange={setLevel}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="certificate">Certificate</SelectItem>
+              <SelectItem value="professional">Professional</SelectItem>
+              <SelectItem value="advanced">Advanced</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
 
-        <Step n={2} title="Card Builder" active>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-xl border border-white/10 bg-background/40 p-3">
-              <p className="mb-2 text-[10px] uppercase tracking-widest text-muted-foreground">Front side</p>
-              <Input placeholder="Topic / question…" className="h-8 rounded-lg border-white/10 bg-background/40 text-xs" />
-              <Input placeholder="Formula (LaTeX)…" className="mt-2 h-8 rounded-lg border-white/10 bg-background/40 text-xs" />
-              <button className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-white/15 bg-background/30 py-3 text-[11px] text-muted-foreground hover:border-[var(--neon-blue)]/40">
-                <ImageIcon className="h-3.5 w-3.5" /> Upload diagram
-              </button>
-            </div>
-            <div className="rounded-xl border border-white/10 bg-background/40 p-3">
-              <p className="mb-2 text-[10px] uppercase tracking-widest text-muted-foreground">Back side</p>
-              <div className="mb-2 flex gap-1">
-                {[Bold, Italic, List, Highlighter].map((I, i) => (
-                  <button key={i} className="rounded-md border border-white/10 bg-background/40 p-1.5 text-muted-foreground hover:text-foreground">
-                    <I className="h-3 w-3" />
-                  </button>
-                ))}
-              </div>
-              <div className="min-h-[80px] rounded-lg border border-white/10 bg-background/40 p-2 text-[11px] text-muted-foreground">
-                Detailed explanation with <span className="rounded bg-[var(--neon-purple)]/20 px-1 text-foreground">highlighted</span> key points…
-              </div>
-              <button className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-white/15 bg-background/30 py-2 text-[11px] text-muted-foreground hover:border-[var(--neon-purple)]/40">
-                <FileText className="h-3.5 w-3.5" /> Attach PDF snippet
-              </button>
-            </div>
-          </div>
-        </Step>
+        <Field label="Cards">
+          <Textarea
+            rows={10}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder={"Newton's First Law :: An object in motion stays in motion…\nF = ma :: Force equals mass times acceleration"}
+            className="font-mono text-xs"
+          />
+        </Field>
 
-        <Step n={3} title="Preview">
-          <div className="flex items-center justify-between text-[11px]">
-            <div className="flex gap-1">
-              <button className="flex items-center gap-1 rounded-lg border border-[var(--neon-blue)]/40 bg-[var(--neon-blue)]/10 px-2 py-1 text-[var(--neon-blue)]">
-                <Monitor className="h-3 w-3" /> Desktop
-              </button>
-              <button className="flex items-center gap-1 rounded-lg border border-white/10 bg-background/40 px-2 py-1">
-                <Smartphone className="h-3 w-3" /> Mobile
-              </button>
-            </div>
-            <div className="flex gap-1">
-              <button className="rounded-lg border border-white/10 bg-background/40 px-2 py-1">Dark</button>
-              <button className="rounded-lg border border-white/10 bg-background/40 px-2 py-1">Light</button>
-            </div>
-          </div>
-          <div className="mt-3 [perspective:1000px]">
-            <div className="group relative h-40 rounded-2xl border border-[var(--neon-purple)]/30 bg-gradient-to-br from-[var(--neon-purple)]/15 to-[var(--neon-blue)]/15 p-4 shadow-glow transition-transform duration-700 [transform-style:preserve-3d] hover:[transform:rotateY(180deg)]">
-              <div className="absolute inset-0 flex flex-col justify-between p-4 [backface-visibility:hidden]">
-                <span className="self-end rounded-md bg-background/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">FRONT</span>
-                <div>
-                  <p className="font-display text-base font-bold">SN1 vs SN2 Reactions</p>
-                  <p className="mt-1 text-[11px] text-muted-foreground">Hover to flip → reveal explanation</p>
-                </div>
-                <RotateCw className="h-3.5 w-3.5 text-[var(--neon-purple)]" />
-              </div>
-              <div className="absolute inset-0 flex flex-col justify-between p-4 [backface-visibility:hidden] [transform:rotateY(180deg)]">
-                <span className="self-end rounded-md bg-background/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">BACK</span>
-                <p className="text-[11px] leading-relaxed">
-                  SN1: two-step, carbocation intermediate. SN2: one-step, backside attack, inversion of stereochemistry.
-                </p>
-              </div>
-            </div>
-          </div>
-        </Step>
-
-        <Step n={4} title="Publish">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between rounded-xl border border-white/10 bg-background/30 px-3 py-2 text-xs">
-              <span>Hide from students</span>
-              <Switch />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-xl border border-white/10 bg-background/40 p-3">
-                <p className="text-[10px] text-muted-foreground">Schedule date</p>
-                <p className="font-display text-sm font-semibold">May 28, 2026</p>
-              </div>
-              <div className="rounded-xl border border-white/10 bg-background/40 p-3">
-                <p className="text-[10px] text-muted-foreground">Schedule time</p>
-                <p className="font-display text-sm font-semibold">09:30 AM</p>
-              </div>
-            </div>
-            <div className="mt-1 grid grid-cols-2 gap-2">
-              <Button variant="outline" className="rounded-xl border-white/10 bg-background/40"><Save className="h-3.5 w-3.5" /> Save Draft</Button>
-              <Button variant="outline" className="rounded-xl border-white/10 bg-background/40"><CalendarPlus className="h-3.5 w-3.5" /> Schedule</Button>
-              <Button variant="outline" className="rounded-xl border-white/10 bg-background/40"><Eye className="h-3.5 w-3.5" /> Preview</Button>
-              <Button className="bg-cta-gradient rounded-xl text-white shadow-glow"><Rocket className="h-3.5 w-3.5" /> Publish</Button>
-            </div>
-          </div>
-        </Step>
-      </div>
-    </div>
-  );
-}
-
-function BulkImport() {
-  const files = [
-    { n: "Organic_Chemistry_Reactions.pdf", s: "PDF · 4.2 MB", p: 100, ok: true, cards: 84 },
-    { n: "Calculus_Formulas_Set.docx", s: "DOCX · 1.6 MB", p: 72, ok: true, cards: 42 },
-    { n: "Physics_Mechanics_Notes.txt", s: "TXT · 312 KB", p: 38, ok: false, cards: 0 },
-  ];
-  return (
-    <div className="glass shadow-card-soft rounded-3xl p-5">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h3 className="font-display text-lg font-bold">Bulk Import</h3>
-          <p className="text-xs text-muted-foreground">Parse PDFs, DOC and TXT into ready-to-publish flash cards.</p>
-        </div>
-        <Button size="sm" className="bg-cta-gradient rounded-xl text-white shadow-glow">
-          <Sparkles className="h-3.5 w-3.5" /> Approve Import
-        </Button>
-      </div>
-
-      <div className="grid gap-3 lg:grid-cols-[1.1fr_1.4fr]">
-        <div className="group relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-white/15 bg-background/30 p-8 text-center transition-all hover:border-[var(--neon-purple)]/50 hover:bg-[var(--neon-purple)]/5">
-          <div className="bg-cta-gradient mb-3 flex h-12 w-12 items-center justify-center rounded-2xl shadow-glow">
-            <Upload className="h-5 w-5 text-white" />
-          </div>
-          <p className="font-display text-sm font-semibold">Drag & drop files here</p>
-          <p className="mt-1 text-[11px] text-muted-foreground">PDF, DOCX, TXT up to 50 MB</p>
-          <Button size="sm" variant="outline" className="mt-3 rounded-xl border-white/15 bg-background/40">Browse files</Button>
+        <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
+          <FileText className="h-4 w-4" />
+          {cards.length} valid card{cards.length === 1 ? "" : "s"} detected.
         </div>
 
-        <div className="space-y-2">
-          {files.map((f) => (
-            <div key={f.n} className="rounded-xl border border-white/10 bg-background/40 p-3">
-              <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-[var(--neon-blue)]" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-medium">{f.n}</p>
-                  <p className="text-[10px] text-muted-foreground">{f.s} · {f.cards} cards detected</p>
-                </div>
-                {f.ok ? (
-                  <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-[10px] text-emerald-400">Valid</Badge>
-                ) : (
-                  <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-[10px] text-amber-400">Parsing…</Badge>
-                )}
-              </div>
-              <Progress value={f.p} className="mt-2 h-1.5" />
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function AnalyticsWidget() {
-  const bars = [30, 55, 48, 70, 62, 88, 95];
-  return (
-    <div className="glass shadow-card-soft rounded-2xl p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <h4 className="font-display text-sm font-bold">Flash Card Analytics</h4>
-        <BarChart3 className="h-4 w-4 text-[var(--neon-blue)]" />
-      </div>
-      <p className="text-[10px] text-muted-foreground">Daily usage · last 7d</p>
-      <div className="mt-2 flex h-24 items-end gap-1.5">
-        {bars.map((b, i) => (
-          <div key={i} className="flex-1 rounded-t-md bg-gradient-to-t from-[var(--neon-purple)] to-[var(--neon-blue)] opacity-90" style={{ height: `${b}%` }} />
-        ))}
-      </div>
-      <ul className="mt-3 space-y-1.5 text-[11px]">
-        {[
-          { l: "Organic Chemistry · Reactions", v: "12.4k" },
-          { l: "Calculus · Integration", v: "9.8k" },
-          { l: "Physics · Mechanics", v: "8.1k" },
-        ].map((m) => (
-          <li key={m.l} className="flex items-center justify-between rounded-lg border border-white/10 bg-background/40 px-2 py-1.5">
-            <span className="truncate text-muted-foreground">{m.l}</span>
-            <span className="font-semibold">{m.v}</span>
-          </li>
-        ))}
-      </ul>
-      <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
-        <div className="rounded-lg border border-white/10 bg-background/40 p-2">
-          <p className="text-muted-foreground">Avg completion</p>
-          <p className="font-semibold">78.3%</p>
-        </div>
-        <div className="rounded-lg border border-white/10 bg-background/40 p-2">
-          <p className="text-muted-foreground">Bookmark trend</p>
-          <p className="font-semibold text-emerald-400">▲ 14%</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ActivityFeed() {
-  const items = [
-    { i: Plus, c: "var(--neon-purple)", t: "New cards uploaded", s: "Organic Chemistry · 84 cards", a: "3m ago" },
-    { i: Edit3, c: "var(--neon-blue)", t: "Flash card edited", s: "Integration by Parts · formula fix", a: "21m ago" },
-    { i: Send, c: "#22c55e", t: "Collection published", s: "DNA Replication Set", a: "1h ago" },
-    { i: Bookmark, c: "#f59e0b", t: "Bookmark spike", s: "Newton's Laws · +482 today", a: "2h ago" },
-  ];
-  return (
-    <div className="glass shadow-card-soft rounded-2xl p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <h4 className="font-display text-sm font-bold">Recent Activity</h4>
-        <Activity className="h-4 w-4 text-[var(--neon-purple)]" />
-      </div>
-      <ul className="space-y-2.5">
-        {items.map((it, i) => (
-          <li key={i} className="flex gap-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/10" style={{ background: `color-mix(in oklab, ${it.c} 15%, transparent)` }}>
-              <it.i className="h-3.5 w-3.5" style={{ color: it.c }} />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium">{it.t}</p>
-              <p className="truncate text-[11px] text-muted-foreground">{it.s}</p>
-              <p className="text-[10px] text-muted-foreground">{it.a}</p>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function PopularCollections() {
-  const cols = [
-    { t: "Organic Chemistry · Reactions", cards: 184, v: "12.4k", c: 82, sub: "Chemistry", g: "from-fuchsia-500/30 to-purple-500/20" },
-    { t: "Calculus · Integration Mastery", cards: 142, v: "9.8k", c: 76, sub: "Math", g: "from-sky-500/30 to-blue-500/20" },
-    { t: "DNA & Genetics Essentials", cards: 96, v: "8.1k", c: 69, sub: "Biology", g: "from-emerald-500/30 to-teal-500/20" },
-    { t: "Modern History Timeline", cards: 120, v: "5.4k", c: 64, sub: "History", g: "from-amber-500/30 to-orange-500/20" },
-  ];
-  return (
-    <div className="glass shadow-card-soft rounded-3xl p-5">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h3 className="font-display text-lg font-bold">Popular Flash Card Collections</h3>
-          <p className="text-xs text-muted-foreground">Top performing sets across the platform</p>
-        </div>
-        <Button size="sm" variant="outline" className="rounded-xl border-white/10">
-          <Eye className="h-3.5 w-3.5" /> View all
-        </Button>
-      </div>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {cols.map((c) => (
-          <div key={c.t} className={`group relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br ${c.g} p-4 transition-all hover:-translate-y-0.5 hover:shadow-glow`}>
-            <div className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-white/10 blur-2xl" />
-            <Badge variant="outline" className="border-white/20 bg-background/40 text-[10px]">{c.sub}</Badge>
-            <p className="mt-3 font-display text-sm font-bold leading-snug">{c.t}</p>
-            <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground">
-              <span>{c.cards} cards</span>
-              <span className="flex items-center gap-1"><Eye className="h-3 w-3" /> {c.v}</span>
-            </div>
-            <div className="mt-2">
-              <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                <span>Completion</span>
-                <span className="font-semibold text-foreground">{c.c}%</span>
-              </div>
-              <Progress value={c.c} className="mt-1 h-1.5" />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-export function FlashCardManagerFlow() {
-  return (
-    <div className="space-y-4">
-      <Topbar />
-      <HeaderBlock />
-      <FilterPanel />
-      <StatGrid />
-
-      <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
-        <div className="space-y-4">
-          <CardTable />
-          <FlashCardCreator />
-          <BulkImport />
-        </div>
-        <aside className="space-y-4">
-          <AnalyticsWidget />
-          <ActivityFeed />
-        </aside>
-      </div>
-
-      <PopularCollections />
-    </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button onClick={() => submit.mutate()} disabled={!cards.length || submit.isPending}>
+            {submit.isPending ? "Importing…" : `Import ${cards.length}`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
