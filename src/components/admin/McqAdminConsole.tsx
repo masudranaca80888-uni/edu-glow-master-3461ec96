@@ -83,6 +83,7 @@ export function McqAdminConsole() {
   const listSubjectsFn = useServerFn(adminListSubjects);
   const listChaptersFn = useServerFn(adminListChapters);
   const listMcqsFn = useServerFn(adminListMcqs);
+  const listLevelsFn = useServerFn(adminListLevels);
   const createMcqFn = useServerFn(adminCreateMcq);
   const updateMcqFn = useServerFn(adminUpdateMcq);
   const deleteMcqFn = useServerFn(adminDeleteMcq);
@@ -91,6 +92,7 @@ export function McqAdminConsole() {
   const createChapterFn = useServerFn(adminCreateChapter);
   const bulkImportFn = useServerFn(adminBulkImportMcqs);
 
+  const [levelCode, setLevelCode] = useState<string | null>(null);
   const [subjectId, setSubjectId] = useState<string | null>(null);
   const [chapterId, setChapterId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -99,6 +101,7 @@ export function McqAdminConsole() {
   const [page, setPage] = useState(1);
   const pageSize = 20;
 
+  const levelsQ = useQuery({ queryKey: ["admin-levels"], queryFn: () => listLevelsFn() });
   const subjectsQ = useQuery({ queryKey: ["admin-subjects"], queryFn: () => listSubjectsFn() });
   const chaptersQ = useQuery({
     queryKey: ["admin-chapters", subjectId],
@@ -106,10 +109,24 @@ export function McqAdminConsole() {
     enabled: !!subjectId,
   });
 
-  // Auto-pick first subject/chapter
+  // Subjects filtered by selected level
+  const filteredSubjects = useMemo(() => {
+    const all = subjectsQ.data ?? [];
+    if (!levelCode) return all;
+    return all.filter((s: { level?: string }) => s.level === levelCode);
+  }, [subjectsQ.data, levelCode]);
+
+  // Auto-pick level/subject/chapter
   useEffect(() => {
-    if (!subjectId && subjectsQ.data && subjectsQ.data.length) setSubjectId(subjectsQ.data[0].id);
-  }, [subjectsQ.data, subjectId]);
+    if (!levelCode && levelsQ.data && levelsQ.data.length) setLevelCode(levelsQ.data[0].code);
+  }, [levelsQ.data, levelCode]);
+  useEffect(() => {
+    if (!filteredSubjects.length) { setSubjectId(null); return; }
+    if (!subjectId || !filteredSubjects.find((s) => s.id === subjectId)) {
+      setSubjectId(filteredSubjects[0].id);
+      setChapterId(null);
+    }
+  }, [filteredSubjects, subjectId]);
   useEffect(() => {
     if (!chapterId && chaptersQ.data && chaptersQ.data.length) setChapterId(chaptersQ.data[0].id);
     if (chapterId && chaptersQ.data && !chaptersQ.data.find((c) => c.id === chapterId)) {
@@ -133,6 +150,26 @@ export function McqAdminConsole() {
       }),
     enabled: !!(chapterId || subjectId),
   });
+
+  // Realtime: any change to mcqs/chapters/subjects/levels => invalidate
+  useEffect(() => {
+    const ch = supabase
+      .channel("admin-mcq-console")
+      .on("postgres_changes", { event: "*", schema: "public", table: "mcqs" }, () => {
+        qc.invalidateQueries({ queryKey: ["admin-mcqs"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "chapters" }, () => {
+        qc.invalidateQueries({ queryKey: ["admin-chapters"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "subjects" }, () => {
+        qc.invalidateQueries({ queryKey: ["admin-subjects"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "levels" }, () => {
+        qc.invalidateQueries({ queryKey: ["admin-levels"] });
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(ch); };
+  }, [qc]);
 
   const rows = (mcqsQ.data?.rows ?? []) as Mcq[];
   const total = mcqsQ.data?.count ?? 0;
@@ -163,18 +200,21 @@ export function McqAdminConsole() {
       if (d.id) await updateMcqFn({ data: { id: d.id, ...payload } });
       else await createMcqFn({ data: payload });
     },
-    onSuccess: () => { setEditing(null); invalidateAll(); },
+    onSuccess: () => { setEditing(null); invalidateAll(); toast.success("Saved"); },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const deleteMut = useMutation({
     mutationFn: (id: string) => deleteMcqFn({ data: { id } }),
-    onSuccess: invalidateAll,
+    onSuccess: () => { invalidateAll(); toast.success("Deleted"); },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const statusMut = useMutation({
     mutationFn: (vars: { id: string; status: Mcq["status"] }) =>
       setStatusFn({ data: vars }),
-    onSuccess: invalidateAll,
+    onSuccess: (_d, v) => { invalidateAll(); toast.success(v.status === "published" ? "Published" : "Unpublished"); },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   return (
