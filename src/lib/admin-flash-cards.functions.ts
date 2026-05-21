@@ -59,6 +59,52 @@ export const adminListFlashCards = createServerFn({ method: "POST" })
     return { rows: rows ?? [], count: count ?? 0 };
   });
 
+// ---------- VISIBILITY (singleton) ----------
+type Visibility = {
+  section_hidden: boolean;
+  hidden_levels: string[];
+  hidden_subject_ids: string[];
+  hidden_chapter_ids: string[];
+};
+
+async function loadVisibility(supabase: unknown): Promise<Visibility> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data } = await (supabase as any)
+    .from("flash_card_visibility")
+    .select("section_hidden,hidden_levels,hidden_subject_ids,hidden_chapter_ids")
+    .eq("id", 1)
+    .maybeSingle();
+  return {
+    section_hidden: !!data?.section_hidden,
+    hidden_levels: data?.hidden_levels ?? [],
+    hidden_subject_ids: data?.hidden_subject_ids ?? [],
+    hidden_chapter_ids: data?.hidden_chapter_ids ?? [],
+  };
+}
+
+export const getFlashCardVisibility = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => loadVisibility(context.supabase));
+
+const visibilityInput = z.object({
+  section_hidden: z.boolean(),
+  hidden_levels: z.array(z.string().trim().min(1).max(40)).max(50).default([]),
+  hidden_subject_ids: z.array(z.string().uuid()).max(500).default([]),
+  hidden_chapter_ids: z.array(z.string().uuid()).max(2000).default([]),
+});
+
+export const adminSetFlashCardVisibility = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: z.infer<typeof visibilityInput>) => visibilityInput.parse(i))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase, context.userId);
+    const { error } = await context.supabase
+      .from("flash_card_visibility")
+      .upsert({ id: 1, ...data, updated_at: new Date().toISOString() });
+    if (error) throw error;
+    return { ok: true };
+  });
+
 // ---------- LIST (student) ----------
 export const listPublicFlashCards = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -73,6 +119,12 @@ export const listPublicFlashCards = createServerFn({ method: "POST" })
       .parse(i),
   )
   .handler(async ({ data, context }) => {
+    const vis = await loadVisibility(context.supabase);
+    if (vis.section_hidden) return [];
+    if (data.level && vis.hidden_levels.includes(data.level)) return [];
+    if (data.subjectId && vis.hidden_subject_ids.includes(data.subjectId)) return [];
+    if (data.chapterId && vis.hidden_chapter_ids.includes(data.chapterId)) return [];
+
     let q = context.supabase
       .from("flash_cards")
       .select(selectCols)
@@ -83,6 +135,9 @@ export const listPublicFlashCards = createServerFn({ method: "POST" })
     if (data.subjectId) q = q.eq("subject_id", data.subjectId);
     if (data.chapterId) q = q.eq("chapter_id", data.chapterId);
     if (data.level) q = q.eq("level", data.level);
+    if (vis.hidden_levels.length) q = q.not("level", "in", `(${vis.hidden_levels.map((l) => `"${l}"`).join(",")})`);
+    if (vis.hidden_subject_ids.length) q = q.not("subject_id", "in", `(${vis.hidden_subject_ids.join(",")})`);
+    if (vis.hidden_chapter_ids.length) q = q.not("chapter_id", "in", `(${vis.hidden_chapter_ids.join(",")})`);
     const { data: rows, error } = await q;
     if (error) throw error;
     return rows ?? [];

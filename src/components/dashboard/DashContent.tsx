@@ -1,4 +1,7 @@
 import { Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { getFlashCardVisibility } from "@/lib/admin-flash-cards.functions";
 import {
   ListChecks,
   Timer,
@@ -52,6 +55,14 @@ const actions: { t: string; i: typeof ListChecks; to: "/mcq-practice" | "/quiz" 
 ];
 
 export function DashContent() {
+  const visFn = useServerFn(getFlashCardVisibility);
+  const vis = useQuery({
+    queryKey: ["flash-card-visibility"],
+    queryFn: () => visFn(),
+    staleTime: 30_000,
+  });
+  const visibleActions = actions.filter((a) => a.to !== "/flash-cards" || !vis.data?.section_hidden);
+
   return (
     <div className="space-y-6">
       {/* Welcome */}
@@ -318,7 +329,7 @@ export function DashContent() {
       <section>
         <h3 className="font-display text-lg font-bold">Quick Actions</h3>
         <div className="mt-3 grid grid-cols-2 gap-4 md:grid-cols-4">
-          {actions.map((a) => (
+          {visibleActions.map((a) => (
             <Link
               key={a.t}
               to={a.to}

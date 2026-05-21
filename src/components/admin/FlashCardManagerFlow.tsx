@@ -49,7 +49,9 @@ import {
   adminListFlashCards,
   adminSetFlashCardHidden,
   adminSetFlashCardStatus,
+  adminSetFlashCardVisibility,
   adminUpdateFlashCard,
+  getFlashCardVisibility,
 } from "@/lib/admin-flash-cards.functions";
 
 type FlashCard = {
@@ -270,6 +272,13 @@ export function FlashCardManagerFlow() {
             ]} />
         </div>
       </div>
+
+      {/* Section-wide visibility controls */}
+      <VisibilityPanel
+        levels={(tree.data?.levels ?? []) as { code: string; name: string }[]}
+        subjects={(tree.data?.subjects ?? []) as { id: string; name: string; level: string }[]}
+        chapters={(tree.data?.chapters ?? []) as { id: string; name: string; subject_id: string }[]}
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
@@ -732,5 +741,168 @@ function BulkImportDialog({ open, onClose, onSaved }: { open: boolean; onClose: 
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ===============================================
+// Visibility panel — section / level / subject / chapter hides
+// ===============================================
+function VisibilityPanel({
+  levels,
+  subjects,
+  chapters,
+}: {
+  levels: { code: string; name: string }[];
+  subjects: { id: string; name: string; level: string }[];
+  chapters: { id: string; name: string; subject_id: string }[];
+}) {
+  const qc = useQueryClient();
+  const getFn = useServerFn(getFlashCardVisibility);
+  const setFn = useServerFn(adminSetFlashCardVisibility);
+
+  const vq = useQuery({
+    queryKey: ["flash-card-visibility"],
+    queryFn: () => getFn(),
+    staleTime: 30_000,
+  });
+
+  useEffect(() => {
+    const ch = supabase
+      .channel("fcv-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "flash_card_visibility" }, () => {
+        qc.invalidateQueries({ queryKey: ["flash-card-visibility"] });
+        qc.invalidateQueries({ queryKey: ["public-flash-cards"] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [qc]);
+
+  const [section, setSection] = useState(false);
+  const [hLevels, setHLevels] = useState<string[]>([]);
+  const [hSubjects, setHSubjects] = useState<string[]>([]);
+  const [hChapters, setHChapters] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!vq.data) return;
+    setSection(vq.data.section_hidden);
+    setHLevels(vq.data.hidden_levels ?? []);
+    setHSubjects(vq.data.hidden_subject_ids ?? []);
+    setHChapters(vq.data.hidden_chapter_ids ?? []);
+  }, [vq.data]);
+
+  const save = useMutation({
+    mutationFn: () =>
+      setFn({
+        data: {
+          section_hidden: section,
+          hidden_levels: hLevels,
+          hidden_subject_ids: hSubjects,
+          hidden_chapter_ids: hChapters,
+        },
+      }),
+    onSuccess: () => {
+      toast.success("Visibility updated — students sync instantly");
+      qc.invalidateQueries({ queryKey: ["flash-card-visibility"] });
+      qc.invalidateQueries({ queryKey: ["public-flash-cards"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const toggle = (arr: string[], v: string, set: (n: string[]) => void) =>
+    set(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
+
+  return (
+    <div className="glass shadow-card-soft rounded-3xl p-5">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 className="font-display text-lg font-bold flex items-center gap-2">
+            <EyeOff className="h-4 w-4" /> Section Visibility
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            Hide the entire flash card section, or hide by level / subject / chapter — applies live to all students.
+          </p>
+        </div>
+        <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-background/40 px-3 py-2 text-xs">
+          <span className="font-medium">Hide entire section</span>
+          <Switch checked={section} onCheckedChange={setSection} />
+        </div>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        <VisGroup
+          title="Hidden levels"
+          empty="No levels"
+          items={levels.map((l) => ({ id: l.code, name: l.name }))}
+          selected={hLevels}
+          onToggle={(v) => toggle(hLevels, v, setHLevels)}
+        />
+        <VisGroup
+          title="Hidden subjects"
+          empty="No subjects"
+          items={subjects.map((s) => ({ id: s.id, name: s.name }))}
+          selected={hSubjects}
+          onToggle={(v) => toggle(hSubjects, v, setHSubjects)}
+        />
+        <VisGroup
+          title="Hidden chapters"
+          empty="No chapters"
+          items={chapters.map((c) => ({ id: c.id, name: c.name }))}
+          selected={hChapters}
+          onToggle={(v) => toggle(hChapters, v, setHChapters)}
+        />
+      </div>
+
+      <div className="mt-3 flex justify-end">
+        <Button onClick={() => save.mutate()} disabled={save.isPending} className="bg-cta-gradient text-white shadow-glow">
+          {save.isPending ? "Saving…" : "Save visibility"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function VisGroup({
+  title,
+  empty,
+  items,
+  selected,
+  onToggle,
+}: {
+  title: string;
+  empty: string;
+  items: { id: string; name: string }[];
+  selected: string[];
+  onToggle: (id: string) => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-background/40 p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-xs font-semibold">{title}</span>
+        <Badge variant="outline" className="border-white/10 bg-background/40 text-[10px]">
+          {selected.length} hidden
+        </Badge>
+      </div>
+      <div className="max-h-44 space-y-1 overflow-y-auto pr-1">
+        {items.length === 0 && <p className="text-[11px] text-muted-foreground">{empty}</p>}
+        {items.map((it) => {
+          const on = selected.includes(it.id);
+          return (
+            <button
+              key={it.id}
+              type="button"
+              onClick={() => onToggle(it.id)}
+              className={`flex w-full items-center justify-between rounded-lg border px-2 py-1.5 text-left text-xs transition ${
+                on
+                  ? "border-rose-500/40 bg-rose-500/10 text-rose-300"
+                  : "border-white/10 bg-background/40 hover:bg-white/5"
+              }`}
+            >
+              <span className="truncate">{it.name}</span>
+              {on ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3 opacity-50" />}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
