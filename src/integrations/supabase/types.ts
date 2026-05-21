@@ -877,6 +877,114 @@ export type Database = {
         }
         Relationships: []
       }
+      video_class_visibility: {
+        Row: {
+          hidden_chapter_ids: string[]
+          hidden_levels: string[]
+          hidden_subject_ids: string[]
+          id: number
+          section_hidden: boolean
+          updated_at: string
+        }
+        Insert: {
+          hidden_chapter_ids?: string[]
+          hidden_levels?: string[]
+          hidden_subject_ids?: string[]
+          id?: number
+          section_hidden?: boolean
+          updated_at?: string
+        }
+        Update: {
+          hidden_chapter_ids?: string[]
+          hidden_levels?: string[]
+          hidden_subject_ids?: string[]
+          id?: number
+          section_hidden?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      video_classes: {
+        Row: {
+          chapter_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          duration_seconds: number
+          id: string
+          instructor: string | null
+          is_featured: boolean
+          is_hidden: boolean
+          kind: Database["public"]["Enums"]["video_class_kind"]
+          level: string
+          playlist_key: string | null
+          position: number
+          scheduled_at: string | null
+          status: Database["public"]["Enums"]["content_status"]
+          subject_id: string | null
+          tags: string[]
+          thumbnail_url: string | null
+          title: string
+          updated_at: string
+          view_count: number
+          youtube_playlist_id: string | null
+          youtube_url: string | null
+          youtube_video_id: string | null
+        }
+        Insert: {
+          chapter_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          duration_seconds?: number
+          id?: string
+          instructor?: string | null
+          is_featured?: boolean
+          is_hidden?: boolean
+          kind?: Database["public"]["Enums"]["video_class_kind"]
+          level?: string
+          playlist_key?: string | null
+          position?: number
+          scheduled_at?: string | null
+          status?: Database["public"]["Enums"]["content_status"]
+          subject_id?: string | null
+          tags?: string[]
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string
+          view_count?: number
+          youtube_playlist_id?: string | null
+          youtube_url?: string | null
+          youtube_video_id?: string | null
+        }
+        Update: {
+          chapter_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          duration_seconds?: number
+          id?: string
+          instructor?: string | null
+          is_featured?: boolean
+          is_hidden?: boolean
+          kind?: Database["public"]["Enums"]["video_class_kind"]
+          level?: string
+          playlist_key?: string | null
+          position?: number
+          scheduled_at?: string | null
+          status?: Database["public"]["Enums"]["content_status"]
+          subject_id?: string | null
+          tags?: string[]
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string
+          view_count?: number
+          youtube_playlist_id?: string | null
+          youtube_url?: string | null
+          youtube_video_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       quiz_leaderboard: {
@@ -930,6 +1038,7 @@ export type Database = {
       profile_status: "active" | "suspended" | "pending"
       qb_kind: "text" | "pdf" | "doc"
       short_note_kind: "text" | "pdf" | "doc"
+      video_class_kind: "youtube" | "playlist" | "upload"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1076,6 +1185,7 @@ export const Constants = {
       profile_status: ["active", "suspended", "pending"],
       qb_kind: ["text", "pdf", "doc"],
       short_note_kind: ["text", "pdf", "doc"],
+      video_class_kind: ["youtube", "playlist", "upload"],
     },
   },
 } as const
