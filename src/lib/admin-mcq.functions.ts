@@ -40,7 +40,20 @@ export const adminListSubjects = createServerFn({ method: "GET" })
     await assertAdmin(context.supabase, context.userId);
     const { data, error } = await context.supabase
       .from("subjects")
-      .select("id,name,slug,description,icon,color,sort_order,status")
+      .select("id,name,slug,level,description,icon,color,sort_order,status")
+      .order("sort_order", { ascending: true });
+    if (error) throw error;
+    return data ?? [];
+  });
+
+// ---------- Levels (admin view) ----------
+export const adminListLevels = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertAdmin(context.supabase, context.userId);
+    const { data, error } = await context.supabase
+      .from("levels")
+      .select("code,name,color,icon,sort_order,status")
       .order("sort_order", { ascending: true });
     if (error) throw error;
     return data ?? [];
